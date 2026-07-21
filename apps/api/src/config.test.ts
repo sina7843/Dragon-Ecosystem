@@ -11,17 +11,68 @@ test('applies safe development defaults when nothing is set', () => {
   assert.equal(config.mongoUri, 'mongodb://mongo:27017/dragon');
 });
 
+const PRODUCTION_SECRET = 'x'.repeat(32);
+
 test('production without MONGODB_URI fails startup instead of guessing', () => {
   assert.throws(
-    () => loadConfig({ NODE_ENV: 'production' }),
+    () => loadConfig({ NODE_ENV: 'production', AUTH_SECRET: PRODUCTION_SECRET }),
     /MONGODB_URI is required when NODE_ENV=production/
   );
 });
 
-test('production accepts an explicit connection string', () => {
-  const config = loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon' });
+test('production without AUTH_SECRET fails startup', () => {
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon' }),
+    /AUTH_SECRET is required when NODE_ENV=production/
+  );
+});
+
+test('a short AUTH_SECRET is rejected', () => {
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: 'short' }),
+    /at least 32 characters/
+  );
+});
+
+test('production accepts an explicit connection string and secret', () => {
+  const config = loadConfig({
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb://mongo:27017/dragon',
+    AUTH_SECRET: PRODUCTION_SECRET
+  });
   assert.equal(config.env, 'production');
   assert.equal(config.mongoUri, 'mongodb://mongo:27017/dragon');
+  assert.equal(config.auth.secret, PRODUCTION_SECRET);
+});
+
+test('trusted proxies default to none, so request.ip is the real peer in dev and test', () => {
+  assert.deepEqual(loadConfig({}).trustedProxies, []);
+});
+
+test('trusted proxies parse from a comma-separated list of IPs and CIDRs', () => {
+  assert.deepEqual(loadConfig({ TRUSTED_PROXIES: '172.28.0.10' }).trustedProxies, ['172.28.0.10']);
+  assert.deepEqual(
+    loadConfig({ TRUSTED_PROXIES: '172.28.0.10, 10.0.0.0/8 , loopback' }).trustedProxies,
+    ['172.28.0.10', '10.0.0.0/8', 'loopback']
+  );
+});
+
+test('an invalid trusted-proxy entry fails startup', () => {
+  assert.throws(() => loadConfig({ TRUSTED_PROXIES: 'not-an-ip' }), /TRUSTED_PROXIES entry "not-an-ip"/);
+  assert.throws(() => loadConfig({ TRUSTED_PROXIES: '999.1.1.1' }), /TRUSTED_PROXIES entry "999\.1\.1\.1"/);
+  assert.throws(() => loadConfig({ TRUSTED_PROXIES: '10.0.0.0/40' }), /TRUSTED_PROXIES entry "10\.0\.0\.0\/40"/);
+});
+
+test('OTP security settings are configurable with safe defaults (section 16.1)', () => {
+  const defaults = loadConfig({}).auth;
+  assert.equal(defaults.otpTtlSeconds, 120);
+  assert.equal(defaults.otpMaxAttempts, 5);
+
+  const custom = loadConfig({ OTP_TTL_SECONDS: '300', OTP_MAX_ATTEMPTS: '3' }).auth;
+  assert.equal(custom.otpTtlSeconds, 300);
+  assert.equal(custom.otpMaxAttempts, 3);
+
+  assert.throws(() => loadConfig({ OTP_TTL_SECONDS: '0' }), /OTP_TTL_SECONDS must be a positive integer/);
 });
 
 test('rejects an unknown environment', () => {

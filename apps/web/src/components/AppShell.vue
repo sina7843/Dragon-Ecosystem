@@ -1,11 +1,14 @@
 <script setup lang="ts">
-import { computed } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRouter } from 'vue-router';
 import AppNav, { type NavItem } from './AppNav.vue';
 import LocaleSwitcher from './LocaleSwitcher.vue';
 import SkipLink from './SkipLink.vue';
 import ThemeToggle from './ThemeToggle.vue';
 import ToastRegion from './ToastRegion.vue';
+import { useAuth } from '../composables/useAuth.ts';
+import { useToasts } from '../composables/useToasts.ts';
 import { isLocale } from '../i18n/locale.ts';
 
 /**
@@ -32,6 +35,8 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
   ],
   account: [
     { path: '/account', key: 'nav.accountOverview' },
+    { path: '/account/profile', key: 'nav.profile' },
+    { path: '/account/security', key: 'nav.security' },
     { path: '', key: 'nav.home' }
   ],
   admin: [
@@ -49,6 +54,21 @@ const navItems = computed<NavItem[]>(() =>
 
 const navLabel = computed(() => t(`nav.region.${props.variant}`));
 const isAdmin = computed(() => props.variant === 'admin');
+
+const router = useRouter();
+const { authenticated, loaded, refresh, signOut } = useAuth();
+const { push } = useToasts();
+
+// The shell learns the session state once; views reuse the same store.
+onMounted(async () => {
+  if (!loaded.value) await refresh();
+});
+
+async function onSignOut(): Promise<void> {
+  await signOut();
+  push('info', t('auth.signedOut'));
+  await router.push(localePrefix.value);
+}
 </script>
 
 <template>
@@ -72,6 +92,23 @@ const isAdmin = computed(() => props.variant === 'admin');
       />
 
       <div class="controls">
+        <RouterLink
+          v-if="loaded && !authenticated"
+          :to="`${localePrefix}/auth/mobile`"
+          data-testid="header-sign-in"
+        >
+          {{ t('nav.signIn') }}
+        </RouterLink>
+        <button
+          v-else-if="loaded"
+          type="button"
+          class="sign-out"
+          data-testid="header-sign-out"
+          @click="onSignOut"
+        >
+          {{ t('nav.signOut') }}
+        </button>
+
         <LocaleSwitcher />
         <ThemeToggle />
       </div>
@@ -124,6 +161,15 @@ const isAdmin = computed(() => props.variant === 'admin');
   align-items: center;
   gap: var(--space-4);
   margin-inline-start: auto;
+}
+
+.sign-out {
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
 }
 
 .main {

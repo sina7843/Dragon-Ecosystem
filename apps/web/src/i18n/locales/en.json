@@ -10,7 +10,10 @@
       "account": "Account",
       "admin": "Administration",
       "forbidden": "Access denied",
-      "notFound": "Page not found"
+      "notFound": "Page not found",
+      "signIn": "Sign in",
+      "profile": "Profile",
+      "security": "Security"
     }
   },
   "nav": {
@@ -24,6 +27,10 @@
     "account": "Account",
     "accountOverview": "Account overview",
     "adminOverview": "Administration overview",
+    "profile": "Profile",
+    "security": "Security",
+    "signIn": "Sign in",
+    "signOut": "Sign out",
     "openMenu": "Menu",
     "closeMenu": "Close menu",
     "skipToContent": "Skip to main content"
@@ -50,9 +57,92 @@
     "statusOnline": "Online",
     "apiUnavailable": "The API service did not respond. Refresh the page or try again shortly."
   },
+  "auth": {
+    "heading": "Sign in",
+    "intro": "Enter your mobile number and we will send you a one-time code.",
+    "mobile": {
+      "label": "Mobile number",
+      "hint": "Iranian mobile number, for example 09123456789"
+    },
+    "requestCode": "Send code",
+    "sending": "Sending…",
+    "codeSent": "If the number is valid, a code has been sent.",
+    "code": {
+      "label": "One-time code",
+      "hint": "You can request a new code after {seconds} seconds."
+    },
+    "verify": "Sign in",
+    "verifying": "Signing in…",
+    "changeNumber": "Use a different number",
+    "signedIn": "You are signed in.",
+    "signedOut": "You are signed out."
+  },
   "account": {
     "heading": "Account",
-    "emptyMessage": "No account modules are enabled yet. Profiles, teams, and registrations arrive in later delivery slices."
+    "emptyMessage": "No account modules are enabled yet. Profiles, teams, and registrations arrive in later delivery slices.",
+    "signedIn": "You are signed in.",
+    "completeProfile": "Complete your profile to take part in tournaments.",
+    "signedOutMessage": "Sign in to see your account.",
+    "timeZone": "Time zone: {timeZone}"
+  },
+  "profile": {
+    "heading": "Profile",
+    "intro": "Your public identity and account preferences.",
+    "username": {
+      "label": "Username",
+      "hint": "Lowercase letters, numbers, and underscore."
+    },
+    "displayName": {
+      "label": "Display name"
+    },
+    "birthDate": {
+      "label": "Date of birth",
+      "hint": "You must be at least 13 years old to use the platform."
+    },
+    "visibility": {
+      "legend": "Profile visibility",
+      "note": "Your profile is private by default. Only your username and display name become public.",
+      "private": "Private",
+      "public": "Public"
+    },
+    "save": "Save profile",
+    "saving": "Saving…",
+    "saved": "Your profile was saved."
+  },
+  "security": {
+    "heading": "Security",
+    "intro": "Review where you are signed in and what happened on your account.",
+    "sessions": {
+      "heading": "Active sessions",
+      "caption": "Sessions currently signed in",
+      "created": "Signed in",
+      "lastSeen": "Last used",
+      "current": "This device",
+      "yes": "Yes",
+      "no": "No",
+      "empty": "No active sessions.",
+      "revokeOthers": "Sign out other devices",
+      "revoked": "Signed out {count} other sessions."
+    },
+    "events": {
+      "heading": "Security history",
+      "caption": "Recent security events",
+      "type": "Event",
+      "time": "When",
+      "empty": "No security events yet."
+    },
+    "eventType": {
+      "session_created": "Signed in",
+      "session_logout": "Signed out",
+      "session_revoked_others": "Other sessions signed out",
+      "account_registered": "Account created",
+      "otp_requested": "Code requested",
+      "otp_failed": "Incorrect code entered",
+      "otp_locked": "Too many incorrect codes",
+      "otp_rate_limited": "Too many code requests",
+      "login_blocked_suspended": "Sign-in blocked",
+      "account_state_changed": "Account status changed"
+    }
   },
   "admin": {
     "heading": "Administration",
@@ -145,5 +235,26 @@
   },
   "money": {
     "tomanUnit": "Toman"
+  },
+  "error": {
+    "code": {
+      "VALIDATION_FAILED": "Check the highlighted fields and try again.",
+      "INVALID_MOBILE": "Enter a valid Iranian mobile number.",
+      "INVALID_OTP": "The code is not valid or has expired.",
+      "BELOW_MINIMUM_AGE": "You must be at least 13 years old.",
+      "USERNAME_TAKEN": "That username is already in use.",
+      "INVALID_LENGTH": "That value is too short or too long.",
+      "INVALID_FORMAT": "Use lowercase letters, numbers, and underscore only.",
+      "INVALID_DATE": "Enter a valid date.",
+      "UNSUPPORTED_LOCALE": "Choose a supported language.",
+      "INVALID_TIME_ZONE": "Choose a supported time zone.",
+      "RATE_LIMITED": "Too many attempts. Please wait and try again.",
+      "UNAUTHENTICATED": "Sign in to continue.",
+      "FORBIDDEN": "You do not have permission to do that.",
+      "RESOURCE_NOT_FOUND": "That item could not be found.",
+      "INTERNAL_ERROR": "Something went wrong. Try again shortly.",
+      "NETWORK_ERROR": "The service could not be reached. Check your connection.",
+      "UNEXPECTED": "Something went wrong. Try again shortly."
+    }
   }
 }

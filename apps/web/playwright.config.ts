@@ -44,11 +44,19 @@ export default defineConfig({
       reuseExistingServer: !isCi,
       timeout: 30_000,
       env: {
-        NODE_ENV: 'production',
+        // The automated-test environment (section 35.1). The web bundle under test is
+        // still the production build; only the API runs in test mode, which is what
+        // exposes the mock SMS inbox the browser tests read codes from.
+        NODE_ENV: 'test',
         HOST: '127.0.0.1',
         PORT: String(API_PORT),
         // Disposable test database from docker-compose.test.yml; `npm run e2e` starts it.
-        MONGODB_URI: 'mongodb://127.0.0.1:27018/dragon_e2e?directConnection=true'
+        MONGODB_URI: 'mongodb://127.0.0.1:27018/dragon_e2e?directConnection=true',
+        AUTH_SECRET: 'e2e-only-auth-secret-value-not-a-real-secret',
+        // Keep the browser suite from tripping the resend interval between tests.
+        OTP_RESEND_SECONDS: '1',
+        OTP_REQUESTS_PER_MOBILE: '50',
+        OTP_REQUESTS_PER_IP: '500'
       }
     },
     {

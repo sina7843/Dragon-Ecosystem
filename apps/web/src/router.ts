@@ -1,6 +1,9 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router';
 import AccountOverviewView from './views/AccountOverviewView.vue';
+import AccountProfileView from './views/AccountProfileView.vue';
+import AccountSecurityView from './views/AccountSecurityView.vue';
 import AdminOverviewView from './views/AdminOverviewView.vue';
+import AuthMobileView from './views/AuthMobileView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -43,10 +46,28 @@ export const router = createRouter({
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.designSystem' }
     },
     {
+      path: '/:locale(fa|en)/auth/mobile',
+      name: 'auth-mobile',
+      component: AuthMobileView,
+      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.signIn' }
+    },
+    {
       path: '/:locale(fa|en)/account',
       name: 'account',
       component: AccountOverviewView,
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.account' }
+    },
+    {
+      path: '/:locale(fa|en)/account/profile',
+      name: 'account-profile',
+      component: AccountProfileView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.profile' }
+    },
+    {
+      path: '/:locale(fa|en)/account/security',
+      name: 'account-security',
+      component: AccountSecurityView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.security' }
     },
     {
       path: '/:locale(fa|en)/admin',

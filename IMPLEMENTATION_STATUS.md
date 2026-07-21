@@ -4,8 +4,9 @@
 - Repository foundation: complete (DRAGON-00)
 - Data and contract foundation: complete (DRAGON-01)
 - Design system, shell, and localization: complete (DRAGON-02)
-- Active prompt: DRAGON-03 — OTP authentication, sessions, and account profile
-- Latest verified checkpoint: DRAGON-02 application shell and design system, 2026-07-21
+- Identity, sessions, and profiles: complete (DRAGON-03)
+- Active prompt: DRAGON-04 — authorization, administration, audit, and configuration
+- Latest verified checkpoint: DRAGON-03 OTP authentication and profiles, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -29,12 +30,25 @@
 - Localization architecture: semantic keys, browser detection with Persian fallback, stored preference, runtime switching that preserves the route, `lang`/`dir` handling, locale-aware dates, numbers, and Toman display, digit normalization, and a completeness check that fails the build.
 - Document head handling for localized titles, canonical, hreflang, and `noindex` on account and administration routes.
 
+## Delivered by DRAGON-03
+- Iranian mobile normalization to E.164 from nine accepted input forms, including Persian and Arabic-Indic digits, with masked presentation for logs and delivery records.
+- OTP request, resend interval, expiry, attempt cap, single use, and per-mobile and per-IP rate limits. Codes are stored only as keyed hashes and never appear in a delivery record or a log.
+- Anti-enumeration across the OTP endpoints: identical responses for known and unknown numbers, one generic failure for every unsuccessful verification.
+- Sessions in an httpOnly cookie with a hashed token, per-session and global revocation, logout, a recent-authentication window, and recorded security events the user can review.
+- Deterministic mock SMS provider with a development-and-test-only inbox route that does not exist in production; email adapter boundary present but delivery disabled.
+- Account state machine with audited transitions, suspended accounts blocked from protected routes.
+- Profile completion with username normalization and uniqueness, minimum age 13, locale and time zone preferences, privacy-by-default visibility, and a public player identity that returns 404 while private.
+- Bilingual sign-in, profile, and security pages with server error codes mapped to localized messages.
+
 ## Known blockers
 - None.
 
 ## Deferred with an owner
-- Localized API error messages — DRAGON-03 onwards, alongside the first real endpoints.
-- OTP, sessions, account-level locale and theme persistence, and full log redaction — DRAGON-03.
+- Account recovery — blocked by OD-029; nothing partial is exposed.
+- Verified email — blocked by OD-003; adapter boundary only.
+- Reserved usernames and change-frequency policy — blocked by OD-028.
+- Account-level locale and theme persistence beyond the stored preferences — DRAGON-04 onwards.
+- Full log redaction review and CSRF tokens — DRAGON-16b.
 - Authorization evaluator consuming `RequestContext`, and audit read APIs — DRAGON-04.
 - Ledger, balanced postings, reversals, and reconciliation — DRAGON-11.
 - Outbox dispatcher, job worker and scheduler, dead-letter handling — DRAGON-14.
@@ -43,15 +57,16 @@
 - OD-026 analytics and error monitoring — unresolved; no adapter exists.
 
 ## Last verification
-2026-07-21, all commands run from the repository root:
+2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 73 passed (37 api, 36 web)
-- `npm run test:integration` — 15 passed
+- `npm test` — 95 passed (59 api, 36 web)
+- `npm run test:integration` — 40 passed
 - `npm run build` — pass
-- `npm run e2e` — 93 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
+- `npm run e2e` — 129 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
+- `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded in the container; readiness 200 (DRAGON-01 run)
 - Package guardrails: run `03-CHECK-PACKAGE.cmd`.
 
-No independent review pass has run against DRAGON-00, DRAGON-01, or DRAGON-02; the traceability reviewer columns record this as Pending.
+No independent review pass has run against DRAGON-00 through DRAGON-03; the traceability reviewer columns record this as Pending. DRAGON-03 is security-sensitive and its prompt asks for one focused security review, which has not been run.

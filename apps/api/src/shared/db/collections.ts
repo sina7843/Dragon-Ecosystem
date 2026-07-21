@@ -19,7 +19,8 @@ export const COLLECTIONS = {
 export type CollectionName = (typeof COLLECTIONS)[keyof typeof COLLECTIONS];
 
 export interface IndexDeclaration {
-  readonly collection: CollectionName;
+  /** Any collection name: domain modules declare indexes for the collections they own. */
+  readonly collection: string;
   readonly name: string;
   readonly keys: IndexSpecification;
   readonly options?: CreateIndexesOptions;

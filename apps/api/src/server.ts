@@ -1,11 +1,16 @@
 import { randomUUID } from 'node:crypto';
 import { pathToFileURL } from 'node:url';
+import type { Db } from 'mongodb';
 import Fastify, { type FastifyInstance } from 'fastify';
 import swagger from '@fastify/swagger';
+import cookie from '@fastify/cookie';
 import { loadConfig, type AppConfig } from './config.ts';
 import { Database } from './shared/db/client.ts';
-import { migrations } from './shared/db/migrations/001-foundation.ts';
+import { allMigrations } from './migrations.ts';
 import { runMigrations } from './shared/db/migrations.ts';
+import { IdentityService } from './modules/identity/service.ts';
+import { MockSmsAdapter } from './modules/identity/sms.ts';
+import { registerIdentityRoutes } from './modules/identity/routes.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -29,6 +34,20 @@ const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'referrer-policy': 'no-referrer'
 };
 
+/**
+ * Maps the configured trusted-proxy list to Fastify's `trustProxy` option.
+ *
+ * An empty list becomes `false`: trust nothing, so `request.ip` is the real
+ * socket peer (correct for local development and tests). A non-empty list is
+ * passed through as explicit addresses, so `X-Forwarded-For` is honoured only
+ * when the immediate peer is a listed proxy — a direct client cannot spoof it.
+ * We never return `true` (trust everyone) or a hop count (which would trust the
+ * direct peer even when the API is reachable without the proxy).
+ */
+export function resolveTrustProxy(trustedProxies: readonly string[]): false | string[] {
+  return trustedProxies.length === 0 ? false : [...trustedProxies];
+}
+
 /** Minimum surface the server needs from the data layer, so tests can supply a stub. */
 export interface HealthCheckable {
   ping(): Promise<boolean>;
@@ -36,6 +55,8 @@ export interface HealthCheckable {
 
 export interface ServerDependencies {
   readonly database: HealthCheckable;
+  /** Present once the data layer is connected; contract tests may omit it. */
+  readonly identity?: { service: IdentityService; db: Db };
 }
 
 declare module 'fastify' {
@@ -50,6 +71,10 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
     // Correlation ID for every request (Requirements section 28.1).
     genReqId: () => randomUUID(),
     requestIdHeader: 'x-correlation-id',
+    // Trust X-Forwarded-For only from the configured reverse proxy, so per-IP
+    // rate limits key on the real client behind nginx and cannot be spoofed by a
+    // direct caller (SEC-009).
+    trustProxy: resolveTrustProxy(config.trustedProxies),
     logger: {
       level: config.env === 'test' ? 'silent' : 'info',
       base: { service: SERVICE_NAME, environment: config.env },
@@ -63,6 +88,9 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
   });
 
   for (const schema of sharedSchemas) app.addSchema(schema);
+
+  // Session state travels in an httpOnly cookie (section 16.1).
+  app.register(cookie);
 
   // Every request carries a context before any handler runs; authentication
   // upgrades the actor from anonymous in DRAGON-03.
@@ -165,6 +193,17 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
 
       // Published contract, generated from the same schemas the server enforces.
       api.get('/openapi.json', { schema: { hide: true } }, async () => app.swagger());
+
+      // Development and test only: reports the client IP the server resolved, so
+      // proxy-trust behaviour can be asserted end to end. Not registered in
+      // production, so it exposes nothing there.
+      if (config.env !== 'production') {
+        api.get('/dev/client-ip', { schema: { hide: true } }, async (request) => ({ ip: request.ip }));
+      }
+
+      if (deps.identity !== undefined) {
+        registerIdentityRoutes(api, deps.identity.service, config, deps.identity.db);
+      }
     },
     { prefix: API_PREFIX }
   );
@@ -188,9 +227,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
  * the server accepts traffic (section 34.4). Both are idempotent and replica-safe.
  */
 export async function prepareDatabase(database: Database): Promise<string[]> {
-  const applied = await runMigrations(database.db, migrations);
+  const applied = await runMigrations(database.db, allMigrations);
   await seedSystemConfiguration(database.db);
   return applied;
+}
+
+/** Wires the identity module to a live database. */
+export function buildIdentity(database: Database, config: AppConfig): { service: IdentityService; db: Db } {
+  const sms = new MockSmsAdapter(database.db, config.env);
+  return { service: new IdentityService(database, config.auth, sms, config.env), db: database.db };
 }
 
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
@@ -200,7 +245,7 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const database = await Database.connect(config.mongoUri);
   await prepareDatabase(database);
 
-  const app = buildServer(config, { database });
+  const app = buildServer(config, { database, identity: buildIdentity(database, config) });
 
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, () => {

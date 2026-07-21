@@ -39,11 +39,19 @@ services:
       HOST: 0.0.0.0
       PORT: "3000"
       MONGODB_URI: mongodb://mongo:27017/dragon?replicaSet=rs0
+      # Required secret. Provide a real value via the deployment secret store; the
+      # placeholder here lets the local stack start and MUST NOT be used in production.
+      AUTH_SECRET: ${AUTH_SECRET:-local-compose-development-secret-change-me}
+      # Trust X-Forwarded-For only from nginx's fixed address below. A direct
+      # caller therefore cannot spoof the client IP used for per-IP rate limits.
+      TRUSTED_PROXIES: 172.28.0.10
     depends_on:
       mongo:
         condition: service_healthy
-    ports:
-      - "3000:3000"
+    # No host port: the API is reachable only as api:3000 on the internal network,
+    # so browsers must go through nginx. `expose` documents the internal port.
+    expose:
+      - "3000"
     # Allows the SIGTERM handler to close connections before the container exits.
     stop_grace_period: 20s
     networks:
@@ -57,10 +65,13 @@ services:
     depends_on:
       api:
         condition: service_healthy
+    # nginx is the only public entry point and reaches the API over the internal
+    # network from a fixed address the API trusts as its reverse proxy.
     ports:
       - "8080:8080"
     networks:
-      - dragon
+      dragon:
+        ipv4_address: 172.28.0.10
 
 volumes:
   mongo-data:
@@ -69,3 +80,8 @@ volumes:
 networks:
   dragon:
     driver: bridge
+    ipam:
+      config:
+        # Fixed subnet so nginx can hold a stable address the API trusts. Other
+        # services get dynamic addresses in this range and are not trusted proxies.
+        - subnet: 172.28.0.0/16
