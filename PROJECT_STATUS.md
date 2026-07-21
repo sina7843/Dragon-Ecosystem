@@ -5,7 +5,8 @@ Mark an item complete only after its implementation is reviewed, relevant checks
 Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate implementation prompts. Complete their `a`, `b`, and `c` slices in order.
 
 ## Foundation and Phase 1
-- [ ] DRAGON-00
+
+- [x] DRAGON-00
 - [ ] DRAGON-01
 - [ ] DRAGON-02
 - [ ] DRAGON-03
@@ -33,6 +34,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [ ] DRAGON-17c
 
 ## Later phases
+
 - [ ] DRAGON-18
 - [ ] DRAGON-19
 - [ ] DRAGON-20
@@ -47,6 +49,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [ ] DRAGON-27c
 
 ## Current work
+
 - Active item: `DRAGON-00`
 - Last completed item: none
 - Blockers: none
