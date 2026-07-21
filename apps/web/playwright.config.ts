@@ -29,8 +29,8 @@ export default defineConfig({
         NODE_ENV: 'production',
         HOST: '127.0.0.1',
         PORT: String(API_PORT),
-        // Validated at startup but not yet dialled: the data layer lands in DRAGON-01.
-        MONGODB_URI: 'mongodb://127.0.0.1:27017/dragon-e2e'
+        // Disposable test database from docker-compose.test.yml; `npm run e2e` starts it.
+        MONGODB_URI: 'mongodb://127.0.0.1:27018/dragon_e2e?directConnection=true'
       }
     },
     {

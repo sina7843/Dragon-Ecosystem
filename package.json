@@ -15,8 +15,12 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "lint": "eslint .",
     "test": "npm run test --workspaces --if-present",
+    "test:integration": "node scripts/wait-for-test-db.mjs && npm run test:integration --workspace @dragon/api",
     "build": "npm run build --workspaces --if-present",
-    "e2e": "npm run build && npm run e2e --workspace apps/web",
+    "e2e": "node scripts/wait-for-test-db.mjs && npm run build && npm run e2e --workspace apps/web",
+    "migrate": "npm run migrate --workspace @dragon/api",
+    "db:test:up": "node scripts/wait-for-test-db.mjs",
+    "db:test:down": "docker compose -f docker-compose.test.yml down",
     "verify:persistence": "node scripts/mongo-persistence-check.mjs",
     "docker:up": "docker compose up -d --build",
     "docker:stop": "docker compose stop"

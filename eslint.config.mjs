@@ -27,6 +27,42 @@ export default tseslint.config(
     }
   },
   {
+    // Domain-module dependency rules (Requirements section 32.1). A module may not
+    // reach into another module's internals; it goes through that module's index.
+    files: ['apps/api/src/modules/*/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/modules/*/**'],
+              message:
+                'Cross-module imports must use the other module public index (src/modules/<name>/index.ts). Never read another module collections directly.'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
+    // The shared kernel is depended on by modules and must not depend on them.
+    files: ['apps/api/src/shared/**', 'apps/api/src/http/**'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['**/modules/**'],
+              message: 'The shared kernel must not depend on a domain module.'
+            }
+          ]
+        }
+      ]
+    }
+  },
+  {
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
       'no-console': ['error', { allow: ['warn', 'error'] }],
@@ -35,7 +71,7 @@ export default tseslint.config(
   },
   {
     // Node-only tooling: build scripts, config files, and the persistence check.
-    files: ['scripts/**/*.mjs', '**/*.config.{ts,mjs}'],
+    files: ['scripts/**/*.mjs', '**/*.config.{ts,mjs}', 'apps/api/src/migrate.ts'],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly' }
     },

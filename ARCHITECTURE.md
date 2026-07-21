@@ -53,10 +53,57 @@ identity · profile · content · games · teams · tournaments · competition �
 | Money | Not yet implemented. When it arrives it uses integer rial with a Money contract; no binary floating point (CON-002). |
 | Providers | Payment and SMS stay deterministic in-repository mocks behind adapters (DEC-040, DEC-041). |
 
-## 5. Persistence
+## 5. Shared kernel
+
+`apps/api/src/shared` holds what every module depends on and what no module may bypass.
+
+| Concern | Module | Contract |
+|---|---|---|
+| Identity | `ids.ts` | Opaque UUID public IDs, never reused, validated at boundaries. |
+| Money | `money.ts` | `{assetCode, amountInteger, scale}`. Integer minor units only; `IRR` and `DRC` both whole-unit. Toman converts at 10 rial and keeps any remainder. |
+| Events | `events.ts` | Full section 5.9 envelope: event ID, name, version, aggregate, occurred-at, producer, correlation, causation, payload. |
+| Audit | `audit.ts` | Append-only record with actor, resource, before/after, reason, correlation. |
+| Context | `context.ts` | Correlation ID plus actor, attached to every request before any handler runs. |
+| Errors | `errors.ts` | One envelope for every failure; 5xx detail never reaches a client. |
+| Jobs | `jobs.ts` | Handler and execution-record contracts. Worker and scheduler are DRAGON-14. |
+
+### The write path
+
+Every domain write goes through `runUnitOfWork`. It opens a transaction, exposes the session and request context, and flushes queued audit rows and domain events inside that same transaction. A committed change therefore always has its audit trail and its outbox event, and a rolled-back change leaves neither. Writing to a collection outside a unit of work bypasses audit correlation and is a review failure.
+
+## 6. Data foundation
+
+| Collection | Purpose |
+|---|---|
+| `schema_migrations` | Applied migration versions and state. |
+| `audit_events` | Append-only audit trail (DATA-083). |
+| `domain_event_outbox` | Transactional outbox (DATA-084). |
+| `idempotency_keys` | One stored outcome per scope and key; TTL-expired. |
+| `job_executions` | Background job execution records (DATA-085). |
+| `role_definitions` | Seeded role catalogue; permissions filled in by DRAGON-04. |
+
+Indexes are declared in `shared/db/collections.ts` and created by the migration that owns them, so the declaration and the database cannot drift. An integration test asserts every declared index exists with its unique and TTL options applied.
+
+### Migrations and seed
+
+`npm run migrate` is the explicit release step; the same work also runs as a controlled startup job before the server accepts traffic. Both paths are idempotent and safe across replicas: a runner claims a version with a unique insert, so a second replica skips rather than repeating the migration. The seed contains system configuration and roles only — never demonstration data.
+
+### Transactions
+
+MongoDB offers multi-document transactions only on a replica set, and section 32.1 requires atomic transactions, so Compose runs a single-node replica set (`rs0`). Integration tests prove both commit and rollback behaviour.
+
+## 7. Persistence
 
 MongoDB stores data on the named volume `dragon-mongo-data`. `npm run verify:persistence` proves committed data survives an ordinary Compose stop/start (TEST-025, OPS-004). There is no application-managed backup or restore workflow (DEC-038); the check never removes volumes.
 
-## 6. What DRAGON-00 deliberately does not include
+## 8. Domain modules
 
-The data model, outbox, jobs, migrations, authentication, authorization, and every domain module. DRAGON-01 owns the shared architecture contracts and data foundation. The API does not yet open a MongoDB connection — the service and its network boundary exist, the driver does not.
+`apps/api/src/modules` holds one directory per boundary from section 32.1. None exist yet; DRAGON-03 onwards adds them. Three dependency rules are enforced by ESLint rather than convention:
+
+1. A module never imports another module's internals — access goes through that module's public `index.ts`.
+2. A module never reads or writes another module's collections.
+3. The shared kernel never imports a domain module; dependencies point inward only.
+
+## 9. What the foundation deliberately does not include
+
+Authentication and sessions (DRAGON-03), the authorization evaluator that consumes `RequestContext` (DRAGON-04), the outbox dispatcher and job worker (DRAGON-14), the ledger and its balanced postings (DRAGON-11), localized API error messages (DRAGON-02), and every domain module. The kernel provides the boundaries these will plug into; it does not anticipate their business rules.

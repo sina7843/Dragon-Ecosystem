@@ -4,6 +4,9 @@ services:
   mongo:
     image: mongo:8.0
     restart: unless-stopped
+    # Single-node replica set: MongoDB only offers multi-document transactions on a
+    # replica set, and section 32.1 requires atomic transactions.
+    command: ["--replSet", "rs0", "--bind_ip_all"]
     environment:
       MONGO_INITDB_DATABASE: dragon
     # Named volume keeps data across stop/start (DEC-038, TEST-025).
@@ -12,10 +15,16 @@ services:
     # Deliberately no host port: MongoDB is reachable only as mongo:27017 on the
     # internal network (IMPLEMENTATION_DECISIONS.md section 8).
     healthcheck:
-      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      # Initiates the replica set on first boot, then reports status on every later check.
+      test:
+        - CMD
+        - mongosh
+        - --quiet
+        - --eval
+        - "try { rs.status().ok } catch (e) { rs.initiate({_id:'rs0',members:[{_id:0,host:'mongo:27017'}]}).ok }"
       interval: 10s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 20
       start_period: 20s
     networks:
       - dragon
@@ -29,7 +38,7 @@ services:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: "3000"
-      MONGODB_URI: mongodb://mongo:27017/dragon
+      MONGODB_URI: mongodb://mongo:27017/dragon?replicaSet=rs0
     depends_on:
       mongo:
         condition: service_healthy
