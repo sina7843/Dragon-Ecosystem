@@ -1,3 +1,8 @@
+# DRAGON-01 — Shared architecture, contracts, and data foundation
+
+Use this prompt after its listed dependencies are complete and integrated. Submit the fenced text directly to Claude Code.
+
+```text
 Prompt ID: DRAGON-01
 
 Mission:
@@ -50,4 +55,4 @@ Verification:
 
 Completion report:
 Summarize implemented behavior, changed files, tests and results, unresolved decisions, remaining risks, and the next eligible prompt ID.
-
+```
