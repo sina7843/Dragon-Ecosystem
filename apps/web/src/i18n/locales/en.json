@@ -1,0 +1,28 @@
+{
+  "app": {
+    "name": "Dragon Ecosystem",
+    "tagline": "Esports news, games, and tournaments"
+  },
+  "home": {
+    "heading": "Dragon Ecosystem",
+    "intro": "The platform foundation is running. Content, games, and tournaments arrive in the next delivery slices.",
+    "statusHeading": "Platform status",
+    "apiLabel": "API service",
+    "localeLabel": "Active language",
+    "statusChecking": "Checking…",
+    "statusOnline": "Online",
+    "statusUnavailable": "Unavailable"
+  },
+  "locale": {
+    "switcherLabel": "Language",
+    "name": {
+      "fa": "فارسی",
+      "en": "English"
+    }
+  },
+  "notFound": {
+    "heading": "Page not found",
+    "message": "The address you opened does not exist.",
+    "backHome": "Go to the home page"
+  }
+}

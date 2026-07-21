@@ -1,0 +1,31 @@
+{
+  "name": "dragon-ecosystem",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Dragon Ecosystem — esports news and tournament platform.",
+  "license": "SEE LICENSE IN LICENSE",
+  "type": "module",
+  "engines": {
+    "node": ">=22.12.0"
+  },
+  "workspaces": [
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "lint": "eslint .",
+    "test": "npm run test --workspaces --if-present",
+    "build": "npm run build --workspaces --if-present",
+    "e2e": "npm run build && npm run e2e --workspace apps/web",
+    "verify:persistence": "node scripts/mongo-persistence-check.mjs",
+    "docker:up": "docker compose up -d --build",
+    "docker:stop": "docker compose stop"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.17.0",
+    "eslint": "^9.17.0",
+    "eslint-plugin-vue": "^9.32.0",
+    "typescript": "^5.7.2",
+    "typescript-eslint": "^8.18.1"
+  }
+}

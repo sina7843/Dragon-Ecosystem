@@ -1,0 +1,62 @@
+name: dragon-ecosystem
+
+services:
+  mongo:
+    image: mongo:8.0
+    restart: unless-stopped
+    environment:
+      MONGO_INITDB_DATABASE: dragon
+    # Named volume keeps data across stop/start (DEC-038, TEST-025).
+    volumes:
+      - mongo-data:/data/db
+    # Deliberately no host port: MongoDB is reachable only as mongo:27017 on the
+    # internal network (IMPLEMENTATION_DECISIONS.md section 8).
+    healthcheck:
+      test: ["CMD", "mongosh", "--quiet", "--eval", "db.adminCommand('ping').ok"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - dragon
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: "3000"
+      MONGODB_URI: mongodb://mongo:27017/dragon
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - "3000:3000"
+    # Allows the SIGTERM handler to close connections before the container exits.
+    stop_grace_period: 20s
+    networks:
+      - dragon
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "8080:8080"
+    networks:
+      - dragon
+
+volumes:
+  mongo-data:
+    name: dragon-mongo-data
+
+networks:
+  dragon:
+    driver: bridge
