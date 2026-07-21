@@ -1,0 +1,11 @@
+Dragon Ecosystem Windows Starter 2.0 validation targets
+
+- Mandatory Git baseline commit and local recovery bundle
+- UTF-8 prompt copying under Windows PowerShell 5.1
+- Restored CMD wrappers 04 and 05 plus local-env wrapper 06
+- Explicit slice auto-advance; sliced parent prompts cannot auto-run
+- Git Bash candidate array bug fixed
+- MongoDB host port 27017 is not published by default
+- Canonical requirements, prompts, tools, Claude configuration, and backups protected from Claude writes
+- LF attributes for Dockerfiles, YAML, shell scripts, and entrypoints
+- No SIGNER, HMAC, Stop hook, automatic loop, task-completion gate, or verifier runtime in project configuration
