@@ -1,17 +1,12 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import StateBlock from '../components/StateBlock.vue';
 
 type ApiStatus = 'checking' | 'online' | 'unavailable';
 
 const { t, locale } = useI18n();
 const apiStatus = ref<ApiStatus>('checking');
-
-const STATUS_LABEL: Record<ApiStatus, string> = {
-  checking: 'home.statusChecking',
-  online: 'home.statusOnline',
-  unavailable: 'home.statusUnavailable'
-};
 
 // Same-origin call; Vite proxies it in development and nginx proxies it in containers.
 onMounted(async () => {
@@ -25,18 +20,34 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="home">
+  <section>
     <h1>{{ t('home.heading') }}</h1>
     <p>{{ t('home.intro') }}</p>
 
     <h2>{{ t('home.statusHeading') }}</h2>
-    <dl class="status">
+
+    <StateBlock
+      v-if="apiStatus === 'checking'"
+      variant="loading"
+    />
+
+    <!-- A failed dependency shows the shared error state, not a silent blank. -->
+    <StateBlock
+      v-else-if="apiStatus === 'unavailable'"
+      variant="error"
+      :message="t('home.apiUnavailable')"
+    />
+
+    <dl
+      v-else
+      class="status"
+    >
       <dt>{{ t('home.apiLabel') }}</dt>
       <dd
         data-testid="api-status"
         :data-state="apiStatus"
       >
-        {{ t(STATUS_LABEL[apiStatus]) }}
+        {{ t('home.statusOnline') }}
       </dd>
       <dt>{{ t('home.localeLabel') }}</dt>
       <dd data-testid="active-locale">
@@ -47,17 +58,11 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.home {
-  /* Logical properties keep the layout correct in both RTL and LTR (section 17.5). */
-  margin-block: 2rem;
-  text-align: start;
-}
-
 .status {
   display: grid;
   grid-template-columns: auto 1fr;
-  gap: 0.5rem 1rem;
-  margin-block-start: 1rem;
+  gap: var(--space-2) var(--space-5);
+  margin-block-start: var(--space-4);
 }
 
 .status dt {
@@ -66,5 +71,12 @@ onMounted(async () => {
 
 .status dd {
   margin-inline-start: 0;
+}
+
+/* Single column on narrow screens (section 22.2). */
+@media (max-width: 374px) {
+  .status {
+    grid-template-columns: 1fr;
+  }
 }
 </style>

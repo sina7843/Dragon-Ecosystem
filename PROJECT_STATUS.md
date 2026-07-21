@@ -8,7 +8,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 - [x] DRAGON-00
 - [x] DRAGON-01
-- [ ] DRAGON-02
+- [x] DRAGON-02
 - [ ] DRAGON-03
 - [ ] DRAGON-04
 - [ ] DRAGON-05

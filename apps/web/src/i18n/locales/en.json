@@ -3,15 +3,36 @@
     "name": "Dragon Ecosystem",
     "tagline": "Esports news, games, and tournaments"
   },
-  "home": {
-    "heading": "Dragon Ecosystem",
-    "intro": "The platform foundation is running. Content, games, and tournaments arrive in the next delivery slices.",
-    "statusHeading": "Platform status",
-    "apiLabel": "API service",
-    "localeLabel": "Active language",
-    "statusChecking": "Checking…",
-    "statusOnline": "Online",
-    "statusUnavailable": "Unavailable"
+  "meta": {
+    "title": {
+      "home": "Home",
+      "designSystem": "Design system",
+      "account": "Account",
+      "admin": "Administration",
+      "forbidden": "Access denied",
+      "notFound": "Page not found"
+    }
+  },
+  "nav": {
+    "region": {
+      "public": "Main navigation",
+      "account": "Account navigation",
+      "admin": "Administration navigation"
+    },
+    "home": "Home",
+    "designSystem": "Design system",
+    "account": "Account",
+    "accountOverview": "Account overview",
+    "adminOverview": "Administration overview",
+    "openMenu": "Menu",
+    "closeMenu": "Close menu",
+    "skipToContent": "Skip to main content"
+  },
+  "theme": {
+    "label": "Theme",
+    "light": "Light",
+    "dark": "Dark",
+    "system": "System"
   },
   "locale": {
     "switcherLabel": "Language",
@@ -20,9 +41,109 @@
       "en": "English"
     }
   },
-  "notFound": {
-    "heading": "Page not found",
-    "message": "The address you opened does not exist.",
-    "backHome": "Go to the home page"
+  "home": {
+    "heading": "Dragon Ecosystem",
+    "intro": "The platform foundation is running. Content, games, and tournaments arrive in the next delivery slices.",
+    "statusHeading": "Platform status",
+    "apiLabel": "API service",
+    "localeLabel": "Active language",
+    "statusOnline": "Online",
+    "apiUnavailable": "The API service did not respond. Refresh the page or try again shortly."
+  },
+  "account": {
+    "heading": "Account",
+    "emptyMessage": "No account modules are enabled yet. Profiles, teams, and registrations arrive in later delivery slices."
+  },
+  "admin": {
+    "heading": "Administration",
+    "emptyMessage": "No administration modules are enabled yet. Available areas will appear here based on your permissions."
+  },
+  "designSystem": {
+    "heading": "Design system",
+    "intro": "Shared components, states, and tokens used across the platform. This page is a developer reference and is not indexed.",
+    "statesHeading": "Page states",
+    "formHeading": "Forms",
+    "tableHeading": "Tables",
+    "dialogHeading": "Dialogs",
+    "notificationsHeading": "Notifications"
+  },
+  "state": {
+    "loading": {
+      "heading": "Loading",
+      "message": "Fetching the latest information."
+    },
+    "empty": {
+      "heading": "Nothing here yet",
+      "message": "There is nothing to show at the moment."
+    },
+    "error": {
+      "heading": "Something went wrong",
+      "message": "The request could not be completed. Try again shortly."
+    },
+    "forbidden": {
+      "heading": "Access denied",
+      "message": "Your account does not have permission to view this page."
+    },
+    "notFound": {
+      "heading": "Page not found",
+      "message": "The address you opened does not exist.",
+      "action": "Go to the home page"
+    }
+  },
+  "form": {
+    "errorSummary": "Check the highlighted field and try again.",
+    "sample": {
+      "email": {
+        "label": "Email address",
+        "hint": "Used only for this design-system example.",
+        "errorRequired": "Enter an email address.",
+        "errorFormat": "Enter a valid email address."
+      },
+      "submit": "Save",
+      "submitting": "Saving…",
+      "success": "The example form was submitted."
+    }
+  },
+  "table": {
+    "sampleCaption": "Sample transactions (design-system example data)",
+    "empty": "No rows to display.",
+    "column": {
+      "reference": "Reference",
+      "date": "Date",
+      "amount": "Amount"
+    }
+  },
+  "pagination": {
+    "label": "Pagination",
+    "previous": "Previous",
+    "next": "Next",
+    "goToPage": "Go to page {page}"
+  },
+  "dialog": {
+    "sample": {
+      "open": "Open dialog",
+      "title": "Example dialog",
+      "body": "Focus stays inside the dialog and returns to the button when it closes.",
+      "close": "Close"
+    }
+  },
+  "toast": {
+    "region": "Notifications",
+    "dismiss": "Dismiss notification",
+    "tone": {
+      "info": "Info",
+      "success": "Success",
+      "warning": "Warning",
+      "danger": "Error"
+    },
+    "sample": {
+      "showInfo": "Show info notification",
+      "showDanger": "Show error notification",
+      "info": "This is an informational message.",
+      "danger": "This is an error message."
+    }
+  },
+  "money": {
+    "tomanUnit": "Toman"
   }
 }

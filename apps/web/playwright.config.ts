@@ -18,7 +18,25 @@ export default defineConfig({
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
     trace: 'on-first-retry'
   },
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  /**
+   * Representative viewports from Requirements section 22.1. Small mobile is the
+   * 320px floor that must never produce horizontal scrolling. The remaining
+   * browser engines from section 31 are added by DRAGON-16a.
+   */
+  projects: [
+    {
+      name: 'small-mobile',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 320, height: 640 } }
+    },
+    {
+      name: 'mobile',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 375, height: 667 } }
+    },
+    {
+      name: 'desktop',
+      use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } }
+    }
+  ],
   webServer: [
     {
       command: 'node ../api/dist/server.js',

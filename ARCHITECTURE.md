@@ -96,7 +96,24 @@ MongoDB offers multi-document transactions only on a replica set, and section 32
 
 MongoDB stores data on the named volume `dragon-mongo-data`. `npm run verify:persistence` proves committed data survives an ordinary Compose stop/start (TEST-025, OPS-004). There is no application-managed backup or restore workflow (DEC-038); the check never removes volumes.
 
-## 8. Domain modules
+## 8. Web application shell
+
+One `AppShell` component serves three areas — public, account, and administration — selected by `route.meta.shell`. They differ only in navigation set and density, so the chrome and its accessibility wiring exist once.
+
+| Layer | Location | Notes |
+|---|---|---|
+| Tokens | `src/styles/tokens.css` | Colour, type, spacing, radius, elevation, motion, z-index, breakpoints. Light and dark. Contrast verified by `tokens.test.ts`, which parses this file. |
+| Base | `src/styles/base.css` | Logical properties only, so one stylesheet serves RTL and LTR. |
+| Components | `src/components` | Shell, nav, dialog, field, table, pagination, toasts, state block, skip link, switchers. |
+| States | `StateBlock.vue` | loading, empty, error, forbidden, notFound — the states required by the common page contract. |
+| Localization | `src/i18n` | Semantic keys, detection with Persian fallback, `format.ts` for locale-aware dates, numbers, Toman, and digit normalization. |
+| Head | `src/head.ts` | Localized title, canonical, hreflang, and `noindex` for account and administration routes. |
+
+Platform behaviour is preferred over hand-written equivalents: the dialog is a native `<dialog>` (focus trap, Escape, focus restoration), theming uses `color-scheme` with `prefers-color-scheme`, and formatting uses `Intl`. No UI dependency was added.
+
+`/{locale}/design-system` is a non-indexable developer reference cataloguing these components and states. It is where the browser tests exercise them.
+
+## 9. Domain modules
 
 `apps/api/src/modules` holds one directory per boundary from section 32.1. None exist yet; DRAGON-03 onwards adds them. Three dependency rules are enforced by ESLint rather than convention:
 
@@ -104,6 +121,6 @@ MongoDB stores data on the named volume `dragon-mongo-data`. `npm run verify:per
 2. A module never reads or writes another module's collections.
 3. The shared kernel never imports a domain module; dependencies point inward only.
 
-## 9. What the foundation deliberately does not include
+## 10. What the foundation deliberately does not include
 
 Authentication and sessions (DRAGON-03), the authorization evaluator that consumes `RequestContext` (DRAGON-04), the outbox dispatcher and job worker (DRAGON-14), the ledger and its balanced postings (DRAGON-11), localized API error messages (DRAGON-02), and every domain module. The kernel provides the boundaries these will plug into; it does not anticipate their business rules.
