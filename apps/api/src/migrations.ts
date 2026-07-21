@@ -1,6 +1,7 @@
 import type { Migration } from './shared/db/migrations.ts';
 import { foundationMigration } from './shared/db/migrations/001-foundation.ts';
 import { identityMigration } from './modules/identity/migrations.ts';
+import { adminMigration } from './modules/admin/migrations.ts';
 
 /**
  * The ordered migration registry.
@@ -9,4 +10,4 @@ import { identityMigration } from './modules/identity/migrations.ts';
  * both the shared foundation and the domain modules, while the shared kernel
  * itself must never depend on a module (section 32.1).
  */
-export const allMigrations: readonly Migration[] = [foundationMigration, identityMigration];
+export const allMigrations: readonly Migration[] = [foundationMigration, identityMigration, adminMigration];

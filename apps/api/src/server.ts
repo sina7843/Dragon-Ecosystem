@@ -8,9 +8,8 @@ import { loadConfig, type AppConfig } from './config.ts';
 import { Database } from './shared/db/client.ts';
 import { allMigrations } from './migrations.ts';
 import { runMigrations } from './shared/db/migrations.ts';
-import { IdentityService } from './modules/identity/service.ts';
-import { MockSmsAdapter } from './modules/identity/sms.ts';
-import { registerIdentityRoutes } from './modules/identity/routes.ts';
+import { IdentityService, MockSmsAdapter, registerIdentityRoutes } from './modules/identity/index.ts';
+import { AdminService, AuthorizationService, registerAdminRoutes } from './modules/admin/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -57,6 +56,7 @@ export interface ServerDependencies {
   readonly database: HealthCheckable;
   /** Present once the data layer is connected; contract tests may omit it. */
   readonly identity?: { service: IdentityService; db: Db };
+  readonly admin?: { service: AdminService; authorization: AuthorizationService };
 }
 
 declare module 'fastify' {
@@ -203,6 +203,14 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
 
       if (deps.identity !== undefined) {
         registerIdentityRoutes(api, deps.identity.service, config, deps.identity.db);
+
+        if (deps.admin !== undefined) {
+          registerAdminRoutes(api, {
+            identity: deps.identity.service,
+            authorization: deps.admin.authorization,
+            admin: deps.admin.service
+          });
+        }
       }
     },
     { prefix: API_PREFIX }
@@ -238,6 +246,11 @@ export function buildIdentity(database: Database, config: AppConfig): { service:
   return { service: new IdentityService(database, config.auth, sms, config.env), db: database.db };
 }
 
+/** Wires the administration module to a live database. */
+export function buildAdmin(database: Database): { service: AdminService; authorization: AuthorizationService } {
+  return { service: new AdminService(database), authorization: new AuthorizationService(database.db) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -245,7 +258,11 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const database = await Database.connect(config.mongoUri);
   await prepareDatabase(database);
 
-  const app = buildServer(config, { database, identity: buildIdentity(database, config) });
+  const app = buildServer(config, {
+    database,
+    identity: buildIdentity(database, config),
+    admin: buildAdmin(database)
+  });
 
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, () => {

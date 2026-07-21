@@ -13,7 +13,9 @@
       "notFound": "Page not found",
       "signIn": "Sign in",
       "profile": "Profile",
-      "security": "Security"
+      "security": "Security",
+      "adminUsers": "Users",
+      "adminAudit": "Audit"
     }
   },
   "nav": {
@@ -146,7 +148,55 @@
   },
   "admin": {
     "heading": "Administration",
-    "emptyMessage": "No administration modules are enabled yet. Available areas will appear here based on your permissions."
+    "emptyMessage": "No administration modules are enabled yet. Available areas will appear here based on your permissions.",
+    "superAdmin": "Super administrator",
+    "noAreas": "You have no administration areas enabled.",
+    "area": {
+      "users": "Users",
+      "audit": "Audit log",
+      "configuration": "Configuration"
+    },
+    "users": {
+      "heading": "Users",
+      "caption": "Platform accounts",
+      "username": "Username",
+      "mobile": "Mobile",
+      "state": "Status",
+      "created": "Created",
+      "actions": "Actions",
+      "suspend": "Suspend",
+      "reactivate": "Reactivate",
+      "loadMore": "Load more",
+      "empty": "No accounts to show.",
+      "reasonPrompt": "Enter a reason (required):",
+      "updated": "The account was updated.",
+      "stateValue": {
+        "pending_verification": "Pending",
+        "active": "Active",
+        "suspended": "Suspended",
+        "deletion_requested": "Deletion requested",
+        "anonymizing": "Anonymizing",
+        "closed": "Closed"
+      }
+    },
+    "audit": {
+      "heading": "Audit log",
+      "caption": "Immutable audit events",
+      "time": "When",
+      "action": "Action",
+      "resource": "Resource",
+      "actor": "Actor",
+      "emergency": "Emergency",
+      "system": "system",
+      "yes": "Yes",
+      "no": "No",
+      "emergencyOnly": "Emergency actions only",
+      "export": "Export",
+      "exportReasonPrompt": "Enter a reason for the export (required):",
+      "exported": "The export was recorded.",
+      "loadMore": "Load more",
+      "empty": "No audit events to show."
+    }
   },
   "designSystem": {
     "heading": "Design system",

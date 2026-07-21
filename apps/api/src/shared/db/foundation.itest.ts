@@ -108,17 +108,19 @@ describe('seed', () => {
     assert.equal(second, ROLE_SEED.length, 're-seeding must not duplicate roles');
   });
 
-  test('does not overwrite permissions already assigned', async () => {
+  test('restores the code-owned permission set on re-seed', async () => {
+    // Role→permission mapping is code-owned config (section 6.2): a manual edit is
+    // overwritten by the next seed so the catalogue stays authoritative.
     await database.db
       .collection(COLLECTIONS.roleDefinitions)
-      .updateOne({ _id: 'referee' as never }, { $set: { permissions: ['match.result.enter'] } });
+      .updateOne({ _id: 'super_administrator' as never }, { $set: { permissions: ['tampered'] } });
 
     await seedSystemConfiguration(database.db);
 
     const role = await database.db
       .collection<{ permissions: string[] }>(COLLECTIONS.roleDefinitions)
-      .findOne({ _id: 'referee' as never });
-    assert.deepEqual(role?.permissions, ['match.result.enter']);
+      .findOne({ _id: 'super_administrator' as never });
+    assert.deepEqual(role?.permissions, ['*']);
   });
 });
 

@@ -8,7 +8,7 @@ import { runMigrations } from '../../shared/db/migrations.ts';
 import { createTestDatabase, type TestDatabase } from '../../shared/db/test-support.ts';
 import { createRequestContext, SYSTEM_ACTOR } from '../../shared/context.ts';
 import { IDENTITY_COLLECTIONS } from './collections.ts';
-import { SESSION_COOKIE } from './routes.ts';
+import { SESSION_COOKIE } from './session-guard.ts';
 import type { IdentityService } from './service.ts';
 
 /**

@@ -1,12 +1,12 @@
 import type { Db } from 'mongodb';
-import type { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import type { FastifyInstance, FastifyReply } from 'fastify';
 import type { AppConfig } from '../../config.ts';
-import { ForbiddenError, NotFoundError, UnauthenticatedError } from '../../shared/errors.ts';
-import { createRequestContext } from '../../shared/context.ts';
+import { NotFoundError } from '../../shared/errors.ts';
 import { normalizeIranianMobile } from './mobile.ts';
 import { readDevInbox } from './sms.ts';
+import { createSessionGuards, requireIdentity, SESSION_COOKIE } from './session-guard.ts';
 import type { IdentityService } from './service.ts';
-import type { AccountRecord, SessionRecord } from './store.ts';
+import type { AccountRecord } from './store.ts';
 
 /**
  * Identity HTTP surface.
@@ -15,14 +15,6 @@ import type { AccountRecord, SessionRecord } from './store.ts';
  * blocks cross-site form posts, which is the baseline CSRF control for this
  * design (SEC-006); the full token-based scheme belongs to DRAGON-16b.
  */
-
-export const SESSION_COOKIE = 'dragon_session';
-
-declare module 'fastify' {
-  interface FastifyRequest {
-    identity?: { session: SessionRecord; account: AccountRecord };
-  }
-}
 
 function setSessionCookie(reply: FastifyReply, token: string, config: AppConfig): void {
   reply.setCookie(SESSION_COOKIE, token, {
@@ -82,42 +74,13 @@ function toProfileView(profile: {
   };
 }
 
-/** Narrows the request after `requireSession` has run, without a non-null assertion. */
-function requireIdentity(request: FastifyRequest): { session: SessionRecord; account: AccountRecord } {
-  if (request.identity === undefined) throw new UnauthenticatedError();
-  return request.identity;
-}
-
 export function registerIdentityRoutes(
   app: FastifyInstance,
   service: IdentityService,
   config: AppConfig,
   db: Db
 ): void {
-  /** Attaches the session when a valid cookie is present. Never rejects on its own. */
-  async function loadSession(request: FastifyRequest): Promise<void> {
-    const token = request.cookies[SESSION_COOKIE];
-    if (token === undefined || token === '') return;
-
-    const resolved = await service.resolveSession(token);
-    if (resolved === null) return;
-
-    request.identity = resolved;
-    request.requestContext = createRequestContext(String(request.id), {
-      kind: 'account',
-      accountId: resolved.account._id,
-      roles: []
-    });
-  }
-
-  /** Protected routes: 401 when unauthenticated, 403 when the account is suspended (AUTH-010). */
-  async function requireSession(request: FastifyRequest): Promise<void> {
-    await loadSession(request);
-    if (request.identity === undefined) throw new UnauthenticatedError();
-    if (request.identity.account.state === 'suspended') {
-      throw new ForbiddenError('This account is suspended.');
-    }
-  }
+  const { loadSession, requireSession } = createSessionGuards(service);
 
   app.post(
     '/auth/otp/request',

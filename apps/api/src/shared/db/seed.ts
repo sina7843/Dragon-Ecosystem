@@ -1,6 +1,7 @@
 import type { Db } from 'mongodb';
 import { COLLECTIONS } from './collections.ts';
 import { utcNow } from '../events.ts';
+import { ROLE_PERMISSIONS, type Permission } from '../authz/permissions.ts';
 
 /**
  * Production-safe seed (section 34.4).
@@ -16,7 +17,7 @@ export interface RoleDefinition {
   _id: string;
   requirementId: string;
   riskClass: RiskClass;
-  permissions: string[];
+  permissions: Permission[];
   createdAt: string;
   updatedAt: string;
 }
@@ -59,7 +60,14 @@ export const ROLE_SEED: readonly SeedRole[] = [
   { code: 'security_auditor', requirementId: 'ROLE-028', riskClass: 'elevated' }
 ];
 
-/** Upserts the role catalogue and returns the number of roles present afterwards. */
+/**
+ * Upserts the role catalogue and returns the number of roles present afterwards.
+ *
+ * Role→permission mapping is code-owned system configuration (section 6.2): admins
+ * assign roles to users, they do not edit a role's permissions. So the seed is
+ * authoritative and rewrites `permissions` from the catalogue on every run, which
+ * also lets a permission change ship as a code + redeploy rather than a data edit.
+ */
 export async function seedSystemConfiguration(db: Db): Promise<number> {
   const collection = db.collection<RoleDefinition>(COLLECTIONS.roleDefinitions);
   const now = utcNow();
@@ -68,9 +76,13 @@ export async function seedSystemConfiguration(db: Db): Promise<number> {
     await collection.updateOne(
       { _id: role.code },
       {
-        $set: { requirementId: role.requirementId, riskClass: role.riskClass, updatedAt: now },
-        // Existing permission assignments are never overwritten by a re-seed.
-        $setOnInsert: { permissions: [], createdAt: now }
+        $set: {
+          requirementId: role.requirementId,
+          riskClass: role.riskClass,
+          permissions: [...(ROLE_PERMISSIONS[role.code] ?? [])],
+          updatedAt: now
+        },
+        $setOnInsert: { createdAt: now }
       },
       { upsert: true }
     );

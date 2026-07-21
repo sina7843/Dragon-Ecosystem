@@ -5,7 +5,8 @@ import { runUnitOfWork } from '../../shared/db/unit-of-work.ts';
 import { createRequestContext, SYSTEM_ACTOR, type RequestContext } from '../../shared/context.ts';
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
-import { ForbiddenError, RateLimitError, UnauthenticatedError, ValidationError } from '../../shared/errors.ts';
+import { ForbiddenError, NotFoundError, RateLimitError, UnauthenticatedError, ValidationError } from '../../shared/errors.ts';
+import { toPage, type Page, type PageCursor } from '../../shared/pagination.ts';
 import { generateOtpCode, generateSessionToken, hashOtpCode, hashSessionToken, safeEquals } from './crypto.ts';
 import { maskMobile, normalizeIranianMobile } from './mobile.ts';
 import { consumeRateLimit } from './rate-limit.ts';
@@ -58,6 +59,16 @@ export interface ProfileInput {
   readonly visibility?: ProfileVisibility;
   readonly locale?: string;
   readonly timeZone?: string;
+}
+
+/** Masked account summary for administration lists (ADMIN-006, ADMIN-008). */
+export interface AdminAccountSummary {
+  readonly accountId: EntityId;
+  readonly state: AccountState;
+  readonly locale: string;
+  readonly createdAt: string;
+  readonly username: string | null;
+  readonly mobileMasked: string;
 }
 
 const DEFAULT_LOCALE = 'fa';
@@ -491,15 +502,21 @@ export class IdentityService {
     return { username: profile.username, displayName: profile.displayName };
   }
 
-  /** AUTH-009: invalid state transitions are rejected. Used by administration in DRAGON-04. */
+  /**
+   * AUTH-009: invalid state transitions are rejected and the change is audited.
+   * The caller supplies its own context, so the audit actor is the administrator
+   * performing the action, and `emergency` marks a super-administrator action.
+   */
   async transitionAccountState(
     accountId: EntityId,
     to: AccountState,
     context: RequestContext,
-    reason: string
+    reason: string,
+    options: { emergency?: boolean } = {}
   ): Promise<void> {
+    if (reason.trim() === '') throw new ValidationError('A reason is required.');
     const account = await accounts(this.#db).findOne({ _id: accountId });
-    if (account === null) throw new ValidationError('Unknown account.');
+    if (account === null) throw new NotFoundError('Unknown account.');
     if (!canTransition(account.state, to)) {
       throw new ValidationError(`Cannot move an account from ${account.state} to ${to}.`);
     }
@@ -516,11 +533,68 @@ export class IdentityService {
         resourceId: accountId,
         before: { state: account.state },
         after: { state: to },
-        reason
+        reason,
+        emergency: options.emergency ?? false
       });
     });
 
     await this.#recordSecurityEvent(accountId, 'account.state_changed', context.correlationId, { state: to });
+  }
+
+  /**
+   * Admin-facing account listing (ADMIN-006). Cursor paginated, newest first, with
+   * the mobile number masked so ordinary staff never see the full value (ADMIN-008).
+   */
+  async listAccountsForAdmin(input: {
+    limit: number;
+    cursor: PageCursor | null;
+    state?: AccountState;
+  }): Promise<Page<AdminAccountSummary>> {
+    const filter: Record<string, unknown> = {};
+    if (input.state !== undefined) filter['state'] = input.state;
+    if (input.cursor !== null) {
+      // Stable keyset: strictly older than the last row by (createdAt, _id).
+      filter['$or'] = [
+        { createdAt: { $lt: input.cursor.sortValue } },
+        { createdAt: input.cursor.sortValue, _id: { $lt: input.cursor.id } }
+      ];
+    }
+
+    const rows = await accounts(this.#db)
+      .find(filter)
+      .sort({ createdAt: -1, _id: -1 })
+      .limit(input.limit + 1)
+      .toArray();
+
+    const ids = rows.map((row) => row._id);
+    const [methods, profiles] = await Promise.all([
+      identityMethods(this.#db).find({ accountId: { $in: ids }, type: 'mobile' }).toArray(),
+      userProfiles(this.#db).find({ _id: { $in: ids } }).toArray()
+    ]);
+    const mobileByAccount = new Map(methods.map((method) => [method.accountId, method.canonical]));
+    const usernameByAccount = new Map(profiles.map((profile) => [profile._id, profile.username]));
+
+    const summaries: Array<AdminAccountSummary & { sortValue: string; id: string }> = rows.map((row) => ({
+      id: row._id,
+      accountId: row._id,
+      state: row.state,
+      locale: row.locale,
+      createdAt: row.createdAt,
+      username: usernameByAccount.get(row._id) ?? null,
+      mobileMasked: maskMobile(mobileByAccount.get(row._id) ?? ''),
+      sortValue: row.createdAt
+    }));
+
+    const page = toPage(summaries, input.limit);
+    return {
+      items: page.items.map(({ sortValue: _sortValue, id: _id, ...summary }) => summary),
+      nextCursor: page.nextCursor
+    };
+  }
+
+  /** Whether an account id exists, so administration can 404 an unknown target. */
+  async accountExists(accountId: EntityId): Promise<boolean> {
+    return (await accounts(this.#db).countDocuments({ _id: accountId }, { limit: 1 })) > 0;
   }
 
   get environment(): Environment {

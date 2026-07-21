@@ -5,8 +5,9 @@
 - Data and contract foundation: complete (DRAGON-01)
 - Design system, shell, and localization: complete (DRAGON-02)
 - Identity, sessions, and profiles: complete (DRAGON-03)
-- Active prompt: DRAGON-04 — authorization, administration, audit, and configuration
-- Latest verified checkpoint: DRAGON-03 OTP authentication and profiles, 2026-07-22
+- Authorization, administration, audit, configuration: complete (DRAGON-04)
+- Active prompt: DRAGON-05 — content CMS and game catalog
+- Latest verified checkpoint: DRAGON-04 RBAC, administration, and audit, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -40,10 +41,19 @@
 - Profile completion with username normalization and uniqueness, minimum age 13, locale and time zone preferences, privacy-by-default visibility, and a public player identity that returns 404 while private.
 - Bilingual sign-in, profile, and security pages with server error codes mapped to localized messages.
 
+## Delivered by DRAGON-04
+- Deny-by-default RBAC: a pure permission catalogue and policy evaluator (`shared/authz`), role→permission mapping owned by code and enforced by the seed, and resource-scoped role assignments that prevent IDOR and privilege escalation.
+- Administration API under `/api/v1/admin`: masked paginated user list, suspend/reactivate, role assign/revoke with an escalation guard, versioned configuration with dual control for high-risk finance/security keys, and immutable audit search, export, and an emergency oversight queue.
+- Every high-risk mutation writes an audit event in the same transaction; super-administrator actions are flagged emergency; audit export records its own event.
+- Capability-driven administration frontend: overview, users (suspend/reactivate), and audit (search/export) pages that render from effective permissions and show the forbidden state otherwise, bilingual.
+- 26 authorization-matrix integration tests (401/403/404, IDOR, escalation, dual control, audit, emergency) and browser tests for the forbidden UI in both locales.
+
 ## Known blockers
 - None.
 
 ## Deferred with an owner
+- Bootstrap of the first super administrator (no seeded admin account) — deferred to deployment/runbook; documented as a risk.
+- Bulk admin actions with preview (ADMIN-004) and configuration diff UI — later admin prompts.
 - Account recovery — blocked by OD-029; nothing partial is exposed.
 - Verified email — blocked by OD-003; adapter boundary only.
 - Reserved usernames and change-frequency policy — blocked by OD-028.
@@ -60,13 +70,13 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 95 passed (59 api, 36 web)
-- `npm run test:integration` — 40 passed
+- `npm test` — 128 passed (92 api, 36 web)
+- `npm run test:integration` — 62 passed (includes 27 authorization-matrix tests)
 - `npm run build` — pass
-- `npm run e2e` — 129 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
+- `npm run e2e` — 144 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
-- `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded in the container; readiness 200 (DRAGON-01 run)
+- `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)
 - Package guardrails: run `03-CHECK-PACKAGE.cmd`.
 
-No independent review pass has run against DRAGON-00 through DRAGON-03; the traceability reviewer columns record this as Pending. DRAGON-03 is security-sensitive and its prompt asks for one focused security review, which has not been run.
+DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.

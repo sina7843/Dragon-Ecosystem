@@ -210,14 +210,20 @@ for (const testCase of LOCALE_CASES) {
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
     });
 
-    test('account and administration shells render their own navigation and stay non-indexable', async ({
+    test('account and administration shells render their own state and stay non-indexable', async ({
       page
     }) => {
-      for (const area of ['account', 'admin']) {
+      // An anonymous account page invites sign-in (empty state); an anonymous admin
+      // page is forbidden (capability-driven, deny-by-default). Both are non-indexable.
+      const expectations = [
+        { area: 'account', testid: 'state-empty' },
+        { area: 'admin', testid: 'admin-forbidden' }
+      ];
+      for (const { area, testid } of expectations) {
         await page.goto(`/${testCase.locale}/${area}`);
 
         await expect(page.getByRole('heading', { level: 1 })).toBeVisible();
-        await expect(page.getByTestId('state-empty')).toBeVisible();
+        await expect(page.getByTestId(testid)).toBeVisible();
 
         // SEO-008: personalized and administrative pages must not be indexed.
         const robots = await page.locator('meta[name="robots"]').getAttribute('content');

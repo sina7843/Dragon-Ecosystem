@@ -65,6 +65,11 @@ export default tseslint.config(
   {
     rules: {
       '@typescript-eslint/consistent-type-imports': 'error',
+      // Allow `const { drop, ...keep } = x` to omit a field, and `_`-prefixed throwaways.
+      '@typescript-eslint/no-unused-vars': [
+        'error',
+        { argsIgnorePattern: '^_', varsIgnorePattern: '^_', ignoreRestSiblings: true }
+      ],
       'no-console': ['error', { allow: ['warn', 'error'] }],
       eqeqeq: ['error', 'always']
     }

@@ -17,6 +17,8 @@ export interface AuditEvent {
   readonly reason: string | null;
   readonly correlationId: string;
   readonly occurredAt: string;
+  /** Emergency super-administrator actions get enhanced audit and oversight (ADMIN-010, MOD-009). */
+  readonly emergency: boolean;
 }
 
 export interface NewAuditEvent {
@@ -28,8 +30,13 @@ export interface NewAuditEvent {
   readonly before?: unknown;
   readonly after?: unknown;
   readonly reason?: string | null;
+  readonly emergency?: boolean;
 }
 
+/**
+ * Builds an append-only audit record. Callers pass only already-redacted values
+ * for before/after; this function never inspects or stores raw secrets (AUDIT-003).
+ */
 export function createAuditEvent(input: NewAuditEvent): AuditEvent {
   if (input.action.trim() === '') throw new TypeError('action is required');
   if (input.resourceType.trim() === '') throw new TypeError('resourceType is required');
@@ -45,6 +52,7 @@ export function createAuditEvent(input: NewAuditEvent): AuditEvent {
     after: input.after ?? null,
     reason: input.reason ?? null,
     correlationId: input.correlationId,
-    occurredAt: utcNow()
+    occurredAt: utcNow(),
+    emergency: input.emergency ?? false
   };
 }

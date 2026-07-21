@@ -3,6 +3,8 @@ import AccountOverviewView from './views/AccountOverviewView.vue';
 import AccountProfileView from './views/AccountProfileView.vue';
 import AccountSecurityView from './views/AccountSecurityView.vue';
 import AdminOverviewView from './views/AdminOverviewView.vue';
+import AdminUsersView from './views/AdminUsersView.vue';
+import AdminAuditView from './views/AdminAuditView.vue';
 import AuthMobileView from './views/AuthMobileView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
@@ -74,6 +76,18 @@ export const router = createRouter({
       name: 'admin',
       component: AdminOverviewView,
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.admin' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/users',
+      name: 'admin-users',
+      component: AdminUsersView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminUsers' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/audit',
+      name: 'admin-audit',
+      component: AdminAuditView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminAudit' }
     },
     {
       path: '/:locale(fa|en)/403',
