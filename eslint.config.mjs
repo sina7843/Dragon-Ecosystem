@@ -76,7 +76,12 @@ export default tseslint.config(
   },
   {
     // Node-only tooling: build scripts, config files, and the persistence check.
-    files: ['scripts/**/*.mjs', '**/*.config.{ts,mjs}', 'apps/api/src/migrate.ts'],
+    files: [
+      'scripts/**/*.mjs',
+      '**/*.config.{ts,mjs}',
+      'apps/api/src/migrate.ts',
+      'apps/api/src/bootstrap-superadmin.ts'
+    ],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly' }
     },

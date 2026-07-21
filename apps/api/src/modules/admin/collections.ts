@@ -6,7 +6,14 @@ import type { IndexDeclaration } from '../../shared/db/collections.ts';
  */
 export const ADMIN_COLLECTIONS = {
   roleAssignments: 'role_assignments',
-  configurationVersions: 'configuration_versions'
+  configurationVersions: 'configuration_versions',
+  /**
+   * Singleton guards keyed by a fixed `_id`. The automatic unique `_id` index is
+   * the durable serialization for one-time operations such as the first
+   * super-administrator bootstrap: two concurrent transactions cannot both insert
+   * the same `_id`, so exactly one commits and the other loses on a write conflict.
+   */
+  singletonGuards: 'singleton_guards'
 } as const;
 
 export const ADMIN_INDEXES: readonly IndexDeclaration[] = [

@@ -10,6 +10,7 @@ import { createTestDatabase, type TestDatabase } from '../../shared/db/test-supp
 import { COLLECTIONS } from '../../shared/db/collections.ts';
 import { newId } from '../../shared/ids.ts';
 import { utcNow } from '../../shared/events.ts';
+import { createRequestContext, SYSTEM_ACTOR } from '../../shared/context.ts';
 import { SESSION_COOKIE } from '../identity/index.ts';
 import { ADMIN_COLLECTIONS } from './collections.ts';
 import { GLOBAL_SCOPE_ID, GLOBAL_SCOPE_TYPE, roleAssignments } from './store.ts';
@@ -21,6 +22,7 @@ import { GLOBAL_SCOPE_ID, GLOBAL_SCOPE_TYPE, roleAssignments } from './store.ts'
 
 let fixture: TestDatabase;
 let app: FastifyInstance;
+let admin: ReturnType<typeof buildAdmin>['service'];
 
 before(async () => {
   fixture = await createTestDatabase();
@@ -28,8 +30,9 @@ before(async () => {
   await seedSystemConfiguration(fixture.database.db);
   const config = loadConfig({ NODE_ENV: 'test' });
   const identity = buildIdentity(fixture.database, config);
-  const admin = buildAdmin(fixture.database);
-  app = buildServer(config, { database: fixture.database, identity, admin });
+  const adminDeps = buildAdmin(fixture.database);
+  admin = adminDeps.service;
+  app = buildServer(config, { database: fixture.database, identity, admin: adminDeps });
   await app.ready();
 });
 
@@ -385,6 +388,78 @@ describe('audit search and export (AUDIT-006, AUDIT-007)', () => {
       payload: { reason: '' }
     });
     assert.equal(response.statusCode, 400);
+  });
+});
+
+describe('one-time super-administrator bootstrap', () => {
+  test('grants the first super admin, audited as emergency, then refuses a second run', async () => {
+    const first = await login();
+    const context = createRequestContext(newId(), SYSTEM_ACTOR);
+
+    assert.equal(await admin.hasSuperAdmin(), false);
+    const assignment = await admin.bootstrapFirstSuperAdmin(first.accountId, context);
+    assert.equal(assignment.role, 'super_administrator');
+    assert.equal(await admin.hasSuperAdmin(), true);
+
+    // The bootstrapped account can now use the admin surface.
+    assert.equal(
+      (await app.inject({ method: 'GET', url: '/api/v1/admin/capabilities', ...auth(first.cookie) })).statusCode,
+      200
+    );
+
+    // Audited as an emergency action.
+    const event = await fixture.database.db
+      .collection(COLLECTIONS.auditEvents)
+      .findOne({ action: 'superadmin.bootstrapped', resourceId: first.accountId });
+    assert.ok(event);
+    assert.equal(event?.['emergency'], true);
+
+    // One-time: a second bootstrap is refused even for a different account.
+    const second = await login();
+    await assert.rejects(
+      admin.bootstrapFirstSuperAdmin(second.accountId, createRequestContext(newId(), SYSTEM_ACTOR)),
+      /already exists/
+    );
+  });
+
+  test('two concurrent bootstraps against the same database: exactly one wins', async () => {
+    // Two eligible accounts, no super admin yet, both bootstraps started together.
+    const a = await login();
+    const b = await login();
+    assert.equal(await admin.hasSuperAdmin(), false);
+
+    const results = await Promise.allSettled([
+      admin.bootstrapFirstSuperAdmin(a.accountId, createRequestContext(newId(), SYSTEM_ACTOR)),
+      admin.bootstrapFirstSuperAdmin(b.accountId, createRequestContext(newId(), SYSTEM_ACTOR))
+    ]);
+
+    const fulfilled = results.filter((r) => r.status === 'fulfilled');
+    const rejected = results.filter((r) => r.status === 'rejected');
+    assert.equal(fulfilled.length, 1, 'exactly one bootstrap must succeed');
+    assert.equal(rejected.length, 1, 'the other must be refused or lose on a write conflict');
+
+    // Exactly one active super-administrator assignment exists.
+    const activeSuperAdmins = await roleAssignments(fixture.database.db)
+      .find({ role: 'super_administrator', revokedAt: null })
+      .toArray();
+    assert.equal(activeSuperAdmins.length, 1, 'exactly one active super-admin assignment');
+
+    // Exactly one bootstrap audit event exists.
+    const events = await fixture.database.db
+      .collection(COLLECTIONS.auditEvents)
+      .find({ action: 'superadmin.bootstrapped' })
+      .toArray();
+    assert.equal(events.length, 1, 'exactly one superadmin.bootstrapped audit event');
+
+    // The winner is one of the two accounts; the loser holds no assignment at all.
+    const winnerId = activeSuperAdmins[0]?.accountId;
+    assert.ok(winnerId === a.accountId || winnerId === b.accountId);
+    const loserId = winnerId === a.accountId ? b.accountId : a.accountId;
+    assert.equal(
+      await roleAssignments(fixture.database.db).countDocuments({ accountId: loserId }),
+      0,
+      'the losing account must receive no privileged assignment'
+    );
   });
 });
 

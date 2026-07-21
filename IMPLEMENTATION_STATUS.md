@@ -46,13 +46,13 @@
 - Administration API under `/api/v1/admin`: masked paginated user list, suspend/reactivate, role assign/revoke with an escalation guard, versioned configuration with dual control for high-risk finance/security keys, and immutable audit search, export, and an emergency oversight queue.
 - Every high-risk mutation writes an audit event in the same transaction; super-administrator actions are flagged emergency; audit export records its own event.
 - Capability-driven administration frontend: overview, users (suspend/reactivate), and audit (search/export) pages that render from effective permissions and show the forbidden state otherwise, bilingual.
-- 26 authorization-matrix integration tests (401/403/404, IDOR, escalation, dual control, audit, emergency) and browser tests for the forbidden UI in both locales.
+- Authorization-matrix integration tests (401/403/404, IDOR, escalation, dual control, audit, emergency) and browser tests for the forbidden UI in both locales.
+- One-time super-administrator bootstrap: a CLI entry point (`bootstrap:superadmin`, no HTTP surface) that grants the first super admin to an existing account, refuses once one exists, and writes an emergency audit event. Procedure documented in `RUNBOOKS.md`.
 
 ## Known blockers
 - None.
 
 ## Deferred with an owner
-- Bootstrap of the first super administrator (no seeded admin account) — deferred to deployment/runbook; documented as a risk.
 - Bulk admin actions with preview (ADMIN-004) and configuration diff UI — later admin prompts.
 - Account recovery — blocked by OD-029; nothing partial is exposed.
 - Verified email — blocked by OD-003; adapter boundary only.

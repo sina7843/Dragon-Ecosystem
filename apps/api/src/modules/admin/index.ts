@@ -5,3 +5,4 @@ export { AdminService } from './service.ts';
 export { AuthorizationService, requirePermission } from './authorization.ts';
 export { registerAdminRoutes, type AdminDeps } from './routes.ts';
 export type { Actor } from './service.ts';
+export type { RoleAssignmentRecord } from './store.ts';

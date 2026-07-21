@@ -41,8 +41,22 @@ export interface ConfigurationVersionRecord {
   activatedAt: string | null;
 }
 
+/** A one-time-operation guard. The fixed `_id` is the invariant. */
+export interface SingletonGuardRecord {
+  _id: string;
+  claimedBy: EntityId;
+  claimedAt: string;
+}
+
+/** Fixed id of the super-administrator bootstrap guard. */
+export const SUPERADMIN_BOOTSTRAP_GUARD = 'superadmin_bootstrap';
+
 export function roleAssignments(db: Db) {
   return db.collection<RoleAssignmentRecord>(ADMIN_COLLECTIONS.roleAssignments);
+}
+
+export function singletonGuards(db: Db) {
+  return db.collection<SingletonGuardRecord>(ADMIN_COLLECTIONS.singletonGuards);
 }
 
 export function configurationVersions(db: Db) {

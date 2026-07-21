@@ -10,6 +10,9 @@
 
 export const WILDCARD = '*';
 
+/** The single controlled unrestricted role (CON-006). */
+export const SUPER_ADMIN_ROLE = 'super_administrator';
+
 /**
  * Every permission the platform enforces today. Domain bundles (content, tournament,
  * finance, moderation, support) are coarse now and split further as those modules

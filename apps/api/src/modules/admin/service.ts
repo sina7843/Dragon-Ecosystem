@@ -11,6 +11,7 @@ import {
   isKnownRole,
   normalizeConfigKey,
   permissionsForRoles,
+  SUPER_ADMIN_ROLE,
   WILDCARD
 } from '../../shared/authz/permissions.ts';
 import {
@@ -25,6 +26,8 @@ import {
   GLOBAL_SCOPE_ID,
   GLOBAL_SCOPE_TYPE,
   roleAssignments,
+  singletonGuards,
+  SUPERADMIN_BOOTSTRAP_GUARD,
   type ConfigurationVersionRecord,
   type RoleAssignmentRecord
 } from './store.ts';
@@ -57,9 +60,21 @@ export interface ConfigProposalInput {
 }
 
 const DUPLICATE_KEY = 11000;
+const WRITE_CONFLICT = 112;
 
 function isDuplicateKey(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: number }).code === DUPLICATE_KEY;
+}
+
+/** A transaction that lost a concurrent write race (MongoDB WriteConflict, code 112). */
+function isWriteConflict(error: unknown): boolean {
+  if (typeof error !== 'object' || error === null) return false;
+  const candidate = error as { code?: number; codeName?: string; hasErrorLabel?: (label: string) => boolean };
+  return (
+    candidate.code === WRITE_CONFLICT ||
+    candidate.codeName === 'WriteConflict' ||
+    (typeof candidate.hasErrorLabel === 'function' && candidate.hasErrorLabel('TransientTransactionError'))
+  );
 }
 
 export class AdminService {
@@ -146,6 +161,79 @@ export class AdminService {
 
   async listRoleAssignments(accountId: EntityId): Promise<RoleAssignmentRecord[]> {
     return roleAssignments(this.#db).find({ accountId, revokedAt: null }).sort({ grantedAt: -1 }).toArray();
+  }
+
+  /** Whether any account currently holds an active super-administrator grant. */
+  async hasSuperAdmin(): Promise<boolean> {
+    const count = await roleAssignments(this.#db).countDocuments(
+      { role: SUPER_ADMIN_ROLE, revokedAt: null },
+      { limit: 1 }
+    );
+    return count > 0;
+  }
+
+  /**
+   * One-time bootstrap of the very first super administrator (deployment only).
+   *
+   * This is the single privileged path that bypasses the wildcard-escalation guard,
+   * and it is safe because it refuses to run once any active super administrator
+   * exists. After the first one, further super admins are granted through the normal
+   * admin console by an existing super admin. The grant is audited as an emergency
+   * action (ADMIN-010). It grants a role to an account that must already exist — it
+   * never creates an account, so there is no identity backdoor.
+   */
+  async bootstrapFirstSuperAdmin(
+    accountId: EntityId,
+    context: RequestContext
+  ): Promise<RoleAssignmentRecord> {
+    if (await this.hasSuperAdmin()) {
+      throw new ConflictError(
+        'SUPERADMIN_EXISTS',
+        'A super administrator already exists. Grant further super admins from the admin console.'
+      );
+    }
+
+    const record: RoleAssignmentRecord = {
+      _id: newId(),
+      accountId,
+      role: SUPER_ADMIN_ROLE,
+      scopeType: GLOBAL_SCOPE_TYPE,
+      scopeId: GLOBAL_SCOPE_ID,
+      grantedBy: 'bootstrap',
+      grantedAt: utcNow(),
+      revokedAt: null
+    };
+
+    try {
+      await runUnitOfWork(this.#database, context, async (uow) => {
+        // Durable serialization: claim a singleton guard with a fixed `_id` inside
+        // the transaction. The automatic unique `_id` index means two concurrent
+        // bootstraps cannot both insert it — one commits, the other aborts on a
+        // duplicate-key / write conflict. A snapshot re-check alone would not stop
+        // both (neither transaction's read conflicts with the other's insert).
+        await singletonGuards(uow.db).insertOne(
+          { _id: SUPERADMIN_BOOTSTRAP_GUARD, claimedBy: accountId, claimedAt: utcNow() },
+          { session: uow.session }
+        );
+        await roleAssignments(uow.db).insertOne(record, { session: uow.session });
+        uow.audit({
+          action: 'superadmin.bootstrapped',
+          resourceType: 'account',
+          resourceId: accountId,
+          after: { role: SUPER_ADMIN_ROLE },
+          reason: 'Initial super administrator bootstrap (one-time deployment step).',
+          emergency: true
+        });
+      });
+    } catch (error) {
+      // Duplicate guard key (lost the race) or a transaction write conflict both
+      // mean another bootstrap already claimed it.
+      if (isDuplicateKey(error) || isWriteConflict(error)) {
+        throw new ConflictError('SUPERADMIN_EXISTS', 'A super administrator already exists.');
+      }
+      throw error;
+    }
+    return record;
   }
 
   // --- Versioned configuration with dual control (ADMIN-003, ADMIN-009, OPS-007) ---

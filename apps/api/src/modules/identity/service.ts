@@ -597,6 +597,16 @@ export class IdentityService {
     return (await accounts(this.#db).countDocuments({ _id: accountId }, { limit: 1 })) > 0;
   }
 
+  /**
+   * Resolves a mobile number to its account id, for operator tooling such as the
+   * super-administrator bootstrap. Returns null when no account owns that number.
+   */
+  async findAccountIdByMobile(mobile: string): Promise<EntityId | null> {
+    const canonical = normalizeIranianMobile(mobile);
+    const method = await identityMethods(this.#db).findOne({ type: 'mobile', canonical });
+    return method?.accountId ?? null;
+  }
+
   get environment(): Environment {
     return this.#env;
   }
