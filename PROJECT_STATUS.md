@@ -23,7 +23,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-11b
 - [x] DRAGON-11c
 - [x] DRAGON-12
-- [ ] DRAGON-13
+- [x] DRAGON-13
 - [ ] DRAGON-14
 - [ ] DRAGON-15
 - [ ] DRAGON-16a
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: none in progress; next eligible is `DRAGON-13`
-- Last completed item: `DRAGON-12` (paid tournament checkout and prize entitlements, OD-007-gated) — implemented and verified, not yet committed
+- Active item: none in progress; next eligible is `DRAGON-14`
+- Last completed item: `DRAGON-13` (notifications: in-app inbox, versioned templates, preferences, gated mock SMS/email, retry/dead-letter, operator visibility) — implemented and verified, not yet committed
 - Blockers: none

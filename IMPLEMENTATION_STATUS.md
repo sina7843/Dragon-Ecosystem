@@ -18,8 +18,10 @@
 - Mock Toman purchase and exactly-once Dragon Coin crediting: complete (DRAGON-11b) — implemented and verified, not yet committed
 - Holds, releases, expiry, and gated transfer boundaries: complete (DRAGON-11c) — implemented and verified, not yet committed. **Parent DRAGON-11 is complete** (11a + 11b + 11c)
 - Paid tournament checkout and prize entitlements: complete (DRAGON-12) — implemented and verified, not yet committed (paid checkout stays OD-007-gated off by default)
-- Active prompt: DRAGON-12 complete; next eligible is DRAGON-13
-- Latest verified checkpoint: DRAGON-12 paid checkout and prize entitlements, 2026-07-22
+- Paid checkout + prize entitlements: complete (DRAGON-12) — implemented and verified, not yet committed
+- Notifications (in-app inbox, templates, preferences, gated SMS/email, retry/dead-letter): complete (DRAGON-13) — implemented and verified, not yet committed
+- Active prompt: DRAGON-13 complete; next eligible is DRAGON-14
+- Latest verified checkpoint: DRAGON-13 notifications and mock provider operations, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -193,6 +195,20 @@
 - Deferred to DRAGON-13+ (still gated/out of scope): real payment-provider integration, participant Toman refunds, prize cash-out via a provider, Dragon Coin refunds, and the background checkout/entitlement scheduler (DRAGON-14).
 - **DRAGON-12 is complete.**
 
+## Delivered by DRAGON-13
+- Idempotent domain-event outbox consumer (`modules/notifications/service.ts`): a code-owned event→template map turns pending `domain_event_outbox` events into in-app notifications (unique per account + source event + template) and gated channel deliveries, marking each event dispatched — all in one transaction. Redelivery and concurrent consume produce exactly one notification (unique index + pre-check; the batch loop tolerates a concurrent duplicate and leaves the event pending for the next pass). This is the platform's first outbox consumer; the general background dispatcher is DRAGON-14.
+- In-app inbox + read state (`notifications` collection): participant-owned, cursor-paginated, localized client-side from `templateKey` + bounded params (no server-rendered string, no recipient detail). Mark-one / mark-all read + unread count. Owner-scoped (cross-user id → not found).
+- Preferences (`notification_preferences`, OD-008 gated): per-account by category (transactional/marketing) × channel. Transactional in-app is always on; enabling any SMS/email/marketing class is refused (`NOTIFICATION_CLASS_DISABLED`), and marketing consent is a separate class a transactional message can never reuse.
+- Channel deliveries with retry/dead-letter (`notification_deliveries`): a due `pending` delivery is claimed atomically so concurrent processors cannot double-send, sent through a deterministic mock adapter, retried after a backoff, and dead-lettered after 3 attempts. A delivery is sent only when the channel gate is on, the recipient consented for the category, and an approved template exists — otherwise stored `suppressed` with a reason. **Only a verified contact is ever messaged**; recipients are masked in every stored record and route.
+- Channels (`channels.ts`): a deterministic `MockSmsChannel` (approved adapter; delivery/failure by number, no network) and a `MockEmailChannel` writing to a non-production local sink only. Both fail-closed: SMS under OD-008 (`NOTIFICATIONS_SMS_ENABLED`, default off; OTP SMS is unaffected — the identity module's own path), email under OD-003 (`NOTIFICATIONS_EMAIL_ENABLED`, default off, no live provider).
+- Versioned localized templates + operator approval (`notification_templates`): create (draft) → approve (`support.manage`), one version per (key, channel, version); a draft never renders/sends. Per-tournament template enablement (`notification_template_enablements`). Unknown template keys rejected. Marketing and transactional templates are distinct categories.
+- Operator visibility (`support.manage`): list templates, list deliveries (recipients already masked), and a bounded consume+deliver trigger (`POST /admin/notifications/process`) — the operational primitive DRAGON-14 will schedule.
+- HTTP surface: session-gated participant inbox + preferences; operator-gated template/enablement/delivery/process routes. No unauthenticated mutation and no external callback (in-app is the entry channel).
+- Bilingual UI: an in-app notification inbox (`NotificationsInboxView.vue`, `/account/notifications`) rendering each item from its template key + params, with per-item and mark-all read, empty/loading/error states, fa RTL / en LTR, no internal or recipient detail.
+- One focused `test-reviewer` pass over consumer idempotency, retry/dead-letter, channel gating, marketing-vs-transactional consent, privacy/masking, IDOR/authorization, and template approval: verdict APPROVE after fixes, no remaining Critical/High. **One Blocker was found and fixed** — the contact lookup now returns only a **verified** mobile/email, so an unverified or stale address can never be messaged; and the consume loop was hardened so a concurrent duplicate never fails the batch (a concurrency regression test was added).
+- Deferred to DRAGON-14+ (still gated/out of scope): the background dispatcher/scheduler that drains the outbox and retries deliveries automatically, live SMS/email providers, and the enabled tournament-SMS / marketing preference classes.
+- **DRAGON-13 is complete.**
+
 ## Known blockers
 - None.
 
@@ -224,7 +240,17 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22 (DRAGON-12), all commands run from the repository root:
+2026-07-22 (DRAGON-13), all commands run from the repository root:
+- `npm run typecheck` — pass
+- `npm run lint` — pass, 0 problems
+- `npm test` (workspaces) — 290 passed (254 api, 36 web); api unit adds 5 notification unit tests (event mapping, template rendering, recipient masking) and the config fail-closed test for the SMS/email gates; web unit includes the fa/en i18n parity + Persian-content checks covering the new `notifications` template and error-code keys
+- `npm run test:integration` (api) — 268 passed (adds 12 notifications: mapped/unmapped consume, redelivery idempotency, two-concurrent-consume one-notification, SMS suppressed-without-consent + masked recipient, mark one/all + IDOR, template create/approve idempotent + unknown-key rejection, gated-preference refusal, delivery send + retry-to-dead-letter, and index uniqueness)
+- `npm run build` — pass
+- migrations against the disposable test DB — `018-notifications` applies cleanly (all 18 migrations applied and recorded)
+- `npm run e2e` — the notification journey (purchase → operator consume → in-app inbox item → mark read; empty state; Persian RTL) passes on desktop/mobile/small-mobile in fa + en. The full browser suite passes at ~214 tests; the OTP-heavy suite occasionally flakes under full-parallel contention with `retries: 0` (a different handful of unrelated specs each run), and an isolated re-run passes (matrix owned by DRAGON-16a)
+- Prior DRAGON-12 checkpoint unchanged this slice.
+
+Earlier DRAGON-12 verification, 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
 - `npm test` (workspaces) — 284 passed (248 api, 36 web); api unit adds the paid-checkout config fail-closed test; web unit includes the fa/en i18n parity + Persian-content checks covering the new `checkout`, `wallet` prize, and error-code keys

@@ -323,7 +323,11 @@ function confirmPaid(): void {
             data-testid="checkout-panel"
             :data-state="checkout.state"
           >
-            <p class="status" data-testid="checkout-state" :data-state="checkout.state">
+            <p
+              class="status"
+              data-testid="checkout-state"
+              :data-state="checkout.state"
+            >
               {{ t(`checkout.state.${checkout.state}`) }}
             </p>
             <div

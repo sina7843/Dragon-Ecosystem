@@ -56,6 +56,14 @@ export interface AppConfig {
    */
   readonly paidTournamentsEnabled: boolean;
   /**
+   * Notification channel gates. Fail-closed under OD-008 (only security-essential
+   * mock SMS — OTP — is active; tournament SMS stays off) and OD-003 (transactional
+   * email stays off): both default false and only turn on with an explicit `true`.
+   * In-app notifications are always active and need no gate.
+   */
+  readonly notificationsSmsEnabled: boolean;
+  readonly notificationsEmailEnabled: boolean;
+  /**
    * Reverse-proxy addresses whose `X-Forwarded-For` may be trusted (SEC-009).
    * Empty means trust nothing, so `request.ip` is the real socket peer — correct
    * for local development and tests where no proxy sits in front. In the Compose
@@ -228,6 +236,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     devRoutesEnabled: env !== 'production' && (source['ENABLE_DEV_ROUTES'] ?? '').toLowerCase() === 'true',
     // OD-007 fail-closed: paid tournament checkout is off unless explicitly enabled.
     paidTournamentsEnabled: (source['PAID_TOURNAMENTS_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-008 / OD-003 fail-closed: notification SMS and email channels are off unless explicitly enabled.
+    notificationsSmsEnabled: (source['NOTIFICATIONS_SMS_ENABLED'] ?? '').toLowerCase() === 'true',
+    notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

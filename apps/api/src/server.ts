@@ -21,6 +21,7 @@ import { PaymentsService, MockPaymentProvider, registerPaymentsRoutes } from './
 import { HoldsService, HoldsReconciliation, registerHoldsRoutes } from './modules/holds/index.ts';
 import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/index.ts';
 import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
+import { NotificationsService, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -78,6 +79,7 @@ export interface ServerDependencies {
   readonly holds?: { service: HoldsService; reconciliation: HoldsReconciliation; db: Db };
   readonly checkout?: { service: CheckoutService; db: Db; mockEnabled: boolean };
   readonly prizes?: { service: PrizesService };
+  readonly notifications?: { service: NotificationsService };
 }
 
 declare module 'fastify' {
@@ -306,6 +308,13 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 prizes: deps.prizes.service
               });
             }
+            if (deps.notifications !== undefined) {
+              registerNotificationsRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                notifications: deps.notifications.service
+              });
+            }
           }
         }
       }
@@ -448,6 +457,24 @@ export function buildPrizes(
   return { service: new PrizesService(database, tournaments.service, competitions.service, registrations.service, ledger.service) };
 }
 
+export function buildNotifications(database: Database, config: AppConfig): { service: NotificationsService } {
+  // Reads the recipient's contact + locale for channel delivery; the full mobile/email
+  // is only used at send time and never stored (deliveries keep a mask only).
+  const contacts: ContactAccess = {
+    async getContact(accountId) {
+      const account = await database.db.collection<{ _id: string; locale?: string }>('accounts').findOne({ _id: accountId });
+      if (account === null) return null;
+      // Only a VERIFIED contact may receive a notification — never an unverified or
+      // stale address left mid-verification (privacy; fail-closed like the channel gates).
+      const methods = await database.db.collection<{ accountId: string; type: string; canonical: string; verified: boolean }>('identity_methods').find({ accountId, verified: true }).toArray();
+      const mobile = methods.find((m) => m.type === 'mobile')?.canonical ?? null;
+      const email = methods.find((m) => m.type === 'email')?.canonical ?? null;
+      return { mobile, email, locale: account.locale === 'en' ? 'en' : 'fa' };
+    }
+  };
+  return { service: new NotificationsService(database, { smsEnabled: config.notificationsSmsEnabled, emailEnabled: config.notificationsEmailEnabled }, config.env, contacts) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -476,7 +503,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     payments: buildPayments(database, config, ledger),
     holds,
     checkout: buildCheckout(database, config, tournaments, registrations, ledger, holds),
-    prizes: buildPrizes(database, tournaments, competitions, registrations, ledger)
+    prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
+    notifications: buildNotifications(database, config)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

@@ -80,6 +80,14 @@ test('paid tournament checkout is fail-closed: off unless explicitly enabled (OD
   assert.equal(loadConfig({ PAID_TOURNAMENTS_ENABLED: 'true' }).paidTournamentsEnabled, true);
 });
 
+test('notification SMS and email channels are fail-closed (OD-008 / OD-003)', () => {
+  assert.equal(loadConfig({}).notificationsSmsEnabled, false);
+  assert.equal(loadConfig({}).notificationsEmailEnabled, false);
+  assert.equal(loadConfig({ NOTIFICATIONS_SMS_ENABLED: '1' }).notificationsSmsEnabled, false);
+  assert.equal(loadConfig({ NOTIFICATIONS_SMS_ENABLED: 'true' }).notificationsSmsEnabled, true);
+  assert.equal(loadConfig({ NOTIFICATIONS_EMAIL_ENABLED: 'true' }).notificationsEmailEnabled, true);
+});
+
 test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
   // Default: off.
   assert.equal(loadConfig({}).devRoutesEnabled, false);

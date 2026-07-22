@@ -24,7 +24,8 @@
       "adminContent": "محتوا",
       "adminGames": "بازی‌ها",
       "adminTournaments": "تورنمنت‌ها",
-      "wallet": "کیف پول"
+      "wallet": "کیف پول",
+      "notifications": "اعلان‌ها"
     }
   },
   "nav": {
@@ -50,7 +51,8 @@
     "teams": "تیم‌ها",
     "gamingIdentities": "هویت‌های بازی",
     "tournaments": "تورنمنت‌ها",
-    "wallet": "کیف پول"
+    "wallet": "کیف پول",
+    "notifications": "اعلان‌ها"
   },
   "theme": {
     "label": "پوسته",
@@ -416,7 +418,12 @@
       "INVALID_ENTITLEMENT_TRANSITION": "این تغییر برای این استحقاق مجاز نیست.",
       "STALE_ENTITLEMENT_VERSION": "این استحقاق تغییر کرد. صفحه را تازه کنید و دوباره تلاش کنید.",
       "SETTLEMENT_EVIDENCE_REQUIRED": "ذکر مدرک تسویه الزامی است.",
-      "REGISTRATION_PAYMENT_PENDING": "این ثبت‌نام در حال تکمیل پرداخت است؛ آن را از طریق پرداخت مدیریت کنید."
+      "REGISTRATION_PAYMENT_PENDING": "این ثبت‌نام در حال تکمیل پرداخت است؛ آن را از طریق پرداخت مدیریت کنید.",
+      "NOTIFICATION_CLASS_DISABLED": "این تنظیم اعلان هنوز در دسترس نیست.",
+      "UNKNOWN_TEMPLATE_KEY": "این کلید قالب شناخته نشد.",
+      "TEMPLATE_NOT_DRAFT": "این قالب دیگر پیش‌نویس نیست.",
+      "TEMPLATE_ALREADY_ENABLED": "این قالب برای این مسابقه از قبل فعال است.",
+      "INCOMPLETE_TEMPLATE": "برای هر دو زبان متن وارد کنید."
     }
   },
   "content": {
@@ -868,6 +875,19 @@
       "cancelled": "لغوشده",
       "expired": "منقضی‌شده",
       "failed": "ناموفق"
+    }
+  },
+  "notifications": {
+    "heading": "اعلان‌ها",
+    "empty": "اعلانی ندارید.",
+    "markRead": "خوانده‌شد",
+    "markAllRead": "همه خوانده‌شد",
+    "allRead": "همهٔ اعلان‌ها خوانده‌شده شدند.",
+    "template": {
+      "registration_approved": "ثبت‌نام شما در مسابقه تأیید شد.",
+      "registration_confirmed": "ثبت‌نام پولی شما در مسابقه نهایی شد.",
+      "coins_added": "{dragonCoin} دراگون‌کوین به موجودی شما افزوده شد.",
+      "prize_paid": "جایزهٔ نقدی شما پرداخت‌شده علامت خورد."
     }
   }
 }

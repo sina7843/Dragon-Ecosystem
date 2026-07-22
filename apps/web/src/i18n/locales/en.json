@@ -24,7 +24,8 @@
       "adminContent": "Content",
       "adminGames": "Games",
       "adminTournaments": "Tournaments",
-      "wallet": "Wallet"
+      "wallet": "Wallet",
+      "notifications": "Notifications"
     }
   },
   "nav": {
@@ -50,7 +51,8 @@
     "teams": "Teams",
     "gamingIdentities": "Gaming identities",
     "tournaments": "Tournaments",
-    "wallet": "Wallet"
+    "wallet": "Wallet",
+    "notifications": "Notifications"
   },
   "theme": {
     "label": "Theme",
@@ -416,7 +418,12 @@
       "INVALID_ENTITLEMENT_TRANSITION": "That change is not allowed for this entitlement.",
       "STALE_ENTITLEMENT_VERSION": "This entitlement changed. Reload and try again.",
       "SETTLEMENT_EVIDENCE_REQUIRED": "Settlement evidence is required.",
-      "REGISTRATION_PAYMENT_PENDING": "This registration is completing payment; manage it through checkout."
+      "REGISTRATION_PAYMENT_PENDING": "This registration is completing payment; manage it through checkout.",
+      "NOTIFICATION_CLASS_DISABLED": "That notification setting is not available yet.",
+      "UNKNOWN_TEMPLATE_KEY": "That template key is not recognized.",
+      "TEMPLATE_NOT_DRAFT": "This template is no longer a draft.",
+      "TEMPLATE_ALREADY_ENABLED": "This template is already enabled for the tournament.",
+      "INCOMPLETE_TEMPLATE": "Provide a body for both languages."
     }
   },
   "content": {
@@ -868,6 +875,19 @@
       "cancelled": "Cancelled",
       "expired": "Expired",
       "failed": "Failed"
+    }
+  },
+  "notifications": {
+    "heading": "Notifications",
+    "empty": "You have no notifications.",
+    "markRead": "Mark read",
+    "markAllRead": "Mark all read",
+    "allRead": "All notifications marked read.",
+    "template": {
+      "registration_approved": "Your tournament registration was approved.",
+      "registration_confirmed": "Your paid tournament registration is confirmed.",
+      "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
+      "prize_paid": "Your cash prize has been marked paid."
     }
   }
 }
