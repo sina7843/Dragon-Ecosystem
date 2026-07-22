@@ -9,6 +9,7 @@ import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
 import { getBracket, getStandings, type BracketMatchView, type StandingsView } from '../composables/useCompetitionsApi.ts';
+import { startCheckout, confirmCheckout, mockPayCheckout, newCheckoutKey, type CheckoutView } from '../composables/useCheckoutApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useAuth } from '../composables/useAuth.ts';
 import { useToasts } from '../composables/useToasts.ts';
@@ -127,6 +128,50 @@ async function onWithdraw(): Promise<void> {
   } catch (error) {
     push('danger', messageFor(error));
   }
+}
+
+// --- Paid registration checkout (DRAGON-12, OD-007 gated server-side) ---
+const paid = computed(() => tour.value !== null && tour.value.fee.kind !== 'free');
+const checkout = ref<CheckoutView | null>(null);
+const checkoutBusy = ref(false);
+
+async function startPaid(): Promise<void> {
+  if (tour.value === null || checkoutBusy.value) return;
+  checkoutBusy.value = true;
+  try {
+    checkout.value = await startCheckout(tour.value.id, newCheckoutKey());
+    push('info', t('checkout.started'));
+  } catch (error) {
+    push('danger', messageFor(error));
+  } finally {
+    checkoutBusy.value = false;
+  }
+}
+
+async function settlePaid(action: () => Promise<CheckoutView>): Promise<void> {
+  if (checkout.value === null || checkoutBusy.value) return;
+  checkoutBusy.value = true;
+  try {
+    checkout.value = await action();
+    if (checkout.value.state === 'activated') {
+      push('success', t('checkout.activated'));
+      if (tour.value !== null) await loadStatus(tour.value.id);
+    } else {
+      push('info', t(`checkout.state.${checkout.value.state}`));
+    }
+  } catch (error) {
+    push('danger', messageFor(error));
+  } finally {
+    checkoutBusy.value = false;
+  }
+}
+function payPaid(outcome: 'success' | 'failed'): void {
+  const id = checkout.value?.id;
+  if (id !== undefined) void settlePaid(() => mockPayCheckout(id, outcome));
+}
+function confirmPaid(): void {
+  const id = checkout.value?.id;
+  if (id !== undefined) void settlePaid(() => confirmCheckout(id));
 }
 </script>
 
@@ -268,6 +313,62 @@ async function onWithdraw(): Promise<void> {
             @click="onWithdraw"
           >
             {{ t('registration.withdraw') }}
+          </button>
+        </template>
+
+        <template v-else-if="paid && tour.participantType !== 'team'">
+          <div
+            v-if="checkout && checkout.state !== 'activated'"
+            class="checkout"
+            data-testid="checkout-panel"
+            :data-state="checkout.state"
+          >
+            <p class="status" data-testid="checkout-state" :data-state="checkout.state">
+              {{ t(`checkout.state.${checkout.state}`) }}
+            </p>
+            <div
+              v-if="checkout.state === 'awaiting_payment'"
+              class="row"
+            >
+              <button
+                type="button"
+                class="primary"
+                data-testid="checkout-pay"
+                :disabled="checkoutBusy"
+                @click="payPaid('success')"
+              >
+                {{ t('checkout.pay') }}
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                data-testid="checkout-fail"
+                :disabled="checkoutBusy"
+                @click="payPaid('failed')"
+              >
+                {{ t('checkout.simulateFailure') }}
+              </button>
+            </div>
+            <button
+              v-else-if="checkout.state === 'awaiting_confirmation'"
+              type="button"
+              class="primary"
+              data-testid="checkout-confirm"
+              :disabled="checkoutBusy"
+              @click="confirmPaid"
+            >
+              {{ t('checkout.confirm') }}
+            </button>
+          </div>
+          <button
+            v-else
+            type="button"
+            class="primary"
+            data-testid="start-checkout"
+            :disabled="checkoutBusy"
+            @click="startPaid"
+          >
+            {{ t('checkout.payAndRegister') }}
           </button>
         </template>
 
@@ -490,6 +591,18 @@ async function onWithdraw(): Promise<void> {
   padding: var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
+}
+
+.checkout {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.checkout .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 .status {

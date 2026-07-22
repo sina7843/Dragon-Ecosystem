@@ -69,6 +69,19 @@ export interface RegisterInput {
   idempotencyKey: string;
 }
 
+/** Validated paid-registration data the checkout persists atomically (DRAGON-12). */
+export interface PreparedPaidRegistration {
+  tournamentId: string;
+  capacity: number;
+  actorId: string;
+  teamId: string | null;
+  subjectId: string;
+  participantType: 'individual' | 'team';
+  answers: RegistrationRecord['answers'];
+  questionVersion: number;
+  rosterSnapshotId: string | null;
+}
+
 export class RegistrationsService {
   readonly #database: Database;
   readonly #tournaments: TournamentAccess;
@@ -186,6 +199,100 @@ export class RegistrationsService {
       })
     );
     return outcome.result;
+  }
+
+  // --- Paid registration (DRAGON-12): the checkout owns activation atomically ---
+
+  /**
+   * Validates a paid registration's eligibility and captures its answers/roster,
+   * returning the data the checkout persists. No write happens here; the checkout
+   * reserves the seat and activates the registration inside its own transaction.
+   */
+  async preparePaidRegistration(context: RequestContext, actorId: string, tournamentId: string, input: RegisterInput): Promise<PreparedPaidRegistration> {
+    const tournament = await this.#tournaments.getById(tournamentId);
+    if (tournament === null || tournament.state !== 'published') throw new NotFoundError('Unknown tournament.');
+    if (tournament.fee.kind === 'free') throw new ValidationError('This tournament is free.', [{ field: 'fee', code: 'FREE_TOURNAMENT', message: 'Register directly; no checkout is needed.' }]);
+
+    const participantType: 'individual' | 'team' = input.teamId !== undefined ? 'team' : 'individual';
+    const subjectId = input.teamId ?? actorId;
+    const profile = await this.#profiles.getProfile(actorId);
+    const problems = eligibilityProblems({
+      tournament,
+      now: new Date(),
+      participantType,
+      hasCompleteProfile: profile !== null,
+      age: ageFrom(profile?.birthDate, new Date()),
+      hasGameIdentity: await this.#teams.hasGamingIdentity(actorId, tournament.gameId)
+    });
+    if (problems.length > 0) throw new ValidationError('You are not eligible to register.', problems);
+    const { answers, version } = buildAnswers(tournament.questionSet, input.answers);
+    let rosterSnapshotId: string | null = null;
+    if (participantType === 'team') {
+      const snapshot = await this.#teams.captureRosterSnapshot(context, actorId, input.teamId as string, 'Tournament registration roster snapshot.');
+      rosterSnapshotId = snapshot._id;
+    }
+    return { tournamentId: tournament._id, capacity: tournament.capacity, actorId, teamId: input.teamId ?? null, subjectId, participantType, answers, questionVersion: version, rosterSnapshotId };
+  }
+
+  /** Reserves a main seat and inserts a `pending_payment` registration inside the caller's transaction. */
+  async reservePaidRegistrationWithin(uow: UnitOfWork, prepared: PreparedPaidRegistration): Promise<RegistrationRecord> {
+    const gotSeat = await this.#claimMainSeat(uow, prepared.tournamentId, prepared.capacity);
+    if (!gotSeat) throw new ConflictError('TOURNAMENT_FULL', 'This tournament is full.');
+    const now = utcNow();
+    const record: RegistrationRecord = {
+      _id: newId(),
+      tournamentId: prepared.tournamentId,
+      participantType: prepared.participantType,
+      accountId: prepared.actorId,
+      teamId: prepared.teamId,
+      subjectId: prepared.subjectId,
+      state: 'pending_payment',
+      active: true,
+      seat: 'main',
+      answers: prepared.answers,
+      questionVersion: prepared.questionVersion,
+      rosterSnapshotId: prepared.rosterSnapshotId,
+      waitlistSeq: null,
+      createdAt: now,
+      updatedAt: now,
+      decidedBy: null,
+      decidedAt: null,
+      reason: null,
+      version: 1
+    };
+    await this.#registrations(uow.db).insertOne(record, { session: uow.session });
+    this.#audit(uow, record, 'tournament.registration.pending_payment', null);
+    this.#publish(uow, record, 'tournament.registration.pending_payment');
+    return record;
+  }
+
+  /** Activates a reserved paid registration (`pending_payment` → `approved`) inside the caller's transaction. */
+  async activatePaidRegistrationWithin(uow: UnitOfWork, registrationId: string): Promise<RegistrationRecord> {
+    return this.#transitionPaidWithin(uow, registrationId, 'approved', 'system');
+  }
+
+  /** Cancels a reserved paid registration (`pending_payment` → `cancelled`), releasing its seat. */
+  async cancelPaidRegistrationWithin(uow: UnitOfWork, registrationId: string, reason: string): Promise<RegistrationRecord> {
+    return this.#transitionPaidWithin(uow, registrationId, 'cancelled', reason);
+  }
+
+  async #transitionPaidWithin(uow: UnitOfWork, registrationId: string, to: 'approved' | 'cancelled', reason: string): Promise<RegistrationRecord> {
+    const reg = await this.#registrations(uow.db).findOne({ _id: registrationId }, { session: uow.session });
+    if (reg === null) throw new NotFoundError('Unknown registration.');
+    if (reg.state === to) return reg; // idempotent
+    if (reg.state !== 'pending_payment' || !canRegistrationTransition(reg.state, to)) throw new ConflictError('INVALID_REGISTRATION_TRANSITION', `Cannot move a registration from ${reg.state} to ${to}.`);
+    if (to === 'cancelled' && reg.seat === 'main') await this.#releaseMainSeat(uow, reg.tournamentId);
+    const now = utcNow();
+    const updated = await this.#registrations(uow.db).updateOne(
+      { _id: registrationId, state: 'pending_payment', version: reg.version },
+      { $set: { state: to, active: isActiveState(to), seat: seatOf(to), decidedBy: to === 'approved' ? 'system' : null, decidedAt: now, reason: to === 'cancelled' ? reason : null, updatedAt: now }, $inc: { version: 1 } },
+      { session: uow.session }
+    );
+    if (updated.matchedCount === 0) throw new ConflictError('INVALID_REGISTRATION_TRANSITION', 'The registration changed. Reload and retry.');
+    const next: RegistrationRecord = { ...reg, state: to, active: isActiveState(to), seat: seatOf(to), decidedBy: to === 'approved' ? 'system' : null, decidedAt: now, reason: to === 'cancelled' ? reason : null, updatedAt: now, version: reg.version + 1 };
+    this.#audit(uow, next, `tournament.registration.${to}`, reg);
+    this.#publish(uow, next, `tournament.registration.${to}`);
+    return next;
   }
 
   async #createRegistration(
@@ -317,6 +424,13 @@ export class RegistrationsService {
       if (reg === null) throw new NotFoundError('Unknown registration.');
       // A participant may only cancel their own entry (IDOR guard on the self path).
       if (guards.requireOwn === true && reg.accountId !== actorId) throw new NotFoundError('Unknown registration.');
+      // A payment-pending registration is owned entirely by the checkout flow (DRAGON-12):
+      // the generic admin/self decision path must never approve it (which would grant a seat
+      // and activate it without the fee, double-claiming capacity) or cancel it (orphaning the
+      // checkout hold). Callers act through the checkout, which uses its own within-uow path.
+      if (reg.state === 'pending_payment') {
+        throw new ConflictError('REGISTRATION_PAYMENT_PENDING', 'This registration is completing payment and is managed by checkout.');
+      }
       if (!canRegistrationTransition(reg.state, to)) {
         throw new ConflictError('INVALID_REGISTRATION_TRANSITION', `Cannot move a registration from ${reg.state} to ${to}.`);
       }

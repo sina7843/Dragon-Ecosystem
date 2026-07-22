@@ -49,6 +49,7 @@ export type LedgerTransactionType =
   | 'dragon_coin_issue'
   | 'dragon_coin_transfer'
   | 'dragon_coin_adjustment'
+  | 'cash_fee_collection'
   | 'compensation';
 
 export interface TransactionTypePolicy {
@@ -62,6 +63,9 @@ export const TRANSACTION_TYPES: Readonly<Record<LedgerTransactionType, Transacti
   dragon_coin_issue: { assetCode: 'DRC', allowedAccountTypes: ['platform_dragon_coin_treasury', 'user_dragon_coin', 'prize_payable'] },
   dragon_coin_transfer: { assetCode: 'DRC', allowedAccountTypes: ['user_dragon_coin', 'platform_dragon_coin_treasury'] },
   dragon_coin_adjustment: { assetCode: 'DRC', allowedAccountTypes: ['user_dragon_coin', 'platform_dragon_coin_treasury', 'prize_payable'] },
+  // Records a Toman/rial tournament fee collected by the mock provider into the fee holding
+  // account (DRAGON-12). No user IRR ledger account exists (WALLET-009); cash enters via clearing.
+  cash_fee_collection: { assetCode: 'IRR', allowedAccountTypes: ['cash_clearing', 'tournament_fee_holding', 'refund_clearing'] },
   compensation: { assetCode: null, allowedAccountTypes: 'any' }
 };
 

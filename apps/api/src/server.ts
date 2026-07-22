@@ -19,6 +19,8 @@ import { CompetitionsService, registerCompetitionsRoutes } from './modules/compe
 import { LedgerService } from './modules/ledger/index.ts';
 import { PaymentsService, MockPaymentProvider, registerPaymentsRoutes } from './modules/payments/index.ts';
 import { HoldsService, HoldsReconciliation, registerHoldsRoutes } from './modules/holds/index.ts';
+import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/index.ts';
+import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -74,6 +76,8 @@ export interface ServerDependencies {
   readonly competitions?: { service: CompetitionsService };
   readonly payments?: { service: PaymentsService; db: Db; mockEnabled: boolean };
   readonly holds?: { service: HoldsService; reconciliation: HoldsReconciliation; db: Db };
+  readonly checkout?: { service: CheckoutService; db: Db; mockEnabled: boolean };
+  readonly prizes?: { service: PrizesService };
 }
 
 declare module 'fastify' {
@@ -286,6 +290,22 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 db: deps.holds.db
               });
             }
+            if (deps.checkout !== undefined) {
+              registerCheckoutRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                checkout: deps.checkout.service,
+                db: deps.checkout.db,
+                mockEnabled: deps.checkout.mockEnabled
+              });
+            }
+            if (deps.prizes !== undefined) {
+              registerPrizesRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                prizes: deps.prizes.service
+              });
+            }
           }
         }
       }
@@ -397,6 +417,37 @@ export function buildHolds(database: Database, ledger: { service: LedgerService 
   return { service: new HoldsService(database, ledger.service), reconciliation: new HoldsReconciliation(database), db: database.db };
 }
 
+export function buildCheckout(
+  database: Database,
+  config: AppConfig,
+  tournaments: { service: TournamentsService },
+  registrations: { service: RegistrationsService },
+  ledger: { service: LedgerService },
+  holds: { service: HoldsService }
+): { service: CheckoutService; db: Db; mockEnabled: boolean } {
+  const provider = new MockPaymentProvider(config.payments.callbackSecret);
+  const service = new CheckoutService(
+    database,
+    { paidTournamentsEnabled: config.paidTournamentsEnabled, ttlSeconds: config.payments.purchaseTtlSeconds },
+    tournaments.service,
+    registrations.service,
+    ledger.service,
+    holds.service,
+    provider
+  );
+  return { service, db: database.db, mockEnabled: config.payments.mockEnabled && config.env !== 'production' };
+}
+
+export function buildPrizes(
+  database: Database,
+  tournaments: { service: TournamentsService },
+  competitions: { service: CompetitionsService },
+  registrations: { service: RegistrationsService },
+  ledger: { service: LedgerService }
+): { service: PrizesService } {
+  return { service: new PrizesService(database, tournaments.service, competitions.service, registrations.service, ledger.service) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -410,6 +461,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const tournaments = buildTournaments(database, games);
   const registrations = buildRegistrations(database, tournaments, identity, teams);
   const ledger = buildLedger(database);
+  const holds = buildHolds(database, ledger);
+  const competitions = buildCompetitions(database, tournaments, registrations);
   const app = buildServer(config, {
     database,
     identity,
@@ -419,9 +472,11 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     teams,
     tournaments,
     registrations,
-    competitions: buildCompetitions(database, tournaments, registrations),
+    competitions,
     payments: buildPayments(database, config, ledger),
-    holds: buildHolds(database, ledger)
+    holds,
+    checkout: buildCheckout(database, config, tournaments, registrations, ledger, holds),
+    prizes: buildPrizes(database, tournaments, competitions, registrations, ledger)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

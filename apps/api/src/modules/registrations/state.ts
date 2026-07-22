@@ -9,10 +9,13 @@ import type { EntityId } from '../../shared/ids.ts';
  * holds an ordered queue position; `rejected`/`cancelled` are terminal and inactive.
  */
 
-export const REGISTRATION_STATES = ['pending', 'approved', 'waitlisted', 'rejected', 'cancelled'] as const;
+export const REGISTRATION_STATES = ['pending_payment', 'pending', 'approved', 'waitlisted', 'rejected', 'cancelled'] as const;
 export type RegistrationState = (typeof REGISTRATION_STATES)[number];
 
 const ALLOWED: Readonly<Record<RegistrationState, readonly RegistrationState[]>> = {
+  // Paid checkout (DRAGON-12): a seat is reserved while payment settles; completion
+  // activates it, cancellation/expiry releases it. It never becomes waitlisted.
+  pending_payment: ['approved', 'cancelled'],
   pending: ['approved', 'waitlisted', 'rejected', 'cancelled'],
   waitlisted: ['approved', 'rejected', 'cancelled'],
   approved: ['cancelled'],
@@ -26,13 +29,13 @@ export function canRegistrationTransition(from: RegistrationState, to: Registrat
 
 /** Active registrations count against the duplicate-prevention rule (TOURN-009). */
 export function isActiveState(state: RegistrationState): boolean {
-  return state === 'pending' || state === 'approved' || state === 'waitlisted';
+  return state === 'pending_payment' || state === 'pending' || state === 'approved' || state === 'waitlisted';
 }
 
 export type Seat = 'main' | 'waitlist' | 'none';
-/** Only an approved registration occupies a main (capacity) seat. */
+/** An approved registration and a paid registration awaiting payment both hold a main seat. */
 export function seatOf(state: RegistrationState): Seat {
-  if (state === 'approved') return 'main';
+  if (state === 'approved' || state === 'pending_payment') return 'main';
   if (state === 'waitlisted') return 'waitlist';
   return 'none';
 }

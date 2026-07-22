@@ -22,7 +22,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-11a
 - [x] DRAGON-11b
 - [x] DRAGON-11c
-- [ ] DRAGON-12
+- [x] DRAGON-12
 - [ ] DRAGON-13
 - [ ] DRAGON-14
 - [ ] DRAGON-15
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: none in progress; next eligible is `DRAGON-12`
-- Last completed item: `DRAGON-11c` (holds, releases, expiry, and gated transfer boundaries) — implemented and verified, not yet committed. **Parent `DRAGON-11` is complete** (11a ledger + 11b mock purchase + 11c holds/transfers)
+- Active item: none in progress; next eligible is `DRAGON-13`
+- Last completed item: `DRAGON-12` (paid tournament checkout and prize entitlements, OD-007-gated) — implemented and verified, not yet committed
 - Blockers: none

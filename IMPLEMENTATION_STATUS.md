@@ -17,8 +17,9 @@
 - Ledger core and invariants: complete (DRAGON-11a) — immutable double-entry ledger foundation; implemented and verified, not yet committed
 - Mock Toman purchase and exactly-once Dragon Coin crediting: complete (DRAGON-11b) — implemented and verified, not yet committed
 - Holds, releases, expiry, and gated transfer boundaries: complete (DRAGON-11c) — implemented and verified, not yet committed. **Parent DRAGON-11 is complete** (11a + 11b + 11c)
-- Active prompt: DRAGON-11 complete; next eligible is DRAGON-12
-- Latest verified checkpoint: DRAGON-11c holds and transfer boundaries, 2026-07-22
+- Paid tournament checkout and prize entitlements: complete (DRAGON-12) — implemented and verified, not yet committed (paid checkout stays OD-007-gated off by default)
+- Active prompt: DRAGON-12 complete; next eligible is DRAGON-13
+- Latest verified checkpoint: DRAGON-12 paid checkout and prize entitlements, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -180,6 +181,18 @@
 - Deferred to DRAGON-12+ (still gated): real payment-provider integration, paid tournament checkout activation, participant refund execution, prize distribution, withdrawable cash, user-to-user transfers, arbitrary admin ledger posting, and the background expiry/reconciliation scheduler (DRAGON-14).
 - **DRAGON-11c is complete. Parent DRAGON-11 (11a ledger + 11b mock purchase + 11c holds/transfers) is complete.**
 
+## Delivered by DRAGON-12
+- OD-007 fail-closed gate (`config.ts`, `PAID_TOURNAMENTS_ENABLED`): paid registration checkout is off everywhere unless the flag is exactly `true`; a disabled gate produces no registration, hold, checkout, or ledger effect. Free tournaments keep the direct `register()` path.
+- Paid registration checkout (`modules/checkout/`, migration `016-checkout`): server-recalculates the fee from `tournament.fee` (Toman/rial + Dragon Coin components; never client-supplied). A checkout reserves a main seat via a new `pending_payment` registration state and, for a Dragon Coin fee, a `tournament_checkout` hold — both in one transaction at start. Completion (verified Toman provider callback and/or Dragon Coin hold capture) activates the registration (`pending_payment`→`approved`), posts the Toman fee to the ledger (`cash_fee_collection`: cash_clearing → tournament_fee_holding), and captures the hold — **all atomically in one transaction**. Idempotent start; a duplicate or concurrent success callback converges to the activated result (unique checkout/ledger business references + version guards); a failed/cancelled/expired checkout releases the seat and the hold with no fee collected. Only the mock provider and approved ledger are used — no live provider, Dragon Coin refund, or cash-out.
+- Registration integration (`registrations/`): the new `pending_payment` state holds a main seat and blocks duplicate active entries; paid activation/cancellation run inside the checkout's transaction via within-uow methods. The generic admin/self decision path (`approve`/`reject`/`waitlist`/`cancel`) refuses a `pending_payment` registration (`REGISTRATION_PAYMENT_PENDING`) so it can never be granted a free seat, double-claim capacity, or orphan its checkout — those registrations are owned entirely by the checkout flow.
+- Prize allocation + entitlements (`modules/prizes/`, migration `017-prizes`): versioned allocation from final standings, idempotent per standings calculation version. Organizer-defined Dragon Coin prizes credit immediately and idempotently through the ledger (keyed `prize_drc:<tid>:<rank>:<account>` so re-allocation after a standings correction never double-credits and never claws back an already-credited coin prize); organizer-defined Toman cash prizes become pending entitlements, and a re-allocation supersedes prior unpaid (pending/approved) cash entitlements without touching paid ones.
+- Cash entitlement lifecycle (finance): `pending`→`approved`→`paid` (or `→failed`), each reasoned; marking `paid` requires off-platform settlement evidence and `finance.approve` (allocation, approve, fail require `finance.manage`). No external payout provider and no cash-out ledger movement — an entitlement records the obligation and its manual settlement only.
+- HTTP surface: session-gated participant checkout (start/status/list/confirm/cancel — owner-scoped, IDOR-closed, no internal ledger/registration/business-reference detail) and prize-entitlement reads; an untrusted provider callback with no session authority; a fail-closed non-production mock-pay control; finance-gated prize allocation and entitlement settlement. Fees are always server-recomputed.
+- Bilingual UI: a paid checkout flow on the tournament detail page (pay-and-register → awaiting payment → mock settle → registered; never shows registered before activation) and a prize-entitlements list in the wallet, fa RTL / en LTR, exact integer formatting, no internal identifiers.
+- One focused `test-reviewer` pass over fee integrity, atomic activation, exactly-once/no-double-charge, failed/cancelled paths, the OD-007 gate, IDOR/authorization, prize double-credit prevention, the registration state machine, and data exposure: **one Critical was found and fixed** — the generic admin `approve()`/`cancel()` path could act on a `pending_payment` registration (a free seat grant + capacity double-claim without the fee); it is now refused with a stable error and covered by regression tests. No other Critical/High; the reviewer confirmed fee integrity, atomicity, exactly-once, the fail-closed gate, IDOR, and prize correctness as sound.
+- Deferred to DRAGON-13+ (still gated/out of scope): real payment-provider integration, participant Toman refunds, prize cash-out via a provider, Dragon Coin refunds, and the background checkout/entitlement scheduler (DRAGON-14).
+- **DRAGON-12 is complete.**
+
 ## Known blockers
 - None.
 
@@ -211,7 +224,17 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22 (DRAGON-11c), all commands run from the repository root:
+2026-07-22 (DRAGON-12), all commands run from the repository root:
+- `npm run typecheck` — pass
+- `npm run lint` — pass, 0 problems
+- `npm test` (workspaces) — 284 passed (248 api, 36 web); api unit adds the paid-checkout config fail-closed test; web unit includes the fa/en i18n parity + Persian-content checks covering the new `checkout`, `wallet` prize, and error-code keys
+- `npm run test:integration` (api) — 256 passed (adds 14 checkout: OD-007 gate, server fee recalculation, Toman/Dragon Coin/mixed fees, atomic activation, duplicate + failed callback, insufficient coins, idempotent start, cancellation, expiry, IDOR, free-tournament rejection, and the admin-decision guard on `pending_payment`; and 9 prizes: versioned allocation, idempotent Dragon Coin credit, re-allocation supersede-without-double-credit, not-final rejection, cash entitlement approve/pay(evidence)/invalid-transition, owner-scoped list, index uniqueness)
+- `npm run build` — pass
+- migrations against the disposable test DB — `016-checkout` and `017-prizes` apply cleanly (all 17 migrations applied and recorded)
+- `npm run e2e` — the paid checkout journey (start → awaiting payment → mock verified callback → registered; a failed payment does not register; Persian RTL) passes on desktop/mobile/small-mobile in fa + en. The full browser suite passes at ~198 tests; the OTP-heavy suite intermittently flakes under full-parallel contention with `retries: 0` (a different handful of unrelated specs each run), and an isolated re-run of the affected specs passes (matrix owned by DRAGON-16a)
+- Prior DRAGON-11 checkpoints unchanged this slice.
+
+Earlier DRAGON-11c verification, 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
 - `npm test` (workspaces) — 283 passed (247 api, 36 web); api unit adds 5 hold unit/property tests (state machine, purpose/transfer gate registries fail-closed, and a 500-iteration amount-conservation property: original = captured + released + remaining after every valid capture/release)

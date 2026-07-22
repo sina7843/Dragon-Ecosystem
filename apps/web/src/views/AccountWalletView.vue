@@ -16,6 +16,7 @@ import {
   type PurchaseView
 } from '../composables/usePaymentsApi.ts';
 import { getWalletSummary, listHolds, type HoldView, type WalletSummary } from '../composables/useHoldsApi.ts';
+import { listEntitlements, type EntitlementView } from '../composables/useCheckoutApi.ts';
 
 /**
  * Dragon Coin wallet (DRAGON-11b). Shows packages, the current balance, and
@@ -35,6 +36,7 @@ const loadError = ref<string | undefined>(undefined);
 const packages = ref<PackageView[]>([]);
 const summary = ref<WalletSummary>({ ledgerBalance: 0, heldAmount: 0, availableBalance: 0 });
 const holds = ref<HoldView[]>([]);
+const entitlements = ref<EntitlementView[]>([]);
 const history = ref<PurchaseView[]>([]);
 const active = ref<PurchaseView | null>(null);
 const busy = ref(false);
@@ -44,6 +46,7 @@ const pendingActive = computed(() => active.value !== null && active.value.state
 async function refresh(): Promise<void> {
   summary.value = await getWalletSummary();
   holds.value = (await listHolds()).items;
+  entitlements.value = (await listEntitlements()).items;
   history.value = (await listPurchases()).items;
 }
 
@@ -231,6 +234,49 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
               <td>{{ t(`wallet.holdPurposeLabel.${hold.purpose}`) }}</td>
               <td>{{ formatNumber(hold.remainingAmount, activeLocale()) }}</td>
               <td>{{ t(`wallet.holdState.${hold.state}`) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h2>{{ t('wallet.prizes') }}</h2>
+      <StateBlock
+        v-if="entitlements.length === 0"
+        variant="empty"
+        data-testid="no-entitlements"
+        :message="t('wallet.noPrizes')"
+      />
+      <div
+        v-else
+        class="scroll"
+      >
+        <table data-testid="entitlement-list">
+          <caption class="sr-only">
+            {{ t('wallet.prizes') }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                {{ t('wallet.prizeRank') }}
+              </th>
+              <th scope="col">
+                {{ t('wallet.price') }}
+              </th>
+              <th scope="col">
+                {{ t('wallet.status') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="entitlement in entitlements"
+              :key="entitlement.id"
+              :data-testid="`entitlement-${entitlement.id}`"
+              :data-state="entitlement.state"
+            >
+              <td>{{ formatNumber(entitlement.rank, activeLocale()) }}</td>
+              <td>{{ formatNumber(entitlement.tomanAmount, activeLocale()) }} {{ t('wallet.tomanUnit') }}</td>
+              <td>{{ t(`wallet.entitlementState.${entitlement.state}`) }}</td>
             </tr>
           </tbody>
         </table>

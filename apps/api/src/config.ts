@@ -49,6 +49,13 @@ export interface AppConfig {
   readonly auth: AuthConfig;
   readonly payments: PaymentsConfig;
   /**
+   * OD-007 feature gate for paid tournament registration checkout. Fail-closed:
+   * paid checkout stays disabled everywhere unless PAID_TOURNAMENTS_ENABLED=true is
+   * explicitly set (kept off until fee/payout templates are approved). Free
+   * tournaments are unaffected.
+   */
+  readonly paidTournamentsEnabled: boolean;
+  /**
    * Reverse-proxy addresses whose `X-Forwarded-For` may be trusted (SEC-009).
    * Empty means trust nothing, so `request.ip` is the real socket peer — correct
    * for local development and tests where no proxy sits in front. In the Compose
@@ -219,6 +226,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     trustedProxies: parseTrustedProxies(source['TRUSTED_PROXIES'], problems),
     // Fail-closed: enabled only by an explicit flag, and never in production.
     devRoutesEnabled: env !== 'production' && (source['ENABLE_DEV_ROUTES'] ?? '').toLowerCase() === 'true',
+    // OD-007 fail-closed: paid tournament checkout is off unless explicitly enabled.
+    paidTournamentsEnabled: (source['PAID_TOURNAMENTS_ENABLED'] ?? '').toLowerCase() === 'true',
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

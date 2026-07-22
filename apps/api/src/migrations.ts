@@ -14,6 +14,8 @@ import { competitionsVersionsMigration } from './modules/competitions/migrations
 import { ledgerMigration } from './modules/ledger/migrations.ts';
 import { paymentsMigration } from './modules/payments/migrations.ts';
 import { holdsMigration } from './modules/holds/migrations.ts';
+import { checkoutMigration } from './modules/checkout/migrations.ts';
+import { prizesMigration } from './modules/prizes/migrations.ts';
 
 /**
  * The ordered migration registry.
@@ -37,5 +39,7 @@ export const allMigrations: readonly Migration[] = [
   competitionsVersionsMigration,
   ledgerMigration,
   paymentsMigration,
-  holdsMigration
+  holdsMigration,
+  checkoutMigration,
+  prizesMigration
 ];

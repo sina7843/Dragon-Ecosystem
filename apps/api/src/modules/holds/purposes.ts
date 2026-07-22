@@ -11,7 +11,7 @@ import type { LedgerAccountType } from '../ledger/index.ts';
  * this slice, so every capture destination is a DRC account.
  */
 
-export type HoldPurpose = 'admin_correction' | 'tournament_entry_fee' | 'prize_reservation';
+export type HoldPurpose = 'admin_correction' | 'tournament_checkout' | 'tournament_entry_fee' | 'prize_reservation';
 
 export interface HoldPurposePolicy {
   /** Fail-closed gate: a hold for a disabled purpose cannot be created. */
@@ -27,6 +27,9 @@ export const HOLD_PURPOSES: Readonly<Record<HoldPurpose, HoldPurposePolicy>> = {
   // Enabled: a finance-authorized reservation on a user's Dragon Coin, captured to
   // the platform treasury. Not a gated user workflow (it is an internal correction).
   admin_correction: { enabled: true, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: true, gateReason: null },
+  // Enabled mechanism: a Dragon Coin tournament entry fee reservation captured to the
+  // platform treasury. Only reachable through the OD-007-gated paid checkout flow.
+  tournament_checkout: { enabled: true, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: false, gateReason: null },
   // Gated: paid tournament entry capture stays disabled under OD-007.
   tournament_entry_fee: { enabled: false, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: true, gateReason: 'OD-007: paid tournament registration is not activated' },
   // Gated: prize payout is owned by a later prompt.

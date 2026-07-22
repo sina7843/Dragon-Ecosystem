@@ -406,7 +406,17 @@
       "UNSUPPORTED_TRANSFER_TYPE": "این نوع انتقال پشتیبانی نمی‌شود.",
       "INVALID_HOLD_PURPOSE": "این هدف مسدودی معتبر نیست.",
       "INVALID_BUSINESS_REFERENCE": "ذکر شناسهٔ کسب‌وکار الزامی است.",
-      "HELD_INVARIANT_VIOLATION": "به‌دلیل ناسازگاری در موجودی مسدودشده این عملیات کامل نشد. با پشتیبانی تماس بگیرید."
+      "HELD_INVARIANT_VIOLATION": "به‌دلیل ناسازگاری در موجودی مسدودشده این عملیات کامل نشد. با پشتیبانی تماس بگیرید.",
+      "PAID_TOURNAMENTS_DISABLED": "ثبت‌نام پولی مسابقه هنوز در دسترس نیست.",
+      "CHECKOUT_EXISTS": "برای این مسابقه پیش‌تر پرداخت یا ثبت‌نام دارید.",
+      "CHECKOUT_NOT_ACTIVE": "این پرداخت دیگر قابل تغییر نیست.",
+      "PAYMENT_REQUIRED": "این پرداخت به پرداخت تومانی نیاز دارد.",
+      "FREE_TOURNAMENT": "این مسابقه رایگان است؛ مستقیم ثبت‌نام کنید.",
+      "PRIZES_NOT_FINAL": "برای تخصیص جوایز، رده‌بندی نهایی لازم است.",
+      "INVALID_ENTITLEMENT_TRANSITION": "این تغییر برای این استحقاق مجاز نیست.",
+      "STALE_ENTITLEMENT_VERSION": "این استحقاق تغییر کرد. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "SETTLEMENT_EVIDENCE_REQUIRED": "ذکر مدرک تسویه الزامی است.",
+      "REGISTRATION_PAYMENT_PENDING": "این ثبت‌نام در حال تکمیل پرداخت است؛ آن را از طریق پرداخت مدیریت کنید."
     }
   },
   "content": {
@@ -658,7 +668,8 @@
       "approved": "تأییدشده",
       "waitlisted": "در فهرست انتظار",
       "rejected": "ردشده",
-      "cancelled": "لغوشده"
+      "cancelled": "لغوشده",
+      "pending_payment": "در انتظار پرداخت"
     }
   },
   "standings": {
@@ -831,6 +842,32 @@
       "released": "آزادشده",
       "expired": "منقضی‌شده",
       "cancelled": "لغوشده"
+    },
+    "prizes": "جوایز",
+    "noPrizes": "استحقاق جایزه‌ای ندارید.",
+    "prizeRank": "رتبه",
+    "entitlementState": {
+      "pending": "در انتظار",
+      "approved": "تأییدشده",
+      "paid": "پرداخت‌شده",
+      "failed": "ناموفق",
+      "superseded": "جایگزین‌شده"
+    }
+  },
+  "checkout": {
+    "payAndRegister": "پرداخت و ثبت‌نام",
+    "started": "پرداخت آغاز شد. برای ثبت‌نام پرداخت را کامل کنید.",
+    "pay": "پرداخت هزینه",
+    "confirm": "تأیید با دراگون‌کوین",
+    "simulateFailure": "ناموفق کردن پرداخت",
+    "activated": "پرداخت تأیید شد — ثبت‌نام شدید.",
+    "state": {
+      "awaiting_payment": "در انتظار پرداخت",
+      "awaiting_confirmation": "در انتظار تأیید",
+      "activated": "ثبت‌نام‌شده",
+      "cancelled": "لغوشده",
+      "expired": "منقضی‌شده",
+      "failed": "ناموفق"
     }
   }
 }

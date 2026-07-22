@@ -406,7 +406,17 @@
       "UNSUPPORTED_TRANSFER_TYPE": "That transfer type is not supported.",
       "INVALID_HOLD_PURPOSE": "That hold purpose is not valid.",
       "INVALID_BUSINESS_REFERENCE": "A business reference is required.",
-      "HELD_INVARIANT_VIOLATION": "This action could not complete due to a held-balance inconsistency. Contact support."
+      "HELD_INVARIANT_VIOLATION": "This action could not complete due to a held-balance inconsistency. Contact support.",
+      "PAID_TOURNAMENTS_DISABLED": "Paid tournament registration is not available yet.",
+      "CHECKOUT_EXISTS": "You already have a checkout or registration for this tournament.",
+      "CHECKOUT_NOT_ACTIVE": "This checkout can no longer change.",
+      "PAYMENT_REQUIRED": "This checkout needs a Toman payment.",
+      "FREE_TOURNAMENT": "This tournament is free; register directly.",
+      "PRIZES_NOT_FINAL": "Final standings are required before allocating prizes.",
+      "INVALID_ENTITLEMENT_TRANSITION": "That change is not allowed for this entitlement.",
+      "STALE_ENTITLEMENT_VERSION": "This entitlement changed. Reload and try again.",
+      "SETTLEMENT_EVIDENCE_REQUIRED": "Settlement evidence is required.",
+      "REGISTRATION_PAYMENT_PENDING": "This registration is completing payment; manage it through checkout."
     }
   },
   "content": {
@@ -658,7 +668,8 @@
       "approved": "Approved",
       "waitlisted": "Waitlisted",
       "rejected": "Rejected",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "pending_payment": "Awaiting payment"
     }
   },
   "standings": {
@@ -831,6 +842,32 @@
       "released": "Released",
       "expired": "Expired",
       "cancelled": "Cancelled"
+    },
+    "prizes": "Prizes",
+    "noPrizes": "You have no prize entitlements.",
+    "prizeRank": "Placement",
+    "entitlementState": {
+      "pending": "Pending",
+      "approved": "Approved",
+      "paid": "Paid",
+      "failed": "Failed",
+      "superseded": "Superseded"
+    }
+  },
+  "checkout": {
+    "payAndRegister": "Pay and register",
+    "started": "Checkout started. Complete the payment to register.",
+    "pay": "Pay fee",
+    "confirm": "Confirm with Dragon Coin",
+    "simulateFailure": "Fail payment",
+    "activated": "Payment verified — you are registered.",
+    "state": {
+      "awaiting_payment": "Awaiting payment",
+      "awaiting_confirmation": "Awaiting confirmation",
+      "activated": "Registered",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "failed": "Failed"
     }
   }
 }

@@ -73,6 +73,13 @@ test('trusted proxies default to none, so request.ip is the real peer in dev and
   assert.deepEqual(loadConfig({}).trustedProxies, []);
 });
 
+test('paid tournament checkout is fail-closed: off unless explicitly enabled (OD-007)', () => {
+  assert.equal(loadConfig({}).paidTournamentsEnabled, false);
+  assert.equal(loadConfig({ PAID_TOURNAMENTS_ENABLED: 'false' }).paidTournamentsEnabled, false);
+  assert.equal(loadConfig({ PAID_TOURNAMENTS_ENABLED: '1' }).paidTournamentsEnabled, false);
+  assert.equal(loadConfig({ PAID_TOURNAMENTS_ENABLED: 'true' }).paidTournamentsEnabled, true);
+});
+
 test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
   // Default: off.
   assert.equal(loadConfig({}).devRoutesEnabled, false);

@@ -59,7 +59,10 @@ export default defineConfig({
         // Keep the browser suite from tripping the resend interval between tests.
         OTP_RESEND_SECONDS: '1',
         OTP_REQUESTS_PER_MOBILE: '50',
-        OTP_REQUESTS_PER_IP: '500'
+        OTP_REQUESTS_PER_IP: '500',
+        // DRAGON-12: exercise the paid checkout flow behind its OD-007 gate.
+        PAID_TOURNAMENTS_ENABLED: 'true',
+        PAYMENTS_CALLBACK_SECRET: 'e2e-only-payments-callback-secret-not-real'
       }
     },
     {

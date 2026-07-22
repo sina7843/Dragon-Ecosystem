@@ -22,8 +22,9 @@ describe('hold state machine', () => {
 });
 
 describe('purpose and transfer gates (fail-closed)', () => {
-  test('only admin_correction is enabled; gated purposes carry a reason', () => {
+  test('enabled purposes (admin_correction, tournament_checkout) vs gated ones with a reason', () => {
     assert.equal(HOLD_PURPOSES.admin_correction.enabled, true);
+    assert.equal(HOLD_PURPOSES.tournament_checkout.enabled, true);
     assert.equal(HOLD_PURPOSES.tournament_entry_fee.enabled, false);
     assert.equal(HOLD_PURPOSES.prize_reservation.enabled, false);
     assert.ok(HOLD_PURPOSES.tournament_entry_fee.gateReason);
