@@ -53,6 +53,9 @@ export default defineConfig({
         // Disposable test database from docker-compose.test.yml; `npm run e2e` starts it.
         MONGODB_URI: 'mongodb://127.0.0.1:27018/dragon_e2e?directConnection=true',
         AUTH_SECRET: 'e2e-only-auth-secret-value-not-a-real-secret',
+        // The content publishing journey uses the dev-only role-grant route to set
+        // up a publisher; it is registered only behind this explicit flag.
+        ENABLE_DEV_ROUTES: 'true',
         // Keep the browser suite from tripping the resend interval between tests.
         OTP_RESEND_SECONDS: '1',
         OTP_REQUESTS_PER_MOBILE: '50',

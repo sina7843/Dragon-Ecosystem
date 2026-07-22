@@ -42,6 +42,14 @@ export interface AppConfig {
    * client cannot supply a trusted forwarded-for header.
    */
   readonly trustedProxies: readonly string[];
+  /**
+   * Whether development-only privileged routes (notably the unauthenticated
+   * `/api/v1/dev/grant-role`) are registered. Fail-closed: this is true only when
+   * `ENABLE_DEV_ROUTES=true` is explicitly set AND the environment is not
+   * production. Production never enables it regardless of the flag, so a missing
+   * or stray flag can never expose the route in a real deployment.
+   */
+  readonly devRoutesEnabled: boolean;
 }
 
 /** Safe non-secret default used only outside production. */
@@ -162,6 +170,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     port: parsePort(source['PORT'], problems),
     mongoUri: parseMongoUri(source['MONGODB_URI'], env, problems),
     trustedProxies: parseTrustedProxies(source['TRUSTED_PROXIES'], problems),
+    // Fail-closed: enabled only by an explicit flag, and never in production.
+    devRoutesEnabled: env !== 'production' && (source['ENABLE_DEV_ROUTES'] ?? '').toLowerCase() === 'true',
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

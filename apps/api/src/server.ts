@@ -10,6 +10,8 @@ import { allMigrations } from './migrations.ts';
 import { runMigrations } from './shared/db/migrations.ts';
 import { IdentityService, MockSmsAdapter, registerIdentityRoutes } from './modules/identity/index.ts';
 import { AdminService, AuthorizationService, registerAdminRoutes } from './modules/admin/index.ts';
+import { ContentService, registerContentRoutes } from './modules/content/index.ts';
+import { GamesService, registerGamesRoutes } from './modules/games/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -57,6 +59,8 @@ export interface ServerDependencies {
   /** Present once the data layer is connected; contract tests may omit it. */
   readonly identity?: { service: IdentityService; db: Db };
   readonly admin?: { service: AdminService; authorization: AuthorizationService };
+  readonly content?: { service: ContentService };
+  readonly games?: { service: GamesService };
 }
 
 declare module 'fastify' {
@@ -208,8 +212,24 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
           registerAdminRoutes(api, {
             identity: deps.identity.service,
             authorization: deps.admin.authorization,
-            admin: deps.admin.service
+            admin: deps.admin.service,
+            devRoutesEnabled: config.devRoutesEnabled
           });
+
+          if (deps.content !== undefined) {
+            registerContentRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              content: deps.content.service
+            });
+          }
+          if (deps.games !== undefined) {
+            registerGamesRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              games: deps.games.service
+            });
+          }
         }
       }
     },
@@ -251,6 +271,16 @@ export function buildAdmin(database: Database): { service: AdminService; authori
   return { service: new AdminService(database), authorization: new AuthorizationService(database.db) };
 }
 
+/** Wires the content module to a live database. */
+export function buildContent(database: Database): { service: ContentService } {
+  return { service: new ContentService(database) };
+}
+
+/** Wires the games module to a live database. */
+export function buildGames(database: Database): { service: GamesService } {
+  return { service: new GamesService(database) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -261,8 +291,26 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const app = buildServer(config, {
     database,
     identity: buildIdentity(database, config),
-    admin: buildAdmin(database)
+    admin: buildAdmin(database),
+    content: buildContent(database),
+    games: buildGames(database)
   });
+
+  // Defense in depth: a non-production server exposes read-only development routes
+  // (mock SMS inbox, client-ip probe) and may use placeholder secrets. NODE_ENV
+  // defaults to development when unset, so this warning makes an accidental
+  // non-production deployment loud. Set NODE_ENV=production for any real deployment.
+  if (config.env !== 'production') {
+    app.log.warn({ env: config.env }, 'SECURITY: non-production environment — development routes and placeholder secrets may be active.');
+  }
+  // The privileged, unauthenticated /dev/grant-role is registered only behind an
+  // explicit flag; warn loudly whenever it is on.
+  if (config.devRoutesEnabled) {
+    app.log.warn(
+      { env: config.env },
+      'SECURITY: ENABLE_DEV_ROUTES=true — the unauthenticated /api/v1/dev/grant-role is registered. Never enable this outside local development or automated tests.'
+    );
+  }
 
   for (const signal of ['SIGTERM', 'SIGINT'] as const) {
     process.on(signal, () => {

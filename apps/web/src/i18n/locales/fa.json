@@ -15,7 +15,11 @@
       "profile": "پروفایل",
       "security": "امنیت",
       "adminUsers": "کاربران",
-      "adminAudit": "رخدادنگاری"
+      "adminAudit": "رخدادنگاری",
+      "content": "محتوا",
+      "games": "بازی‌ها",
+      "adminContent": "محتوا",
+      "adminGames": "بازی‌ها"
     }
   },
   "nav": {
@@ -35,7 +39,9 @@
     "signOut": "خروج",
     "openMenu": "منو",
     "closeMenu": "بستن منو",
-    "skipToContent": "پرش به محتوای اصلی"
+    "skipToContent": "پرش به محتوای اصلی",
+    "content": "محتوا",
+    "games": "بازی‌ها"
   },
   "theme": {
     "label": "پوسته",
@@ -154,7 +160,9 @@
     "area": {
       "users": "کاربران",
       "audit": "گزارش رخدادها",
-      "configuration": "پیکربندی"
+      "configuration": "پیکربندی",
+      "content": "محتوا",
+      "games": "بازی‌ها"
     },
     "users": {
       "heading": "کاربران",
@@ -305,6 +313,87 @@
       "INTERNAL_ERROR": "خطایی رخ داد. کمی بعد دوباره تلاش کنید.",
       "NETWORK_ERROR": "دسترسی به سرویس ممکن نشد. اتصال خود را بررسی کنید.",
       "UNEXPECTED": "خطایی رخ داد. کمی بعد دوباره تلاش کنید."
+    }
+  },
+  "content": {
+    "type": {
+      "news": "خبر",
+      "article": "مقاله",
+      "announcement": "اطلاعیه",
+      "guide": "راهنما",
+      "rules": "قوانین",
+      "page": "صفحه"
+    },
+    "hub": {
+      "heading": "محتوا",
+      "intro": "اخبار، مقاله‌ها، راهنماها و اطلاعیه‌ها.",
+      "filterLabel": "فیلتر بر اساس نوع",
+      "all": "همه",
+      "empty": "هنوز محتوایی منتشر نشده است.",
+      "loadMore": "نمایش بیشتر"
+    }
+  },
+  "games": {
+    "catalog": {
+      "heading": "بازی‌ها",
+      "intro": "کاتالوگ بازی‌ها را مرور کنید.",
+      "empty": "هنوز بازی‌ای منتشر نشده است.",
+      "loadMore": "نمایش بیشتر"
+    }
+  },
+  "adminContent": {
+    "heading": "محتوا",
+    "new": "محتوای جدید",
+    "empty": "هنوز محتوایی نیست.",
+    "creating": "محتوای جدید",
+    "editing": "ویرایش محتوا",
+    "created": "پیش‌نویس ساخته شد.",
+    "saved": "محتوا ذخیره شد.",
+    "transitioned": "محتوا به‌روزرسانی شد.",
+    "reasonPrompt": "یک دلیل وارد کنید (الزامی):",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره…",
+    "submitReview": "ارسال برای بازبینی",
+    "publish": "انتشار",
+    "archive": "بایگانی",
+    "field": {
+      "type": "نوع",
+      "title": "عنوان",
+      "summary": "خلاصه",
+      "body": "متن (HTML)",
+      "slugFa": "نامک فارسی",
+      "slugEn": "نامک انگلیسی"
+    },
+    "state": {
+      "draft": "پیش‌نویس",
+      "in_review": "در حال بازبینی",
+      "published": "منتشرشده",
+      "archived": "بایگانی‌شده"
+    }
+  },
+  "adminGames": {
+    "heading": "بازی‌ها",
+    "new": "بازی جدید",
+    "empty": "هنوز بازی‌ای نیست.",
+    "creating": "بازی جدید",
+    "editing": "ویرایش بازی",
+    "created": "بازی ساخته شد.",
+    "saved": "بازی ذخیره شد.",
+    "statusChanged": "وضعیت بازی تغییر کرد.",
+    "reasonPrompt": "یک دلیل وارد کنید (الزامی):",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره…",
+    "publish": "انتشار",
+    "archive": "بایگانی",
+    "field": {
+      "name": "نام",
+      "description": "توضیح",
+      "slug": "نامک"
+    },
+    "status": {
+      "draft": "پیش‌نویس",
+      "published": "منتشرشده",
+      "archived": "بایگانی‌شده"
     }
   }
 }

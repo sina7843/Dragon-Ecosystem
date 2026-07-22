@@ -15,7 +15,11 @@
       "profile": "Profile",
       "security": "Security",
       "adminUsers": "Users",
-      "adminAudit": "Audit"
+      "adminAudit": "Audit",
+      "content": "Content",
+      "games": "Games",
+      "adminContent": "Content",
+      "adminGames": "Games"
     }
   },
   "nav": {
@@ -35,7 +39,9 @@
     "signOut": "Sign out",
     "openMenu": "Menu",
     "closeMenu": "Close menu",
-    "skipToContent": "Skip to main content"
+    "skipToContent": "Skip to main content",
+    "content": "Content",
+    "games": "Games"
   },
   "theme": {
     "label": "Theme",
@@ -154,7 +160,9 @@
     "area": {
       "users": "Users",
       "audit": "Audit log",
-      "configuration": "Configuration"
+      "configuration": "Configuration",
+      "content": "Content",
+      "games": "Games"
     },
     "users": {
       "heading": "Users",
@@ -305,6 +313,87 @@
       "INTERNAL_ERROR": "Something went wrong. Try again shortly.",
       "NETWORK_ERROR": "The service could not be reached. Check your connection.",
       "UNEXPECTED": "Something went wrong. Try again shortly."
+    }
+  },
+  "content": {
+    "type": {
+      "news": "News",
+      "article": "Article",
+      "announcement": "Announcement",
+      "guide": "Guide",
+      "rules": "Rules",
+      "page": "Page"
+    },
+    "hub": {
+      "heading": "Content",
+      "intro": "News, articles, guides, and announcements.",
+      "filterLabel": "Filter by type",
+      "all": "All",
+      "empty": "No content published yet.",
+      "loadMore": "Load more"
+    }
+  },
+  "games": {
+    "catalog": {
+      "heading": "Games",
+      "intro": "Browse the game catalog.",
+      "empty": "No games published yet.",
+      "loadMore": "Load more"
+    }
+  },
+  "adminContent": {
+    "heading": "Content",
+    "new": "New content",
+    "empty": "No content yet.",
+    "creating": "New content",
+    "editing": "Editing content",
+    "created": "Draft created.",
+    "saved": "Content saved.",
+    "transitioned": "Content updated.",
+    "reasonPrompt": "Enter a reason (required):",
+    "save": "Save",
+    "saving": "Saving…",
+    "submitReview": "Submit for review",
+    "publish": "Publish",
+    "archive": "Archive",
+    "field": {
+      "type": "Type",
+      "title": "Title",
+      "summary": "Summary",
+      "body": "Body (HTML)",
+      "slugFa": "Persian slug",
+      "slugEn": "English slug"
+    },
+    "state": {
+      "draft": "Draft",
+      "in_review": "In review",
+      "published": "Published",
+      "archived": "Archived"
+    }
+  },
+  "adminGames": {
+    "heading": "Games",
+    "new": "New game",
+    "empty": "No games yet.",
+    "creating": "New game",
+    "editing": "Editing game",
+    "created": "Game created.",
+    "saved": "Game saved.",
+    "statusChanged": "Game status changed.",
+    "reasonPrompt": "Enter a reason (required):",
+    "save": "Save",
+    "saving": "Saving…",
+    "publish": "Publish",
+    "archive": "Archive",
+    "field": {
+      "name": "Name",
+      "description": "Description",
+      "slug": "Slug"
+    },
+    "status": {
+      "draft": "Draft",
+      "published": "Published",
+      "archived": "Archived"
     }
   }
 }

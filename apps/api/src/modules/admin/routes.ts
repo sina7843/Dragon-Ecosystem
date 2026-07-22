@@ -1,5 +1,6 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { NotFoundError } from '../../shared/errors.ts';
+import { createRequestContext, SYSTEM_ACTOR } from '../../shared/context.ts';
 import { decodeCursor } from '../../shared/pagination.ts';
 import { PERMISSIONS } from '../../shared/authz/permissions.ts';
 import { createSessionGuards, type SessionGuards } from '../identity/index.ts';
@@ -21,6 +22,12 @@ export interface AdminDeps {
   readonly identity: IdentityService;
   readonly authorization: AuthorizationService;
   readonly admin: AdminService;
+  /**
+   * Whether the development-only grant helper is registered. Comes from
+   * `config.devRoutesEnabled`, which is false in production and false unless
+   * `ENABLE_DEV_ROUTES=true` is explicitly set.
+   */
+  readonly devRoutesEnabled: boolean;
 }
 
 const errorResponses = {
@@ -383,4 +390,37 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     },
     async (request) => deps.admin.exportAudit(actorOf(request), request.body as { reason: string })
   );
+
+  // Development and test only: grant a role to an account by mobile number, so the
+  // browser tests can set up an administrator without a seeded one. Routed through
+  // the audited assignRole with a system super-actor. Registered only when
+  // ENABLE_DEV_ROUTES=true and not in production (fail-closed).
+  if (deps.devRoutesEnabled) {
+    app.post(
+      '/dev/grant-role',
+      {
+        schema: {
+          tags: ['admin'],
+          summary: 'Development and test only: grant a role to an account by mobile.',
+          body: {
+            type: 'object',
+            required: ['mobile', 'role'],
+            additionalProperties: false,
+            properties: { mobile: { type: 'string' }, role: { type: 'string' } }
+          },
+          response: { 200: { type: 'object', additionalProperties: true }, 404: { $ref: 'ErrorResponse#' } }
+        }
+      },
+      async (request) => {
+        const { mobile, role } = request.body as { mobile: string; role: string };
+        const accountId = await deps.identity.findAccountIdByMobile(mobile);
+        if (accountId === null) throw new NotFoundError('Unknown account.');
+        await deps.admin.assignRole(
+          { context: createRequestContext(String(request.id), SYSTEM_ACTOR), isSuperAdmin: true },
+          { accountId, role, reason: 'development role grant' }
+        );
+        return { granted: true, role };
+      }
+    );
+  }
 }

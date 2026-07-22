@@ -30,8 +30,11 @@ export const PERMISSIONS = {
   configApprove: 'config.approve',
   auditRead: 'audit.read',
   auditExport: 'audit.export',
+  // Content and games (DRAGON-05)
+  contentWrite: 'content.write',
+  contentPublish: 'content.publish',
+  gamesManage: 'games.manage',
   // Domain bundles enforced by their modules in later prompts
-  contentManage: 'content.manage',
   tournamentManage: 'tournament.manage',
   financeManage: 'finance.manage',
   financeApprove: 'finance.approve',
@@ -84,7 +87,16 @@ export const ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> =
   // Approver is a distinct actor for dual control (ROLE-027).
   financial_approver: [PERMISSIONS.adminAccess, PERMISSIONS.financeApprove, PERMISSIONS.configApprove, PERMISSIONS.auditRead],
 
-  content_publisher: [PERMISSIONS.adminAccess, PERMISSIONS.contentManage],
+  // Content roles split by capability (ROLE-016/017/018): author and editor draft
+  // and edit; only the publisher can publish, schedule, unpublish, or archive.
+  content_author: [PERMISSIONS.adminAccess, PERMISSIONS.contentWrite],
+  content_editor: [PERMISSIONS.adminAccess, PERMISSIONS.contentWrite],
+  content_publisher: [
+    PERMISSIONS.adminAccess,
+    PERMISSIONS.contentWrite,
+    PERMISSIONS.contentPublish,
+    PERMISSIONS.gamesManage
+  ],
   tournament_administrator: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
   tournament_organizer: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
   community_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.moderationManage],

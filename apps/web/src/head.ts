@@ -14,18 +14,34 @@ export interface HeadOptions {
   readonly path: string;
   /** SEO-008: account, admin, and personalized pages must not be indexable. */
   readonly indexable: boolean;
+  /** SEO-001: localized meta description for indexable pages. */
+  readonly description?: string;
+  /** SEO-004: Open Graph object type, e.g. 'article' or 'website'. */
+  readonly ogType?: string;
+  /** Absolute or site-relative image for social cards. */
+  readonly image?: string | null;
+  /**
+   * Explicit per-locale alternate paths. Required where localized slugs differ
+   * (section 17.3), so hreflang points at the correct slug rather than a naive
+   * locale swap of the current path.
+   */
+  readonly alternates?: Partial<Record<Locale, string>>;
 }
 
-function upsertMeta(name: string, content: string): void {
+function upsertAttrMeta(attr: 'name' | 'property', key: string, content: string): void {
   const head = globalThis.document?.head;
   if (head === undefined) return;
-  let element = head.querySelector<HTMLMetaElement>(`meta[name="${name}"]`);
+  let element = head.querySelector<HTMLMetaElement>(`meta[${attr}="${key}"]`);
   if (element === null) {
     element = globalThis.document.createElement('meta');
-    element.name = name;
+    element.setAttribute(attr, key);
     head.append(element);
   }
   element.content = content;
+}
+
+function upsertMeta(name: string, content: string): void {
+  upsertAttrMeta('name', name, content);
 }
 
 function upsertLink(rel: string, href: string, hreflang?: string): void {
@@ -58,10 +74,24 @@ export function applyHead(options: HeadOptions): void {
 
   document.title = options.title;
   upsertMeta('robots', options.indexable ? 'index,follow' : 'noindex,nofollow');
+  if (options.description !== undefined) upsertMeta('description', options.description);
 
   const origin = globalThis.location?.origin ?? '';
-  upsertLink('canonical', `${origin}${options.path}`);
+  const canonical = `${origin}${options.path}`;
+  upsertLink('canonical', canonical);
   for (const locale of SUPPORTED_LOCALES) {
-    upsertLink('alternate', `${origin}${pathForLocale(options.path, locale)}`, locale);
+    // Explicit alternate when localized slugs differ; otherwise swap the locale segment.
+    const alternatePath = options.alternates?.[locale] ?? pathForLocale(options.path, locale);
+    upsertLink('alternate', `${origin}${alternatePath}`, locale);
+  }
+
+  // Open Graph (SEO-004): localized, with the current locale and canonical URL.
+  upsertAttrMeta('property', 'og:title', options.title);
+  upsertAttrMeta('property', 'og:type', options.ogType ?? 'website');
+  upsertAttrMeta('property', 'og:url', canonical);
+  upsertAttrMeta('property', 'og:locale', options.locale);
+  if (options.description !== undefined) upsertAttrMeta('property', 'og:description', options.description);
+  if (options.image !== undefined && options.image !== null && options.image !== '') {
+    upsertAttrMeta('property', 'og:image', options.image.startsWith('http') ? options.image : `${origin}${options.image}`);
   }
 }

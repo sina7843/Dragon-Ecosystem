@@ -30,7 +30,8 @@ const localePrefix = computed(() => `/${isLocale(locale.value) ? locale.value : 
 const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key: string }>>> = {
   public: [
     { path: '', key: 'nav.home' },
-    { path: '/design-system', key: 'nav.designSystem' },
+    { path: '/content', key: 'nav.content' },
+    { path: '/games', key: 'nav.games' },
     { path: '/account', key: 'nav.account' }
   ],
   account: [

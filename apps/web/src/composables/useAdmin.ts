@@ -27,6 +27,8 @@ export function useAdmin(): {
   canReadUsers: ComputedRef<boolean>;
   canReadAudit: ComputedRef<boolean>;
   canReadConfig: ComputedRef<boolean>;
+  canWriteContent: ComputedRef<boolean>;
+  canManageGames: ComputedRef<boolean>;
   refresh: () => Promise<void>;
 } {
   async function refresh(): Promise<void> {
@@ -57,6 +59,8 @@ export function useAdmin(): {
     canReadUsers: computed(() => has('users.read')),
     canReadAudit: computed(() => has('audit.read')),
     canReadConfig: computed(() => has('config.read')),
+    canWriteContent: computed(() => has('content.write')),
+    canManageGames: computed(() => has('games.manage')),
     refresh
   };
 }

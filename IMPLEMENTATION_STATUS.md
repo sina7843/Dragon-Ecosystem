@@ -6,8 +6,9 @@
 - Design system, shell, and localization: complete (DRAGON-02)
 - Identity, sessions, and profiles: complete (DRAGON-03)
 - Authorization, administration, audit, configuration: complete (DRAGON-04)
-- Active prompt: DRAGON-05 — content CMS and game catalog
-- Latest verified checkpoint: DRAGON-04 RBAC, administration, and audit, 2026-07-22
+- Content CMS and game catalog: complete (DRAGON-05)
+- Active prompt: DRAGON-06 — persistent teams and gaming identities
+- Latest verified checkpoint: DRAGON-05 content CMS and game catalog, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -49,10 +50,20 @@
 - Authorization-matrix integration tests (401/403/404, IDOR, escalation, dual control, audit, emergency) and browser tests for the forbidden UI in both locales.
 - One-time super-administrator bootstrap: a CLI entry point (`bootstrap:superadmin`, no HTTP surface) that grants the first super admin to an existing account, refuses once one exists, and writes an emergency audit event. Procedure documented in `RUNBOOKS.md`.
 
+## Delivered by DRAGON-05
+- Content module: six content types (news, article, announcement, guide, rules, page) as bilingual translation-group records; draft → in_review → published → archived lifecycle with scheduling; publication blocked unless both locales are complete; append-only version history; optimistic concurrency; categories and tags.
+- Rich content sanitised on write (strict allowlist); the public read path serves already-safe HTML; drafts and scheduled items never leak.
+- Games module: bilingual catalog with slug, SEO, lifecycle, and archive (never destructive delete).
+- Public read side: content hub with type filter and pagination, content detail with per-locale slug and SEO (title, description, canonical, hreflang using the correct localized slug, Open Graph), games catalog and detail, real 404s.
+- Admin: content management with a bilingual editor and lifecycle controls (publisher-only publish/archive), games management, capability-driven navigation.
+- Backend tests (slug/sanitize/state unit; content and games integration for authz, publication rules, drafts-not-public, concurrency) and bilingual browser journeys (publish → public in both locales, SEO assertions, draft-404).
+
 ## Known blockers
 - None.
 
 ## Deferred with an owner
+- Media upload/scan/derivative pipeline (MEDIA-001..015) — DRAGON-15; content/games reference a validated cover-image URL until then.
+- Scheduled-publish notification/index job and locale-aware full-text search — DRAGON-13/15.
 - Bulk admin actions with preview (ADMIN-004) and configuration diff UI — later admin prompts.
 - Account recovery — blocked by OD-029; nothing partial is exposed.
 - Verified email — blocked by OD-003; adapter boundary only.
@@ -70,13 +81,13 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 128 passed (92 api, 36 web)
-- `npm run test:integration` — 62 passed (includes 27 authorization-matrix tests)
+- `npm test` — 138 passed (102 api, 36 web)
+- `npm run test:integration` — 80 passed (includes 27 authorization-matrix, 12 content, 4 games)
 - `npm run build` — pass
-- `npm run e2e` — 144 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
+- `npm run e2e` — 156 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)
 - Package guardrails: run `03-CHECK-PACKAGE.cmd`.
 
-DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.
+DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. DRAGON-05 (content sanitisation and draft isolation) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High; sanitisation on every write path, no draft/scheduled leakage, no NoSQL injection, and safe SEO/v-html rendering all confirmed. One Medium (defense-in-depth) — the dev-only `/dev/grant-role` is safe in production but fail-open if `NODE_ENV` is unset — was hardened with a loud non-production startup warning and an ENV note. DRAGON-05 traceability rows are recorded but left Pending for review by the same reviewer independence rule used earlier. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.

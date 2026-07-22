@@ -8,7 +8,7 @@ Claude Code never creates or reads a real `.env`. Copy `.env.example` manually, 
 
 | Name | Purpose | Required environments | Secret | Allowed format | Safe default | Rotation | Owning module |
 |---|---|---|---|---|---|---|---|
-| `NODE_ENV` | Selects runtime behaviour and log verbosity. | all | No | `development` \| `test` \| `production` | `development` | Not applicable | api |
+| `NODE_ENV` | Selects runtime behaviour and log verbosity. **Must be `production` for any real deployment**: a non-production value enables development-only routes, including the unauthenticated `/api/v1/dev/grant-role`, and permits placeholder secrets. Unset defaults to `development`, so set it explicitly. The server logs a security warning at startup when it is not `production`. | all | No | `development` \| `test` \| `production` | `development` | Not applicable | api |
 | `HOST` | Interface the API binds to. | all | No | IPv4 address or hostname | `0.0.0.0` (containers must bind all interfaces) | Not applicable | api |
 | `PORT` | API listen port inside the container. | all | No | integer 1–65535 | `3000` | Not applicable | api |
 | `MONGODB_URI` | MongoDB connection string. Must reach a replica set, because transactions require one. | all; **mandatory** in production | No today; becomes secret once credentials are added | `mongodb://…` or `mongodb+srv://…` | `mongodb://mongo:27017/dragon` outside production only; Compose passes `?replicaSet=rs0` | Rotate with the database credential when authentication is enabled | api |
@@ -32,6 +32,7 @@ Startup fails with a combined error listing every invalid or missing value; prod
 | `API_PROXY_TARGET` | Origin the Vite dev/preview proxy forwards `/api` to. | development, automated test | No | absolute http(s) URL | `http://127.0.0.1:3000` | Not applicable | web |
 | `MONGODB_TEST_URI` | Disposable database used by the integration suite. Each run creates and drops its own database. | automated test | No | `mongodb://…` | `mongodb://127.0.0.1:27018/?directConnection=true` | Not applicable | api |
 | `CI` | Enables CI-strict test behaviour (no server reuse, no `test.only`). | automated test | No | any non-empty value | unset | Not applicable | tooling |
+| `ENABLE_DEV_ROUTES` | Registers the unauthenticated `/api/v1/dev/grant-role` helper (grants a role to an account by mobile). **Fail-closed**: the route is registered only when this is exactly `true` **and** `NODE_ENV` is not `production`. Production never registers it regardless. A startup security warning is logged whenever it is enabled. | local development, automated test | No | `true` to enable; anything else disables | `false` | Not applicable | api |
 
 ## Not yet introduced
 

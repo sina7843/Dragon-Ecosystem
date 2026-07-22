@@ -49,6 +49,28 @@ test('trusted proxies default to none, so request.ip is the real peer in dev and
   assert.deepEqual(loadConfig({}).trustedProxies, []);
 });
 
+test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
+  // Default: off.
+  assert.equal(loadConfig({}).devRoutesEnabled, false);
+  assert.equal(loadConfig({ NODE_ENV: 'test' }).devRoutesEnabled, false);
+  // A non-"true" value stays off.
+  assert.equal(loadConfig({ ENABLE_DEV_ROUTES: 'false' }).devRoutesEnabled, false);
+  assert.equal(loadConfig({ ENABLE_DEV_ROUTES: '1' }).devRoutesEnabled, false);
+  // Explicit true in development or test enables it.
+  assert.equal(loadConfig({ NODE_ENV: 'development', ENABLE_DEV_ROUTES: 'true' }).devRoutesEnabled, true);
+  assert.equal(loadConfig({ NODE_ENV: 'test', ENABLE_DEV_ROUTES: 'true' }).devRoutesEnabled, true);
+  // Production never enables it, even with the flag set.
+  assert.equal(
+    loadConfig({
+      NODE_ENV: 'production',
+      MONGODB_URI: 'mongodb://mongo:27017/dragon',
+      AUTH_SECRET: 'x'.repeat(32),
+      ENABLE_DEV_ROUTES: 'true'
+    }).devRoutesEnabled,
+    false
+  );
+});
+
 test('trusted proxies parse from a comma-separated list of IPs and CIDRs', () => {
   assert.deepEqual(loadConfig({ TRUSTED_PROXIES: '172.28.0.10' }).trustedProxies, ['172.28.0.10']);
   assert.deepEqual(

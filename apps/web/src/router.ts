@@ -5,7 +5,13 @@ import AccountSecurityView from './views/AccountSecurityView.vue';
 import AdminOverviewView from './views/AdminOverviewView.vue';
 import AdminUsersView from './views/AdminUsersView.vue';
 import AdminAuditView from './views/AdminAuditView.vue';
+import AdminContentView from './views/AdminContentView.vue';
+import AdminGamesView from './views/AdminGamesView.vue';
 import AuthMobileView from './views/AuthMobileView.vue';
+import ContentListView from './views/ContentListView.vue';
+import ContentDetailView from './views/ContentDetailView.vue';
+import GamesCatalogView from './views/GamesCatalogView.vue';
+import GameDetailView from './views/GameDetailView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -48,6 +54,30 @@ export const router = createRouter({
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.designSystem' }
     },
     {
+      path: '/:locale(fa|en)/content',
+      name: 'content',
+      component: ContentListView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.content' }
+    },
+    {
+      path: '/:locale(fa|en)/content/:type/:slug',
+      name: 'content-detail',
+      component: ContentDetailView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.content' }
+    },
+    {
+      path: '/:locale(fa|en)/games',
+      name: 'games',
+      component: GamesCatalogView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.games' }
+    },
+    {
+      path: '/:locale(fa|en)/games/:slug',
+      name: 'game-detail',
+      component: GameDetailView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.games' }
+    },
+    {
       path: '/:locale(fa|en)/auth/mobile',
       name: 'auth-mobile',
       component: AuthMobileView,
@@ -88,6 +118,18 @@ export const router = createRouter({
       name: 'admin-audit',
       component: AdminAuditView,
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminAudit' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/content',
+      name: 'admin-content',
+      component: AdminContentView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminContent' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/games',
+      name: 'admin-games',
+      component: AdminGamesView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminGames' }
     },
     {
       path: '/:locale(fa|en)/403',
