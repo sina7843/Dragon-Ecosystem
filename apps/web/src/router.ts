@@ -11,7 +11,6 @@ import PublicTeamView from './views/PublicTeamView.vue';
 import TournamentsListView from './views/TournamentsListView.vue';
 import TournamentCalendarView from './views/TournamentCalendarView.vue';
 import TournamentDetailView from './views/TournamentDetailView.vue';
-import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
 import NotFoundView from './views/NotFoundView.vue';
@@ -49,7 +48,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/design-system',
       name: 'design-system',
-      component: DesignSystemView,
+      component: () => import('./views/DesignSystemView.vue'),
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.designSystem' }
     },
     {

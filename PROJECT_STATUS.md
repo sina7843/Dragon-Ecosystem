@@ -27,7 +27,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-14
 - [x] DRAGON-15
 - [x] DRAGON-16a
-- [ ] DRAGON-16b
+- [x] DRAGON-16b
 - [x] DRAGON-16c
 - [ ] DRAGON-17a
 - [ ] DRAGON-17b
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: none in progress; next eligible is `DRAGON-16b` (the last remaining DRAGON-16 sibling)
-- Last completed item: `DRAGON-16c` (security hardening: CSRF origin guard with production-required PUBLIC_ORIGIN, CSP/HSTS/Permissions-Policy, no-store on API, pseudonym-salt secret, server_tokens off; npm audit 0 vulns) — implemented and verified, not yet committed. DRAGON-15 and DRAGON-16a also complete and not yet committed. **Parent DRAGON-16 remains open (16b performance not started)**
+- Active item: none in progress; next eligible is `DRAGON-17a`
+- Last completed item: `DRAGON-16c` (performance + delivery: media 304 conditional serving, public-directory + job-status compound indexes with migration 022, content-list projection, frontend fetch-once + stale-response guard, DesignSystem lazy-load, bundle budget) — implemented and verified, not yet committed. **Parent DRAGON-16 is now complete (16a accessibility + 16b security + 16c performance all done).** DRAGON-15, DRAGON-16a, and DRAGON-16b also complete and not yet committed
 - Blockers: none

@@ -34,29 +34,49 @@ const errorMessage = ref<string | undefined>(undefined);
 const tournaments = ref<TournamentCard[]>([]);
 const gameName = ref<Map<string, string>>(new Map());
 
+// Monotonic token: a slower earlier fetch must never overwrite a newer one (stale-response guard).
+let requestToken = 0;
+
+// The game-name map is localized but does not change per search/filter, so it is fetched
+// once and only refreshed when the locale changes — not on every query/participant change.
+async function loadGameNames(): Promise<void> {
+  // Guard against an out-of-order resolve on rapid locale toggling: only apply the map if
+  // the locale it was fetched for is still the active one.
+  const forLocale = activeLocale();
+  const games = await apiFetch<{ items: GameCard[] }>(`/games?locale=${forLocale}&limit=100`);
+  if (forLocale !== activeLocale()) return;
+  gameName.value = new Map(games.items.map((g) => [g.id, g.name]));
+}
+
 async function load(): Promise<void> {
+  const token = ++requestToken;
   loading.value = true;
   try {
-    const [list, games] = await Promise.all([
-      listTournaments({
-        locale: activeLocale(),
-        ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
-        ...(activeParticipant.value === '' ? {} : { participantType: activeParticipant.value })
-      }),
-      apiFetch<{ items: GameCard[] }>(`/games?locale=${activeLocale()}&limit=100`)
-    ]);
+    const list = await listTournaments({
+      locale: activeLocale(),
+      ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
+      ...(activeParticipant.value === '' ? {} : { participantType: activeParticipant.value })
+    });
+    if (token !== requestToken) return; // a newer load started; drop this stale result
     tournaments.value = list.items;
-    gameName.value = new Map(games.items.map((g) => [g.id, g.name]));
     errorMessage.value = undefined;
   } catch (error) {
-    errorMessage.value = messageFor(error);
+    if (token === requestToken) errorMessage.value = messageFor(error);
   } finally {
-    loading.value = false;
+    if (token === requestToken) loading.value = false;
   }
 }
 
-onMounted(() => load());
+onMounted(async () => {
+  await Promise.all([loadGameNames(), load()]);
+});
+// Search/participant changes refetch only tournaments; a locale change refreshes both,
+// since game and tournament names are localized.
 watch([activeQuery, activeParticipant], () => load());
+watch(activeLocale, () => {
+  void loadGameNames();
+  void load();
+});
 
 function pushQuery(overrides: { q?: string; participantType?: string }): void {
   const q = overrides.q ?? activeQuery.value;

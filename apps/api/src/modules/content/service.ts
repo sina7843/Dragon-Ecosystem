@@ -364,8 +364,24 @@ export class ContentService {
     const search = normalizeQuery(query.q);
     if (search !== null) applyTextSearch(filter, search, [`translations.${query.locale}.title`, `translations.${query.locale}.summary`, `translations.${query.locale}.plainText`]);
 
+    // Cards need only a few fields; project them so the list query never ships the full
+    // sanitized HTML body + derived plain text for every locale (DRAGON-16c response size).
+    // The `q` filter still matches on plainText — a projection limits returned fields, not
+    // the filter — so search results are unaffected.
     const rows = await contentItems(this.#db)
-      .find(filter)
+      .find(filter, {
+        projection: {
+          type: 1,
+          slugs: 1,
+          coverImageUrl: 1,
+          publishedAt: 1,
+          updatedAt: 1,
+          'translations.fa.title': 1,
+          'translations.fa.summary': 1,
+          'translations.en.title': 1,
+          'translations.en.summary': 1
+        }
+      })
       .sort({ publishedAt: -1, _id: -1 })
       .limit(limit + 1)
       .toArray();

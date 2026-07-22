@@ -13,7 +13,8 @@ import type { AccountRecord } from './store.ts';
  *
  * Session state travels in an httpOnly cookie (section 16.1). `SameSite=Lax`
  * blocks cross-site form posts, which is the baseline CSRF control for this
- * design (SEC-006); the full token-based scheme belongs to DRAGON-16b.
+ * design (SEC-006); DRAGON-16b (security hardening) added a server-side Origin
+ * allowlist on state-changing requests rather than a token-based scheme.
  */
 
 function setSessionCookie(reply: FastifyReply, token: string, config: AppConfig): void {

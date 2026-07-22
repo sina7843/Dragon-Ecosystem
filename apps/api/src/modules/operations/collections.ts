@@ -14,5 +14,8 @@ export const OPERATIONS_INDEXES: readonly IndexDeclaration[] = [
   { collection: OPERATIONS_COLLECTIONS.analyticsErrors, name: 'analytics_error_created', keys: { createdAt: -1 } },
   { collection: OPERATIONS_COLLECTIONS.alerts, name: 'alert_status_created', keys: { status: 1, createdAt: -1 } },
   { collection: OPERATIONS_COLLECTIONS.alerts, name: 'alert_category_created', keys: { category: 1, createdAt: -1 } },
-  { collection: OPERATIONS_COLLECTIONS.jobExecutions, name: 'job_name_started', keys: { jobName: 1, startedAt: -1 } }
+  { collection: OPERATIONS_COLLECTIONS.jobExecutions, name: 'job_name_started', keys: { jobName: 1, startedAt: -1 } },
+  // Metrics/health count job_executions by `status` (failed) — index it so the count is a
+  // bounded index scan, not a full-collection scan as the table grows (DRAGON-16c).
+  { collection: OPERATIONS_COLLECTIONS.jobExecutions, name: 'job_status_started', keys: { status: 1, startedAt: -1 } }
 ];

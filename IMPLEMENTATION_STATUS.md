@@ -23,9 +23,10 @@
 - Moderation/support/recovery, consent-aware analytics, bounded jobs runner, alerts/metrics/health: complete (DRAGON-14) — implemented and verified, not yet committed (external analytics stays OD-026-gated off; recovery is triage-only under OD-029)
 - Media pipeline, public search/filters, and SEO (robots/sitemap/structured data): complete (DRAGON-15) — implemented and verified, not yet committed
 - Accessibility + bilingual UX hardening (shared primitives, keyboard/focus, contrast, RTL/LTR, live states): complete (DRAGON-16a) — implemented and verified, not yet committed
-- Security hardening (CSRF origin guard, CSP/HSTS/Permissions-Policy, no-store, pseudonym-salt secret): complete (DRAGON-16c) — implemented and verified, not yet committed. **Parent DRAGON-16 is NOT complete** (16b performance remains)
-- Active prompt: DRAGON-16c complete; next eligible is DRAGON-16b (the remaining DRAGON-16 sibling)
-- Latest verified checkpoint: DRAGON-16c security hardening, 2026-07-23
+- Security hardening (CSRF origin guard, CSP/HSTS/Permissions-Policy, no-store, pseudonym-salt secret): complete (DRAGON-16b) — implemented and verified, not yet committed
+- Performance + delivery hardening (media 304, public-directory + job-status indexes, content-list projection, frontend fetch-once/stale-guard, bundle budget): complete (DRAGON-16c) — implemented and verified, not yet committed. **Parent DRAGON-16 is now complete** (16a + 16b + 16c all done)
+- Active prompt: DRAGON-16 complete (all slices); next eligible is DRAGON-17
+- Latest verified checkpoint: DRAGON-16c performance and delivery, 2026-07-23
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -258,7 +259,7 @@ Audited every implemented shared primitive and representative journeys (DRAGON-0
 - **Manual checks actually performed:** keyboard-only operation of the design-system journey, visible focus, 320px reflow, Persian RTL / English LTR, reduced-motion, and light/dark themes were exercised via the automated Playwright matrix and token tests. A hands-on screen-reader pass was **not** performed and is not claimed.
 - **DRAGON-16a is complete. Parent DRAGON-16 is NOT complete.**
 
-## Delivered by DRAGON-16c (security-hardening slice of DRAGON-16)
+## Delivered by DRAGON-16b (security-hardening slice of DRAGON-16)
 Bounded threat-model audit of DRAGON-00..15 across every trust boundary (proxy/IP, auth/OTP/session/cookie, role/scope authorization, admin/finance, payments/ledger/holds/checkout/prizes callbacks, notifications, moderation/support/recovery/analytics/operations, media upload+serve, public search/cursor/slug, secrets/logs/audit/outbox, transport/headers/deployment). **No Critical or High exploitable defect** — the shared boundaries (proxy trust, HMAC callbacks with constant-time compare, media magic-byte validation + code-owned content-type + nosniff + published-only serve, config fail-fast, error redaction, NoSQL/prototype-pollution resistance via `secure-json-parse` + `additionalProperties:false` bodies, cursor-token validation, server-derived audit actor) are well built and test-covered. Closed the confirmed Medium/Low gaps:
 - **Analytics pseudonym salt is now a secret** (`ANALYTICS_PSEUDONYM_SALT`), required + length-checked in production via `parseRequiredSecret`, distinct from `AUTH_SECRET`/`PAYMENTS_CALLBACK_SECRET`, injected into `OperationsService`. Previously a source-committed constant — anyone with repo + `analytics_events` read could de-pseudonymize every event. Never logged/returned/audited.
 - **CSRF origin guard**: a shared `onRequest` hook rejects (403, before routing, no side effects) a state-changing request whose browser `Origin` ≠ the configured `PUBLIC_ORIGIN`; safe methods and no-Origin (native/server) requests pass. `PUBLIC_ORIGIN` is now **required in production** (startup fails without a valid absolute origin), so the guard is always active in a real deployment; it is inert only outside production (where the browser origin and proxied API host legitimately differ). Complements `SameSite=Lax`. No token scheme added (same-origin deployment).
@@ -268,9 +269,24 @@ Bounded threat-model audit of DRAGON-00..15 across every trust boundary (proxy/I
 - **Dependency audit: `npm audit` (prod + dev) → 0 vulnerabilities.** No `install`/`prepare`/`postinstall` lifecycle hooks in any workspace (no supply-chain script surface).
 - **Verified:** api typecheck, lint, 265 unit, 291 integration, 46 e2e mutation flows (auth/wallet/shell/seo-media) confirming browser mutations still work under the new headers.
 - One focused read-only `test-reviewer` security pass.
-- **Not implemented (out of scope):** DRAGON-16b performance; no live provider/refund/payout; no new auth architecture; no token-CSRF; no TLS config beyond repo-controlled files (HSTS header set; the TLS terminator itself is deployment-owned).
+- **Not implemented (out of scope):** DRAGON-16c performance; no live provider/refund/payout; no new auth architecture; no token-CSRF; no TLS config beyond repo-controlled files (HSTS header set; the TLS terminator itself is deployment-owned).
 - Known limitation with owner: L2 (tournament create/update bodies use `additionalProperties:true`) is not exploitable — every field is rebuilt through the service allowlist, no mass-assignment — recorded as hygiene; tighten to explicit nested body schemas in a later pass. The reviewer's High (CSRF guard could silently disable if `PUBLIC_ORIGIN` were unset in production) was resolved by making `PUBLIC_ORIGIN` production-required (startup fails), so the guard cannot be silently off in a real deployment.
-- **DRAGON-16c is complete. Parent DRAGON-16 is NOT complete** (DRAGON-16b performance remains).
+- **DRAGON-16b is complete. Parent DRAGON-16 is NOT complete** (DRAGON-16c performance remains).
+
+## Delivered by DRAGON-16c (performance + delivery slice of DRAGON-16)
+Measured a bounded baseline (web build chunk sizes, list index coverage, media conditional-request behavior, frontend fetch patterns) and applied bounded, evidence-backed fixes. Local-only measurement — no production latency/Core-Web-Vitals claims.
+- **Media conditional delivery (High):** `/media/:id` now reads metadata first (`getPublishedRecordMeta`, projection {contentType,sha256,storageKey}, `state:'published'`) and returns **304** on an `If-None-Match` match **before loading the blob** — a revalidation no longer re-reads the multi-MB bytes from Mongo or re-transfers them. Staged/unpublished media stays 404; immutable cache + ETag preserved.
+- **Public-directory + operator indexes:** added compound indexes matching the measured query shapes — games `{status,slug}`, teams `{visibility,status,slug}`, user_profiles `{visibility,username}` (the public directory list sorts), and job_executions `{status,startedAt}` (the metrics/health failed-jobs count, previously an unindexed scan since the record field is `status` not the foundation `state`). Migration `022-perf-indexes` (idempotent `createIndex`). `content` and `tournaments` public lists were already correctly compounded — no change.
+- **Content list response size:** `content.listPublished` now projects only card fields, so the list query no longer ships the full sanitized HTML body + derived plain text for every locale. The `q` search still matches on `plainText` (a projection limits returned fields, not the filter), and the published + keyset-cursor contract is unchanged.
+- **Frontend fetch efficiency:** `TournamentsListView` fetches the localized game-name map **once** (onMounted + on locale change) instead of re-downloading 100 games on every search/filter; a **stale-response request-token guard** was added to the content, games, and tournament list views so a slower earlier fetch can never overwrite a newer one; the tournament view now also refreshes localized names on a locale change (a correctness gap).
+- **Bundle:** `DesignSystemView` (a non-indexable dev showcase) is now lazy-loaded, trimming the anonymous public entry chunk from ~278 KB to ~272 KB raw (~91.6→89.8 KB gzip). Admin/account/finance/moderation/operations screens remain in their own lazy chunks (verified against `dist`); no privileged code in the public shell.
+- **Guardrails/tests:** `perf-indexes.itest.ts` (the 4 indexes exist post-migration), `build-budget.test.ts` (entry ≤ 320 KB with tooling headroom + admin/account chunks stay split; skips when no `dist/`), and a media-**304** conditional-request assertion in `seo-media.spec.ts`.
+- **Preserved:** every optimized query keeps its base authorization/published/visibility predicate (no client-side private-data filtering); keyset cursors, batch/page limits, and the 16b cache policy (dynamic `/api/*` = `no-store`, content-addressed media = immutable) are intact; 16a accessibility and 16b security behavior unchanged.
+- **Bounded jobs / sitemap confirmed already efficient** (runJobs clamps ≤500, notifications ≤200, hold/checkout expiry `.limit()`-bounded; sitemap 3 projected queries capped at 5000) — no change needed.
+- **Before/after evidence:** entry chunk 277,886→271,998 bytes raw (91,624→89,790 gzip); media revalidation 200(full body)→304(empty body); job-status count now index-backed. Measurement limited to localhost/seeded data.
+- One focused read-only `test-reviewer` performance pass.
+- **Remaining risks / limitations:** the `q` case-insensitive substring regex cannot use a plain index (bounded by the published/public subset + page limit today; revisit with a text index only at tens-of-thousands scale). Local measurement cannot predict production latency/CWV. No always-on scheduler added (bounded callable jobs unchanged).
+- **DRAGON-16c is complete. With 16a + 16b + 16c all complete, PARENT DRAGON-16 is complete.**
 
 ## Known blockers
 - None.

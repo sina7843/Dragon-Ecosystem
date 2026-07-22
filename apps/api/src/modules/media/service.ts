@@ -137,6 +137,20 @@ export class MediaService {
     return this.#media().findOne({ _id: mediaId });
   }
 
+  /**
+   * Published asset metadata only (no blob load), for a conditional-request check. A
+   * projection keeps the read to the few header fields, so a 304 path never touches the
+   * (potentially multi-MB) bytes.
+   */
+  async getPublishedRecordMeta(mediaId: EntityId): Promise<{ contentType: string; sha256: string; storageKey: string } | null> {
+    return this.#media().findOne({ _id: mediaId, state: 'published' }, { projection: { contentType: 1, sha256: 1, storageKey: 1 } }) as Promise<{ contentType: string; sha256: string; storageKey: string } | null>;
+  }
+
+  /** Loads bytes for an already-resolved published asset (the conditional-request miss path). */
+  async readBytes(storageKey: string): Promise<Buffer | null> {
+    return this.#storage.get(storageKey);
+  }
+
   /** Bytes of a published asset for public serving; null when not published (MEDIA-003). */
   async getPublishedBytes(mediaId: EntityId): Promise<{ record: MediaRecord; bytes: Buffer } | null> {
     const record = await this.#media().findOne({ _id: mediaId, state: 'published' });

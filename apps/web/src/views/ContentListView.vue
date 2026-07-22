@@ -33,7 +33,11 @@ const error = ref<string | undefined>(undefined);
 const items = ref<ContentCard[]>([]);
 const nextCursor = ref<string | null>(null);
 
+// Monotonic token: a slower earlier fetch must never overwrite a newer one (stale-response guard).
+let requestToken = 0;
+
 async function load(cursor?: string): Promise<void> {
+  const token = ++requestToken;
   loading.value = true;
   try {
     const page = await listContent({
@@ -42,13 +46,14 @@ async function load(cursor?: string): Promise<void> {
       ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
       ...(cursor === undefined ? {} : { cursor })
     });
+    if (token !== requestToken) return; // a newer load started; drop this stale result
     items.value = cursor === undefined ? page.items : [...items.value, ...page.items];
     nextCursor.value = page.nextCursor;
     error.value = undefined;
   } catch (caught) {
-    error.value = messageFor(caught);
+    if (token === requestToken) error.value = messageFor(caught);
   } finally {
-    loading.value = false;
+    if (token === requestToken) loading.value = false;
   }
 }
 

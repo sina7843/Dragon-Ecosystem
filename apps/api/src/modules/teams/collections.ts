@@ -19,6 +19,8 @@ export const TEAMS_INDEXES: readonly IndexDeclaration[] = [
   // TEAM-001: unique normalized team identity.
   { collection: TEAMS_COLLECTIONS.teams, name: 'team_slug_unique', keys: { slug: 1 }, options: { unique: true } },
   { collection: TEAMS_COLLECTIONS.teams, name: 'team_status_updated', keys: { status: 1, updatedAt: -1 } },
+  // Public team directory search: public + active teams sorted by slug (DRAGON-16c).
+  { collection: TEAMS_COLLECTIONS.teams, name: 'team_public_slug', keys: { visibility: 1, status: 1, slug: 1 } },
 
   // One active membership per (team, account) — blocks duplicate active membership.
   {

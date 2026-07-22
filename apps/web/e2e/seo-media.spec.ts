@@ -114,6 +114,13 @@ test('media is validated, stays nonpublic until published, then is served (MEDIA
   expect(served.ok()).toBe(true);
   expect(served.headers()['content-type']).toBe('image/png');
   expect(served.headers()['cache-control']).toContain('immutable');
+  const etag = served.headers()['etag'] ?? '';
+  expect(etag).toBeTruthy();
+
+  // Conditional request with the matching validator returns 304 without re-transferring bytes.
+  const revalidated = await request.get(asset.url, { headers: { 'if-none-match': etag } });
+  expect(revalidated.status()).toBe(304);
+  expect((await revalidated.body()).length).toBe(0);
 
   // An anonymous caller cannot upload (authorization, MEDIA-006).
   expect((await request.post('/api/v1/admin/media', { data: { data: uniquePng() } })).status()).toBe(401);

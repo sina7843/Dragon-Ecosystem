@@ -72,6 +72,12 @@ export const IDENTITY_INDEXES: readonly IndexDeclaration[] = [
     keys: { username: 1 },
     options: { unique: true }
   },
+  // Public profile directory search: public profiles sorted by username (DRAGON-16c).
+  {
+    collection: IDENTITY_COLLECTIONS.userProfiles,
+    name: 'profile_public_username',
+    keys: { visibility: 1, username: 1 }
+  },
   // Fixed-window counters clean themselves up.
   {
     collection: IDENTITY_COLLECTIONS.rateLimits,

@@ -41,8 +41,9 @@ export const SUPPORTED_LOCALES = ['fa', 'en'] as const;
 export const DEFAULT_LOCALE = 'fa';
 
 /**
- * Baseline response headers (SEC-008). The full hardened header set, CSP, and
- * CORS allowlist are owned by DRAGON-16b; this is the foundation boundary only.
+ * Response security headers (SEC-008). DRAGON-16b (security hardening) added the locked
+ * CSP + Permissions-Policy here on API JSON responses; the SPA document CSP and transport
+ * headers (HSTS) live in nginx, and the CSRF origin guard is the onRequest hook below.
  */
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'x-content-type-options': 'nosniff',
@@ -238,16 +239,25 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
     const media = deps.media.service;
     app.register(async (root) => {
       root.get('/media/:id', { schema: { tags: ['media'], summary: 'Serve a published media asset by id.', params: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' } } } } }, async (request, reply) => {
-        const found = await media.getPublishedBytes((request.params as { id: string }).id);
-        if (found === null) {
+        // Metadata only first: a conditional hit returns 304 without ever loading the bytes.
+        const meta = await media.getPublishedRecordMeta((request.params as { id: string }).id);
+        if (meta === null) {
           const { status, body } = toErrorBody(new NotFoundError('Unknown media asset.'), String(request.id));
           return reply.status(status).send(body);
         }
-        return reply
-          .header('content-type', found.record.contentType)
-          .header('cache-control', 'public, max-age=31536000, immutable')
-          .header('etag', `"${found.record.sha256}"`)
-          .send(found.bytes);
+        const etag = `"${meta.sha256}"`;
+        reply.header('cache-control', 'public, max-age=31536000, immutable').header('etag', etag);
+        // Content-addressed: a matching validator means the client already has these exact
+        // bytes, so skip re-transferring them (304).
+        if (request.headers['if-none-match'] === etag) {
+          return reply.status(304).send();
+        }
+        const bytes = await media.readBytes(meta.storageKey);
+        if (bytes === null) {
+          const { status, body } = toErrorBody(new NotFoundError('Unknown media asset.'), String(request.id));
+          return reply.status(status).send(body);
+        }
+        return reply.header('content-type', meta.contentType).send(bytes);
       });
     });
   }
