@@ -1,9 +1,11 @@
 import type { IndexDeclaration } from '../../shared/db/collections.ts';
 
-/** Collections owned by the competitions module (DRAGON-09a: single elimination + round robin). */
+/** Collections owned by the competitions module. */
 export const COMPETITIONS_COLLECTIONS = {
   competitions: 'competitions',
-  matches: 'competition_matches'
+  matches: 'competition_matches',
+  standings: 'competition_standings',
+  corrections: 'competition_result_corrections'
 } as const;
 
 export const COMPETITIONS_INDEXES: readonly IndexDeclaration[] = [
@@ -23,4 +25,17 @@ export const COMPETITIONS_INDEXES: readonly IndexDeclaration[] = [
  */
 export const COMPETITIONS_ADVANCED_INDEXES: readonly IndexDeclaration[] = [
   { collection: COMPETITIONS_COLLECTIONS.matches, name: 'match_competition_key_unique', keys: { competitionId: 1, key: 1 }, options: { unique: true } }
+];
+
+/**
+ * Standings + correction safeguards (DRAGON-09c). Exactly one current standings
+ * snapshot per competition and one snapshot per calculation version; one correction
+ * revision number per match. These unique indexes are the database authority behind
+ * projection-publication and correction-versioning concurrency.
+ */
+export const COMPETITIONS_STANDINGS_INDEXES: readonly IndexDeclaration[] = [
+  { collection: COMPETITIONS_COLLECTIONS.standings, name: 'standings_current_unique', keys: { competitionId: 1 }, options: { unique: true, partialFilterExpression: { current: true } } },
+  { collection: COMPETITIONS_COLLECTIONS.standings, name: 'standings_version_unique', keys: { competitionId: 1, calculationVersion: 1 }, options: { unique: true } },
+  { collection: COMPETITIONS_COLLECTIONS.corrections, name: 'correction_match_revision_unique', keys: { matchId: 1, revisionNumber: 1 }, options: { unique: true } },
+  { collection: COMPETITIONS_COLLECTIONS.corrections, name: 'correction_competition', keys: { competitionId: 1, createdAt: 1 } }
 ];

@@ -15,6 +15,7 @@ import { GamesService, registerGamesRoutes } from './modules/games/index.ts';
 import { TeamsService, registerTeamsRoutes } from './modules/teams/index.ts';
 import { TournamentsService, registerTournamentsRoutes } from './modules/tournaments/index.ts';
 import { RegistrationsService, registerRegistrationsRoutes } from './modules/registrations/index.ts';
+import { CompetitionsService, registerCompetitionsRoutes } from './modules/competitions/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -67,6 +68,7 @@ export interface ServerDependencies {
   readonly teams?: { service: TeamsService };
   readonly tournaments?: { service: TournamentsService };
   readonly registrations?: { service: RegistrationsService };
+  readonly competitions?: { service: CompetitionsService };
 }
 
 declare module 'fastify' {
@@ -253,6 +255,14 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 registrations: deps.registrations.service
               });
             }
+            if (deps.competitions !== undefined) {
+              registerCompetitionsRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                tournaments: deps.tournaments.service,
+                competitions: deps.competitions.service
+              });
+            }
           }
         }
       }
@@ -337,6 +347,15 @@ export function buildRegistrations(
   return { service: new RegistrationsService(database, tournaments.service, identity.service, teams.service) };
 }
 
+/** Wires the competitions module; it reads tournaments and approved registrations across their public services. */
+export function buildCompetitions(
+  database: Database,
+  tournaments: { service: TournamentsService },
+  registrations: { service: RegistrationsService }
+): { service: CompetitionsService } {
+  return { service: new CompetitionsService(database, tournaments.service, registrations.service) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -348,6 +367,7 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const games = buildGames(database);
   const teams = buildTeams(database, games, identity);
   const tournaments = buildTournaments(database, games);
+  const registrations = buildRegistrations(database, tournaments, identity, teams);
   const app = buildServer(config, {
     database,
     identity,
@@ -356,7 +376,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     games,
     teams,
     tournaments,
-    registrations: buildRegistrations(database, tournaments, identity, teams)
+    registrations,
+    competitions: buildCompetitions(database, tournaments, registrations)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

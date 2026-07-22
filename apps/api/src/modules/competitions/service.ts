@@ -5,6 +5,8 @@ import type { RequestContext } from '../../shared/context.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors.ts';
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
+import { withIdempotency } from '../../shared/db/idempotency.ts';
+import { clampLimit, decodeCursor, toPage, type Page } from '../../shared/pagination.ts';
 import type { TournamentRecord } from '../tournaments/index.ts';
 import { COMPETITIONS_COLLECTIONS } from './collections.ts';
 import { generateRoundRobin, generateSingleElimination, seedOrder, type Bracket, type EngineMatch } from './engine.ts';
@@ -12,12 +14,15 @@ import { generateDoubleElimination } from './double-elimination.ts';
 import { swissPairKey, swissPairRound } from './swiss.ts';
 import { buildManual, type ManualGraphSpec } from './manual.ts';
 import { validateCompetitionConfig } from './validation.ts';
+import { computeStandings, STANDINGS_POLICY_VERSION, type AcceptedMatch } from './standings.ts';
 import {
   canRecordResult,
   type CompetitionFormat,
   type CompetitionRecord,
   type MatchRecord,
-  type ParticipantRef
+  type ParticipantRef,
+  type ResultCorrectionRecord,
+  type StandingsSnapshotRecord
 } from './state.ts';
 
 /**
@@ -76,6 +81,12 @@ export class CompetitionsService {
   #matches(db: Db = this.#db) {
     return db.collection<MatchRecord>(COMPETITIONS_COLLECTIONS.matches);
   }
+  #standings(db: Db = this.#db) {
+    return db.collection<StandingsSnapshotRecord>(COMPETITIONS_COLLECTIONS.standings);
+  }
+  #corrections(db: Db = this.#db) {
+    return db.collection<ResultCorrectionRecord>(COMPETITIONS_COLLECTIONS.corrections);
+  }
 
   // --- Generation ---
 
@@ -122,6 +133,9 @@ export class CompetitionsService {
       participants: orderedParticipants,
       state: 'generated',
       swiss,
+      lockState: 'open',
+      lockVersion: 0,
+      standingsVersion: 0,
       version: 1,
       createdAt: now,
       updatedAt: now
@@ -133,6 +147,7 @@ export class CompetitionsService {
       await runUnitOfWork(this.#database, context, async (uow) => {
         await this.#competitions(uow.db).insertOne(competition, { session: uow.session });
         await this.#matches(uow.db).insertMany(matchDocs, { session: uow.session });
+        await this.#recalculate(uow, competition._id, now);
         uow.audit({ action: 'competition.generated', resourceType: 'competition', resourceId: competition._id, after: { tournamentId, format, participantCount: competition.participantCount, matchCount: matchDocs.length } });
         uow.publish({ eventName: 'competition.generated', eventVersion: 1, aggregateId: competition._id, payload: { tournamentId, format, participantCount: competition.participantCount } });
       });
@@ -287,6 +302,8 @@ export class CompetitionsService {
   ): Promise<MatchRecord> {
     const match = await this.#matches().findOne({ _id: matchId, tournamentId });
     if (match === null) throw new NotFoundError('Unknown match.');
+    const competition = await this.#competitions().findOne({ _id: match.competitionId });
+    if (competition !== null && competition.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; result entry is closed.');
 
     const winner = input.winnerSlot === 'a' ? match.slotA : match.slotB;
     const loser = input.winnerSlot === 'a' ? match.slotB : match.slotA;
@@ -300,6 +317,9 @@ export class CompetitionsService {
 
     return runUnitOfWork(this.#database, context, async (uow) => {
       const now = utcNow();
+      // Session-consistent lock re-check: a competition locked concurrently must reject entry.
+      const fresh = await this.#competitions(uow.db).findOne({ _id: match.competitionId }, { session: uow.session });
+      if (fresh !== null && fresh.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; result entry is closed.');
       const claimed = await this.#matches(uow.db).updateOne(
         { _id: matchId, version: match.version, state: 'ready' },
         { $set: { state: 'completed', winner, scoreA: input.scoreA ?? null, scoreB: input.scoreB ?? null, updatedAt: now }, $inc: { version: 1 } },
@@ -318,6 +338,7 @@ export class CompetitionsService {
       if (remaining === 0 && !swissMoreRounds) {
         await this.#competitions(uow.db).updateOne({ _id: match.competitionId }, { $set: { state: 'completed', updatedAt: now } }, { session: uow.session });
       }
+      await this.#recalculate(uow, match.competitionId, now);
 
       uow.audit({ action: 'competition.match_completed', resourceType: 'match', resourceId: matchId, before: { state: match.state }, after: { state: 'completed', winner: winner.registrationId } });
       uow.publish({ eventName: 'competition.match_completed', eventVersion: 1, aggregateId: matchId, payload: { tournamentId, competitionId: match.competitionId, winner: winner.registrationId } });
@@ -352,6 +373,207 @@ export class CompetitionsService {
     }
   }
 
+  // --- Standings projection (BRACKET-015/016) ---
+
+  #toAccepted(m: MatchRecord): AcceptedMatch {
+    return {
+      round: m.round,
+      bracket: m.bracket,
+      a: m.slotA?.registrationId ?? null,
+      b: m.slotB?.registrationId ?? null,
+      winner: m.winner?.registrationId ?? null,
+      bye: m.state === 'bye',
+      loserNextEliminates: m.loserNextMatchId === null
+    };
+  }
+
+  /**
+   * Recomputes and publishes the current standings projection atomically inside the
+   * caller's unit of work. The optimistic standingsVersion guard plus the unique
+   * (competitionId, current) index make a concurrent recalculation produce exactly
+   * one current projection and prevent a stale projection from overwriting a newer
+   * one. Deterministic: identical accepted results yield byte-equivalent rows.
+   */
+  async #recalculate(uow: UnitOfWork, competitionId: EntityId, now: string): Promise<void> {
+    const competition = await this.#competitions(uow.db).findOne({ _id: competitionId }, { session: uow.session });
+    if (competition === null) throw new NotFoundError('Unknown competition.');
+    const all = await this.#matches(uow.db).find({ competitionId }, { session: uow.session }).sort({ round: 1, index: 1 }).toArray();
+    const accepted = all.filter((m) => m.state === 'completed' || m.state === 'bye').map((m) => this.#toAccepted(m));
+    const order = competition.participants.map((p) => p.registrationId);
+    const projection = computeStandings({ format: competition.format, order, matches: accepted, competitionComplete: competition.state === 'completed' });
+
+    const bumped = await this.#competitions(uow.db).updateOne(
+      { _id: competitionId, standingsVersion: competition.standingsVersion },
+      { $inc: { standingsVersion: 1 }, $set: { updatedAt: now } },
+      { session: uow.session }
+    );
+    if (bumped.matchedCount === 0) throw new ConflictError('STANDINGS_STALE', 'Standings changed concurrently. Retry.');
+    const calculationVersion = competition.standingsVersion + 1;
+
+    await this.#standings(uow.db).updateMany({ competitionId, current: true }, { $set: { current: false } }, { session: uow.session });
+    await this.#standings(uow.db).insertOne(
+      {
+        _id: newId(),
+        competitionId,
+        tournamentId: competition.tournamentId,
+        format: competition.format,
+        formatVersion: 1,
+        policyVersion: STANDINGS_POLICY_VERSION,
+        calculationVersion,
+        sourceWatermark: accepted.length,
+        status: projection.status,
+        current: true,
+        rows: projection.rows,
+        calculatedAt: now
+      },
+      { session: uow.session }
+    );
+  }
+
+  /** Current standings snapshot for a tournament's competition. */
+  async getStandings(tournamentId: EntityId): Promise<StandingsSnapshotRecord | null> {
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) return null;
+    return this.#standings().findOne({ competitionId: competition._id, current: true });
+  }
+
+  /** Explicit recalculation (BRACKET-016). Idempotent semantics come from the version guard. */
+  async recalculate(context: RequestContext, tournamentId: EntityId): Promise<StandingsSnapshotRecord> {
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) throw new NotFoundError('No competition.');
+    await runUnitOfWork(this.#database, context, async (uow) => {
+      await this.#recalculate(uow, competition._id, utcNow());
+      uow.audit({ action: 'competition.standings_recalculated', resourceType: 'competition', resourceId: competition._id });
+    });
+    return this.#standings().findOne({ competitionId: competition._id, current: true }) as Promise<StandingsSnapshotRecord>;
+  }
+
+  // --- Result correction + versioning (BRACKET-022, TOURN-022) ---
+
+  async correctResult(
+    context: RequestContext,
+    tournamentId: EntityId,
+    matchId: EntityId,
+    input: { expectedVersion: number; winnerSlot: 'a' | 'b'; scoreA?: number; scoreB?: number; reason: string; idempotencyKey: string }
+  ): Promise<ResultCorrectionRecord> {
+    if (input.reason.trim() === '') throw new ValidationError('A reason is required.', [{ field: 'reason', code: 'REASON_REQUIRED', message: 'Provide a reason.' }]);
+    const match = await this.#matches().findOne({ _id: matchId, tournamentId });
+    if (match === null) throw new NotFoundError('Unknown match.');
+    const competition = await this.#competitions().findOne({ _id: match.competitionId });
+    if (competition === null) throw new NotFoundError('Unknown competition.');
+    if (competition.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; corrections require an explicit unlock.');
+    if (match.state !== 'completed') throw new ConflictError('RESULT_NOT_CORRECTABLE', 'Only a completed result can be corrected.');
+
+    const correctedWinner = input.winnerSlot === 'a' ? match.slotA : match.slotB;
+    if (correctedWinner === null) throw new ValidationError('The winning slot is empty.', [{ field: 'winnerSlot', code: 'INVALID_WINNER', message: 'Choose a filled slot.' }]);
+    // No-op correction (same winner) is not a correction; treat as idempotent success without a new revision.
+    if (match.winner !== null && match.winner.registrationId === correctedWinner.registrationId && input.scoreA === (match.scoreA ?? undefined) && input.scoreB === (match.scoreB ?? undefined)) {
+      const existing = await this.#corrections().findOne({ matchId }, { sort: { revisionNumber: -1 } });
+      if (existing !== null) return existing;
+    }
+
+    // Downstream-history boundary: a completed downstream fixture must not be silently rewritten.
+    for (const target of [match.nextMatchId, match.loserNextMatchId]) {
+      if (target === null) continue;
+      const downstream = await this.#matches().findOne({ _id: target });
+      if (downstream !== null && downstream.state === 'completed') {
+        throw new ConflictError('DOWNSTREAM_HISTORY_CONFLICT', 'A later completed fixture depends on this result; manual operational resolution is required.');
+      }
+    }
+
+    const outcome = await withIdempotency(
+      this.#db,
+      { scope: `result_correction:${matchId}`, key: input.idempotencyKey, request: { winnerSlot: input.winnerSlot, scoreA: input.scoreA ?? null, scoreB: input.scoreB ?? null } },
+      () => this.#applyCorrection(context, competition, match, correctedWinner, input)
+    );
+    return outcome.result;
+  }
+
+  async #applyCorrection(
+    context: RequestContext,
+    competition: CompetitionRecord,
+    match: MatchRecord,
+    correctedWinner: ParticipantRef,
+    input: { expectedVersion: number; winnerSlot: 'a' | 'b'; scoreA?: number; scoreB?: number; reason: string }
+  ): Promise<ResultCorrectionRecord> {
+    const correctedLoser = input.winnerSlot === 'a' ? match.slotB : match.slotA;
+    return runUnitOfWork(this.#database, context, async (uow) => {
+      const now = utcNow();
+      // Re-check the lock and downstream boundary inside the transaction so a
+      // concurrent lock or a downstream fixture completing between the outer check
+      // and this write cannot slip past (session-consistent, aborts on violation).
+      const freshCompetition = await this.#competitions(uow.db).findOne({ _id: competition._id }, { session: uow.session });
+      if (freshCompetition !== null && freshCompetition.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; corrections require an explicit unlock.');
+      for (const target of [match.nextMatchId, match.loserNextMatchId]) {
+        if (target === null) continue;
+        const downstream = await this.#matches(uow.db).findOne({ _id: target }, { session: uow.session });
+        if (downstream !== null && downstream.state === 'completed') throw new ConflictError('DOWNSTREAM_HISTORY_CONFLICT', 'A later completed fixture depends on this result; manual operational resolution is required.');
+      }
+      // Optimistic guard: exactly one concurrent correction wins; the loser writes nothing.
+      const claimed = await this.#matches(uow.db).updateOne(
+        { _id: match._id, version: input.expectedVersion, state: 'completed' },
+        { $set: { winner: correctedWinner, scoreA: input.scoreA ?? null, scoreB: input.scoreB ?? null, updatedAt: now }, $inc: { version: 1 } },
+        { session: uow.session }
+      );
+      if (claimed.matchedCount === 0) throw new ConflictError('RESULT_VERSION_STALE', 'This result changed since you opened it. Reload and retry.');
+
+      // Re-route the (not-yet-completed) downstream fixtures to the corrected outcome.
+      if (match.nextMatchId !== null && match.nextSlot !== null) await this.#retarget(uow, match.nextMatchId, match.nextSlot, correctedWinner, now);
+      if (match.loserNextMatchId !== null && match.loserNextSlot !== null && correctedLoser !== null) await this.#retarget(uow, match.loserNextMatchId, match.loserNextSlot, correctedLoser, now);
+
+      const priorRevision = await this.#corrections(uow.db).findOne({ matchId: match._id }, { sort: { revisionNumber: -1 }, session: uow.session });
+      const revisionNumber = (priorRevision?.revisionNumber ?? 0) + 1;
+      const correction: ResultCorrectionRecord = {
+        _id: newId(),
+        matchId: match._id,
+        competitionId: competition._id,
+        tournamentId: competition.tournamentId,
+        revisionNumber,
+        priorWinner: match.winner?.registrationId ?? null,
+        priorScoreA: match.scoreA,
+        priorScoreB: match.scoreB,
+        correctedWinner: correctedWinner.registrationId,
+        correctedScoreA: input.scoreA ?? null,
+        correctedScoreB: input.scoreB ?? null,
+        reason: input.reason,
+        actorId: context.actor.accountId ?? 'system',
+        correlationId: context.correlationId,
+        createdAt: now
+      };
+      await this.#corrections(uow.db).insertOne(correction, { session: uow.session });
+      await this.#recalculate(uow, competition._id, now);
+
+      uow.audit({ action: 'competition.result_corrected', resourceType: 'match', resourceId: match._id, before: { winner: correction.priorWinner }, after: { winner: correction.correctedWinner, revision: revisionNumber }, reason: input.reason });
+      uow.publish({ eventName: 'competition.result_corrected', eventVersion: 1, aggregateId: match._id, payload: { competitionId: competition._id, revisionNumber } });
+      return correction;
+    });
+  }
+
+  /** Overwrites a downstream slot when a correction changes who advanced. */
+  async #retarget(uow: UnitOfWork, matchId: EntityId, slot: 'a' | 'b', ref: ParticipantRef, now: string): Promise<void> {
+    const field = slot === 'a' ? 'slotA' : 'slotB';
+    await this.#matches(uow.db).updateOne({ _id: matchId, state: { $ne: 'completed' } }, { $set: { [field]: ref, updatedAt: now } }, { session: uow.session });
+  }
+
+  // --- Lock / finalize (BRACKET-012) ---
+
+  async setLockState(context: RequestContext, tournamentId: EntityId, toState: 'open' | 'correction_limited' | 'locked', expectedLockVersion: number): Promise<CompetitionRecord> {
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) throw new NotFoundError('No competition.');
+    return runUnitOfWork(this.#database, context, async (uow) => {
+      const now = utcNow();
+      const updated = await this.#competitions(uow.db).updateOne(
+        { _id: competition._id, lockVersion: expectedLockVersion },
+        { $set: { lockState: toState, updatedAt: now }, $inc: { lockVersion: 1 } },
+        { session: uow.session }
+      );
+      if (updated.matchedCount === 0) throw new ConflictError('LOCK_VERSION_STALE', 'The lock state changed. Reload and retry.');
+      uow.audit({ action: 'competition.lock_changed', resourceType: 'competition', resourceId: competition._id, before: { lockState: competition.lockState }, after: { lockState: toState } });
+      uow.publish({ eventName: 'competition.lock_changed', eventVersion: 1, aggregateId: competition._id, payload: { tournamentId, lockState: toState } });
+      return { ...competition, lockState: toState, lockVersion: competition.lockVersion + 1, updatedAt: now };
+    });
+  }
+
   // --- Reads ---
 
   async getCompetition(tournamentId: EntityId): Promise<CompetitionRecord | null> {
@@ -360,5 +582,22 @@ export class CompetitionsService {
 
   async listMatches(competitionId: EntityId): Promise<MatchRecord[]> {
     return this.#matches().find({ competitionId }).sort({ round: 1, index: 1 }).toArray();
+  }
+
+  /** Paginated, (round, index)-ordered match read (load-safe; never loads the whole bracket at once). */
+  async listMatchesPage(competitionId: EntityId, query: { cursor?: string; limit?: number }): Promise<Page<MatchRecord>> {
+    const limit = clampLimit(query.limit);
+    const filter: Record<string, unknown> = { competitionId };
+    const cursor = decodeCursor(query.cursor);
+    if (cursor !== null) {
+      const [round, index] = cursor.sortValue.split(':').map((n) => Number.parseInt(n, 10));
+      filter['$or'] = [{ round: { $gt: round } }, { round, index: { $gt: index } }];
+    }
+    const rows = await this.#matches().find(filter).sort({ round: 1, index: 1 }).limit(limit + 1).toArray();
+    const page = toPage(rows.map((r) => ({ ...r, sortValue: `${String(r.round).padStart(6, '0')}:${String(r.index).padStart(6, '0')}`, id: r._id })), limit);
+    return {
+      items: page.items.map(({ sortValue: _s, id: _i, ...r }) => r as unknown as MatchRecord),
+      nextCursor: page.nextCursor
+    };
   }
 }

@@ -607,6 +607,41 @@
       "cancelled": "لغوشده"
     }
   },
+  "standings": {
+    "heading": "جدول رده‌بندی",
+    "bracket": "جدول مسابقات",
+    "rank": "رتبه",
+    "participant": "شرکت‌کننده",
+    "played": "بازی‌ها",
+    "wins": "بردها",
+    "losses": "باخت‌ها",
+    "points": "امتیاز",
+    "placement": "جایگاه",
+    "tied": "هم‌رتبه",
+    "locked": "نهایی‌شده",
+    "seed": "سید {n}",
+    "matchup": "سید {a} مقابل سید {b}",
+    "wonBy": "برنده سید {n}",
+    "status": {
+      "final": "نهایی",
+      "provisional": "موقت (در جریان)",
+      "partial": "جزئی"
+    },
+    "placementLabel": {
+      "champion": "قهرمان",
+      "runner_up": "نایب‌قهرمان",
+      "eliminated": "حذف‌شده",
+      "active": "فعال",
+      "ranked": "رده‌بندی‌شده",
+      "unresolved": "نامشخص"
+    },
+    "matchState": {
+      "pending": "در انتظار",
+      "ready": "آماده",
+      "completed": "پایان‌یافته",
+      "bye": "استراحت"
+    }
+  },
   "adminRegistrations": {
     "heading": "ثبت‌نام‌ها",
     "back": "بازگشت به تورنمنت‌ها",

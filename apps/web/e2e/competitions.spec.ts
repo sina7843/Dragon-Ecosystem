@@ -1,0 +1,97 @@
+import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
+
+/**
+ * Competition standings journey (DRAGON-09c): participants register for an
+ * automatic-approval single-elimination tournament, an organizer generates and
+ * plays the bracket, and the public tournament page shows final standings with a
+ * champion in both locales. No raw i18n key leaks.
+ */
+
+const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
+function uniqueMobile(): string {
+  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
+}
+const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
+
+/** OTP sign-in via a request context and complete a profile so the account is eligible. */
+async function signedInApi(browser: Browser): Promise<APIRequestContext> {
+  const context = await browser.newContext();
+  const api = context.request;
+  const mobile = uniqueMobile();
+  await api.post('/api/v1/auth/otp/request', { data: { mobile } });
+  const inbox = await api.get(`/api/v1/dev/sms-inbox?mobile=${mobile}`);
+  const code = ((await inbox.json()) as Array<{ code: string }>)[0]?.code ?? '';
+  await api.post('/api/v1/auth/otp/verify', { data: { mobile, code } });
+  await api.put('/api/v1/account/profile', { data: { username: `c_${uniqueSuffix()}`, displayName: 'Player', birthDate: '2000-01-01', visibility: 'public' } });
+  return api;
+}
+
+async function organizerApi(browser: Browser): Promise<APIRequestContext> {
+  const context = await browser.newContext();
+  const api = context.request;
+  const mobile = uniqueMobile();
+  await api.post('/api/v1/auth/otp/request', { data: { mobile } });
+  const inbox = await api.get(`/api/v1/dev/sms-inbox?mobile=${mobile}`);
+  const code = ((await inbox.json()) as Array<{ code: string }>)[0]?.code ?? '';
+  await api.post('/api/v1/auth/otp/verify', { data: { mobile, code } });
+  for (const role of ['tournament_administrator', 'content_publisher']) {
+    expect((await api.post('/api/v1/dev/grant-role', { data: { mobile, role } })).ok()).toBe(true);
+  }
+  return api;
+}
+
+async function createTournament(api: APIRequestContext): Promise<{ id: string; slug: string }> {
+  const slug = `comp-game-${uniqueSuffix()}`;
+  const game = await api.post('/api/v1/admin/games', { data: { slug, translations: { fa: { name: 'ب', description: 'د' }, en: { name: 'Game', description: 'd' } } } });
+  const gameId = ((await game.json()) as { id: string }).id;
+  await api.post(`/api/v1/admin/games/${gameId}/status`, { data: { status: 'published', reason: 'go' } });
+  const create = await api.post('/api/v1/admin/tournaments', {
+    data: {
+      gameId,
+      translations: { fa: { name: `مسابقه ${uniqueSuffix()}`, summary: 'خ' }, en: { name: `Cup ${uniqueSuffix()}`, summary: 'S' } },
+      ruleProfile: { text: { fa: 'ق', en: 'R' } }, capacity: 16, approvalMode: 'automatic',
+      registration: { opensAt: '2000-01-01T00:00', closesAt: '2100-01-01T00:00' }, schedule: { startAt: '2100-01-02T00:00', endAt: '2100-01-03T00:00' }
+    }
+  });
+  const created = await create.json() as { id: string; slug: string };
+  expect((await api.post(`/api/v1/admin/tournaments/${created.id}/transition`, { data: { to: 'published', reason: 'launch' } })).ok()).toBe(true);
+  return created;
+}
+
+test('a single-elimination competition is played and standings show a champion', async ({ page, browser }) => {
+  const organizer = await organizerApi(browser);
+  const { id, slug } = await createTournament(organizer);
+
+  // Two participants register (automatic approval) — the minimum single-elimination
+  // field; kept small to limit the OTP-heavy browser suite's parallel contention.
+  for (let i = 0; i < 2; i += 1) {
+    const participant = await signedInApi(browser);
+    const reg = await participant.post(`/api/v1/tournaments/${id}/registration`, { data: { idempotencyKey: `reg-${uniqueSuffix()}-${String(i)}` } });
+    expect(reg.ok()).toBe(true);
+  }
+
+  // Organizer generates the competition and plays every match.
+  expect((await organizer.post(`/api/v1/admin/tournaments/${id}/competition`, { data: {} })).ok()).toBe(true);
+  for (let guard = 0; guard < 20; guard += 1) {
+    const comp = await (await organizer.get(`/api/v1/admin/tournaments/${id}/competition?limit=100`)).json() as { competition: { state: string }; matches: Array<{ id: string; state: string }> };
+    if (comp.competition.state === 'completed') break;
+    const ready = comp.matches.filter((m) => m.state === 'ready');
+    if (ready.length === 0) break;
+    for (const m of ready) await organizer.post(`/api/v1/admin/tournaments/${id}/matches/${m.id}/result`, { data: { winnerSlot: 'a' } });
+  }
+
+  // Public standings show a champion and a final status.
+  await page.goto(`/en/tournaments/${slug}`);
+  await expect(page.getByTestId('standings')).toBeVisible();
+  await expect(page.getByTestId('standings-status')).toHaveAttribute('data-status', 'final');
+  await expect(page.getByTestId('standings').locator('tr[data-placement="champion"]')).toHaveCount(1);
+  await expect(page.getByTestId('bracket')).toBeVisible();
+
+  const bodyText = await page.locator('body').innerText();
+  expect(bodyText).not.toMatch(RAW_KEY_PATTERN);
+
+  // Persian side renders RTL with the localized standings.
+  await page.goto(`/fa/tournaments/${slug}`);
+  await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
+  await expect(page.getByTestId('standings')).toBeVisible();
+});

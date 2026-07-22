@@ -1,5 +1,6 @@
 import type { EntityId } from '../../shared/ids.ts';
 import type { BracketSide, EngineFormat } from './engine.ts';
+import type { StandingRow, StandingsStatus } from './standings.ts';
 
 /**
  * Competition and match persistence contracts (BRACKET-001/003/016/018).
@@ -34,9 +35,53 @@ export interface CompetitionRecord {
   state: CompetitionState;
   /** Swiss progression: how many rounds are planned and how many are generated so far. */
   swiss: { targetRounds: number; currentRound: number } | null;
+  /** Correction/lock lifecycle (BRACKET-012): open → correction_limited → locked. */
+  lockState: 'open' | 'correction_limited' | 'locked';
+  /** Optimistic guard for lock transitions. */
+  lockVersion: number;
+  /** Monotonic calculation-version counter for standings projections. */
+  standingsVersion: number;
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/** Append-only standings projection snapshot (BRACKET-015). */
+export interface StandingsSnapshotRecord {
+  _id: EntityId;
+  competitionId: EntityId;
+  tournamentId: EntityId;
+  format: CompetitionFormat;
+  formatVersion: number;
+  policyVersion: number;
+  calculationVersion: number;
+  /** Deterministic watermark of the source results this projection was calculated from. */
+  sourceWatermark: number;
+  status: StandingsStatus;
+  /** Exactly one snapshot per competition is the current one. */
+  current: boolean;
+  rows: StandingRow[];
+  /** Metadata only — never used to order standings. */
+  calculatedAt: string;
+}
+
+/** Immutable record of a corrected match result (BRACKET-022, TOURN-022). */
+export interface ResultCorrectionRecord {
+  _id: EntityId;
+  matchId: EntityId;
+  competitionId: EntityId;
+  tournamentId: EntityId;
+  revisionNumber: number;
+  priorWinner: EntityId | null;
+  priorScoreA: number | null;
+  priorScoreB: number | null;
+  correctedWinner: EntityId;
+  correctedScoreA: number | null;
+  correctedScoreB: number | null;
+  reason: string;
+  actorId: EntityId;
+  correlationId: string;
+  createdAt: string;
 }
 
 export type MatchState = 'pending' | 'ready' | 'bye' | 'completed';

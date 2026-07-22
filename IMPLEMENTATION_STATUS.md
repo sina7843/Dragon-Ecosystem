@@ -12,8 +12,9 @@
 - Registration, eligibility, approval, and waitlist: complete (DRAGON-08) — implemented and verified, not yet committed
 - Competition core (single-elimination + round-robin): complete (DRAGON-09a) — implemented and verified, not yet committed
 - Advanced competition formats (double elimination, Swiss, manual/custom): complete (DRAGON-09b) — implemented and verified, not yet committed
-- Active prompt: DRAGON-09c — standings and concurrency
-- Latest verified checkpoint: DRAGON-09b advanced formats, 2026-07-22
+- Standings, corrections, locking, concurrency, and presentation: complete (DRAGON-09c) — completes DRAGON-09; implemented and verified, not yet committed
+- Active prompt: DRAGON-10 — bracket operations and tournament control UI
+- Latest verified checkpoint: DRAGON-09c standings and concurrency, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -111,6 +112,18 @@
 - Gated policies (recorded, not invented): the double-elimination grand-final **reset** variant and the exact Swiss **bye scoring / tiebreak** are defined by rule profiles, which OD-006 keeps gated (BRACKET-007); this slice ships a single grand final and a bye-counts-as-a-win default and gates the alternatives. Synchronous size limits: single elimination ≤1000, double elimination ≤256, round robin ≤64, Swiss ≤16, manual ≤256 fixtures / depth ≤32.
 - One focused `test-reviewer` pass over double-elimination routing, Swiss rematch/bye invariants, custom-graph validation, result idempotency, concurrency, and resource-scoped authorization: verdict APPROVE, no Critical/High. One correctness Medium was fixed — the manual graph now rejects reusing a participant seed across fixtures (which could double-book a participant or route the same participant into both sides of a later fixture). No routes/UI were added, so authorization is unchanged from 09a.
 
+## Delivered by DRAGON-09c
+- Deterministic standings projection (`modules/competitions/standings.ts`): a pure calculator per format — points-based for round robin / Swiss / manual, placement-based (champion, runner-up, eliminated-by-round, active) for single and double elimination. Ranking is competition ranking (1, 2, 2, 4): tied participants share a rank and the seeded order is the sole stable final fallback; no wall clock, insertion order, or database natural order affects ordering. Only accepted (completed/bye) results count; every participant appears exactly once; manual returns a partial (wins-derived) ordering rather than an invented total order.
+- Versioned standings snapshots (`competition_standings`): each carries competition id, format + policy version, calculation version, source watermark, status (final/provisional/partial), the ranked rows, and a metadata-only timestamp. Exactly one snapshot per competition is current (unique partial index) and one per calculation version; a recalculation runs inside the mutating transaction under an optimistic `standingsVersion` guard, so concurrent recalculation yields exactly one current projection and a stale projection cannot overwrite a newer one. Recalculation is deterministic and reconciles: recomputing from the same accepted results reproduces the stored rows.
+- Result correction and versioning (`competition_result_corrections`, TOURN-022): a completed result can be corrected with an expected-version guard; the original is preserved in an immutable, append-only revision (prior/corrected result, reason, actor, correlation id, revision number, timestamp) written atomically with the recalculated standings and an audit + outbox event. A same-key same-payload retry is idempotent (`withIdempotency`, scope `result_correction:matchId`) and creates no new revision; a stale version conflicts; concurrent different corrections yield exactly one winner and the loser writes nothing.
+- Downstream-history boundary (session-consistent): a correction whose match feeds an already-completed downstream fixture is refused with `DOWNSTREAM_HISTORY_CONFLICT` — the check is re-verified inside the correction transaction so a concurrent result completing the downstream cannot slip past; an allowed correction only re-points a not-yet-completed downstream slot. History is never silently rewritten.
+- Lock / finalize lifecycle (BRACKET-012): `open → correction_limited → locked`, an optimistic `lockVersion`-guarded, audited transition. A finalized competition rejects ordinary result entry and corrections (both re-checked inside their transactions); concurrent lock transitions yield exactly one accepted change. No rollback or regeneration deletes immutable result or audit history.
+- Load-safe reads: the bracket and admin competition endpoints are keyset-paginated over (round, index) on a declared index; standings is a single bounded snapshot document; participant identity is the seed number. Standings recalculation is synchronous within the approved size limits; a background dispatcher (DRAGON-14) is unnecessary within those limits.
+- HTTP surface: public `GET /tournaments/:id/standings` and `/tournaments/:id/bracket` (published tournaments only), and admin generate / result / correct / lock / recalculate / swiss-round routes gated on `tournament.manage` scoped to the path tournament, with each match/competition validated against the route tournament (cross-tournament IDOR → 404). This is the first HTTP surface for the competition engine (09a/09b had none).
+- Accessible bilingual presentation: a standings table (caption, column headers, tied and placement labels, no color-only signalling) and a textual bracket on the tournament detail page, with a status indicator (provisional / final / partial / finalized), in fa RTL and en LTR.
+- One focused `test-reviewer` pass over deterministic ranking, correction authorization, optimistic concurrency, idempotency, downstream-history protection, projection races, load-safe reads, and cross-tournament IDOR: verdict APPROVE, no Critical/High. One Medium correctness note was fixed — the downstream-history and lock checks are now re-verified inside the mutating transaction so a concurrent completion/lock cannot slip past.
+- **DRAGON-09 is complete** (09a single-elim/round-robin + 09b double-elim/Swiss/manual + 09c standings/corrections/concurrency).
+
 ## Known blockers
 - None.
 
@@ -129,7 +142,8 @@
 - Full security header set, CSP, and CORS allowlist — DRAGON-16b.
 - Full browser and viewport matrix from Requirements section 31 — DRAGON-16a.
 - OD-026 analytics and error monitoring — unresolved; no adapter exists.
-- Final standings and tiebreaker presentation, large-scale (1,000) background generation, bracket locking/rollback/regeneration and preview, and the operational control/bracket-admin UI (BRACKET-010/012/013/014/015/017) — DRAGON-09c/10; the deterministic engines and result-driven progression are in place.
+- Bracket versioning/regeneration/rollback with destructive-change preview (BRACKET-010/013/014), the operational control-room / bracket-admin UI (BRACKET-017 visual editor), and a background dispatcher for above-limit generation (DRAGON-14) — DRAGON-10/14; the deterministic engines, standings projection, corrections, and locking are in place.
+- Opponent-based Swiss tiebreaks (Buchholz/Sonneborn-Berger), richer round-robin tiebreaks (head-to-head, score difference), draw support, and named points policies — gated by OD-006/BRACKET-007; the shipped policy is win = 1 point with the seeded order as the stable fallback.
 - Double-elimination grand-final reset and exact Swiss bye-scoring/tiebreak (rule-profile-defined) — gated by OD-006/BRACKET-007; single grand final and bye-as-win defaults ship today.
 - Manual group/round-robin-style graphs with a participant appearing in multiple fixtures — deferred; the manual graph currently seeds each participant once (elimination/bracket-style), which prevents downstream self-play.
 - Tournament match scheduling, results, corrections, and outcomes (TOURN-019..025), and cancellation/completion cleanup workflows (TOURN-027/028) — DRAGON-09/10.
@@ -144,10 +158,10 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 236 passed (200 api, 36 web); the competition engine has property/invariant tests for single-elim/round-robin (34), double elimination (14, full play-out n=2..32), Swiss (10, multi-round), manual graph (9), plus configuration validation
-- `npm run test:integration` — 151 passed (adds 9 advanced-format competitions: double-elimination generation and play-through, byes, concurrent sibling progression, Swiss round generation with rematch avoidance and incomplete-round refusal, concurrent round generation, manual graph generation/propagation and invalid-graph rejection)
+- `npm test` — 244 passed (208 api, 36 web); the competition engine adds standings property tests (8) on top of the format engines (single/round-robin, double elimination full play-out, Swiss multi-round, manual graph) and configuration validation
+- `npm run test:integration` — 161 passed (adds 10 standings/concurrency: provisional-at-generation and per-result recalculation, concurrent recalculation → one current projection, deterministic reconciliation, correction revision + idempotent replay + stale-version conflict + concurrent one-winner, downstream-history block, lock rejects entry + concurrent one-winner, 128-participant bounded standings, cross-tournament IDOR)
 - `npm run build` — pass
-- `npm run e2e` — 174 (unchanged; DRAGON-09a/09b add no user-facing UI, so the browser suite was not re-run for these slices)
+- `npm run e2e` — 177 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the competition standings journey: register → generate → play → public standings with a champion). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; a clean re-run passes all 177 (matrix owned by DRAGON-16a)
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)

@@ -8,6 +8,7 @@ import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
+import { getBracket, getStandings, type BracketView, type StandingsView } from '../composables/useCompetitionsApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useAuth } from '../composables/useAuth.ts';
 import { useToasts } from '../composables/useToasts.ts';
@@ -31,6 +32,9 @@ const registration = ref<RegistrationStatus | null>(null);
 const answers = ref<Record<string, string>>({});
 const registering = ref(false);
 const registerError = ref<string | undefined>(undefined);
+
+const standings = ref<StandingsView | null>(null);
+const bracket = ref<BracketView | null>(null);
 
 function moneyLabel(m: MoneyView): string {
   return m.assetCode === 'IRR'
@@ -58,6 +62,14 @@ onMounted(async () => {
   }
   if (!loaded.value) await refresh();
   if (authenticated.value && tour.value !== null) await loadStatus(tour.value.id);
+  if (tour.value !== null) {
+    try {
+      standings.value = await getStandings(tour.value.id);
+      bracket.value = await getBracket(tour.value.id);
+    } catch {
+      standings.value = null; // 404 = competition not generated yet.
+    }
+  }
 });
 
 async function onRegister(): Promise<void> {
@@ -280,6 +292,86 @@ async function onWithdraw(): Promise<void> {
           </button>
         </form>
       </section>
+
+      <section
+        v-if="standings"
+        class="block standings"
+        data-testid="standings"
+      >
+        <h2>{{ t('standings.heading') }}</h2>
+        <p
+          class="status"
+          data-testid="standings-status"
+          :data-status="standings.status"
+          :data-locked="standings.lockState"
+        >
+          {{ t(`standings.status.${standings.status}`) }}
+          <span v-if="standings.lockState === 'locked'"> · {{ t('standings.locked') }}</span>
+        </p>
+        <div class="scroll">
+          <table>
+            <caption class="sr-only">
+              {{ t('standings.heading') }}
+            </caption>
+            <thead>
+              <tr>
+                <th scope="col">
+                  {{ t('standings.rank') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.participant') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.played') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.wins') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.losses') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.points') }}
+                </th>
+                <th scope="col">
+                  {{ t('standings.placement') }}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr
+                v-for="(row, i) in standings.rows"
+                :key="i"
+                :data-placement="row.placement"
+              >
+                <td>{{ row.rank }}<span v-if="row.shared"> ({{ t('standings.tied') }})</span></td>
+                <td>{{ t('standings.seed', { n: row.seed ?? '—' }) }}</td>
+                <td>{{ row.played }}</td>
+                <td>{{ row.wins }}</td>
+                <td>{{ row.losses }}</td>
+                <td>{{ row.points }}</td>
+                <td>{{ t(`standings.placementLabel.${row.placement}`) }}</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <h2>{{ t('standings.bracket') }}</h2>
+        <ul
+          v-if="bracket"
+          class="bracket"
+          data-testid="bracket"
+        >
+          <li
+            v-for="m in bracket.items"
+            :key="m.key"
+          >
+            {{ t('standings.matchup', { a: m.a ?? '—', b: m.b ?? '—' }) }}
+            · {{ t(`standings.matchState.${m.state}`) }}
+            <span v-if="m.winner !== null">· {{ t('standings.wonBy', { n: m.winner }) }}</span>
+          </li>
+        </ul>
+      </section>
     </template>
   </section>
 </template>
@@ -373,5 +465,48 @@ async function onWithdraw(): Promise<void> {
   background-color: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
+}
+
+.standings .status {
+  font-weight: 700;
+}
+
+.scroll {
+  overflow-x: auto;
+}
+
+.standings table {
+  inline-size: 100%;
+  border-collapse: collapse;
+}
+
+.standings th,
+.standings td {
+  padding: var(--space-2) var(--space-3);
+  border-block-end: 1px solid var(--color-border);
+  text-align: start;
+}
+
+.standings tr[data-placement='champion'] {
+  font-weight: 700;
+}
+
+.bracket {
+  list-style: none;
+  padding: 0;
+}
+
+.bracket li {
+  padding-block: var(--space-1);
+  border-block-end: 1px solid var(--color-border);
+  font-size: var(--text-sm);
+}
+
+.sr-only {
+  position: absolute;
+  inline-size: 1px;
+  block-size: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
 }
 </style>

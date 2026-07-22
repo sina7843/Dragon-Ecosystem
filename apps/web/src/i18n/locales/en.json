@@ -607,6 +607,41 @@
       "cancelled": "Cancelled"
     }
   },
+  "standings": {
+    "heading": "Standings",
+    "bracket": "Bracket",
+    "rank": "Rank",
+    "participant": "Participant",
+    "played": "Played",
+    "wins": "Wins",
+    "losses": "Losses",
+    "points": "Points",
+    "placement": "Placement",
+    "tied": "tied",
+    "locked": "Finalized",
+    "seed": "Seed {n}",
+    "matchup": "Seed {a} vs Seed {b}",
+    "wonBy": "won by seed {n}",
+    "status": {
+      "final": "Final",
+      "provisional": "Provisional (in progress)",
+      "partial": "Partial"
+    },
+    "placementLabel": {
+      "champion": "Champion",
+      "runner_up": "Runner-up",
+      "eliminated": "Eliminated",
+      "active": "Active",
+      "ranked": "Ranked",
+      "unresolved": "Unresolved"
+    },
+    "matchState": {
+      "pending": "Pending",
+      "ready": "Ready",
+      "completed": "Completed",
+      "bye": "Bye"
+    }
+  },
   "adminRegistrations": {
     "heading": "Registrations",
     "back": "Back to tournaments",
