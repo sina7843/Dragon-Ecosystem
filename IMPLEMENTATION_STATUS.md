@@ -10,8 +10,9 @@
 - Persistent teams and gaming identities: complete (DRAGON-06)
 - Tournament authoring and discovery: complete (DRAGON-07)
 - Registration, eligibility, approval, and waitlist: complete (DRAGON-08) — implemented and verified, not yet committed
-- Active prompt: DRAGON-09 — competition engine and standings
-- Latest verified checkpoint: DRAGON-08 registration, eligibility, approval, and waitlist, 2026-07-22
+- Competition core (single-elimination + round-robin): complete (DRAGON-09a) — implemented and verified, not yet committed
+- Active prompt: DRAGON-09b — advanced competition formats (double elimination, Swiss, manual/custom)
+- Latest verified checkpoint: DRAGON-09a competition core, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -93,6 +94,13 @@
 - OD-007: paid registration and refund execution stay disabled — a non-free tournament rejects registration with `PAYMENT_NOT_AVAILABLE` until DRAGON-11/12.
 - One focused `test-reviewer` pass over concurrency, authorization, IDOR, waitlist promotion, duplicate prevention, and capacity enforcement: verdict APPROVE, no Critical/High. One Low DRY note was applied (the active-flag now derives from `isActiveState`). One Medium note is a property of the shared `withIdempotency` helper (completion is not written inside the registration transaction): a process crash in a narrow window can leave an idempotency key `in_progress` until its 24h TTL, but this can never overbook or create a duplicate (the seat counter and active-unique index still hold), so it is recorded as a known limitation rather than changed here (rewriting shared infrastructure is out of scope).
 
+## Delivered by DRAGON-09a
+- Pure, deterministic competition engine (`modules/competitions/engine.ts`): reproducible seeding (a caller-supplied manual order, else a stable sort by a keyed SHA-256 of the seed and participant id — order-independent, no RNG/clock), standard balanced bracket seeding, single-elimination generation with correct byes for non-power-of-two counts (byes assigned to top seeds and pre-advanced), and round-robin scheduling by the circle method (every pairing once per leg, one rest per round for odd counts, home/away alternating by leg). Match `key`s are logical/positional so the structure is stable and property-testable; opaque ids are assigned on persistence.
+- Configuration validation (`validation.ts`): rejects unsupported formats (double elimination, Swiss, manual/custom are validated as unsupported here — delivered by DRAGON-09b), duplicate participants, and participant counts outside each format's limits (single elimination 2–1000, round robin 2–64 synchronous; larger round robin via a background job is DRAGON-09c), before any generation.
+- Competition service (`service.ts`): generates a competition from a tournament's **approved** registrations only (the authoritative participant source), carrying each team entry's immutable registration-time roster snapshot into its match slots (TOURN-010); records match results with deterministic single-elimination advancement.
+- Database and concurrency guarantees: one competition per tournament via a unique index on `tournamentId` (concurrent generation collapses to one, no duplicate state); results recorded under an optimistic `(version, state:ready)` guard so concurrent progression on a match yields one success and one conflict, a result is applied at most once (idempotent replay of the same result, conflict on a different one), and a match never advances without an accepted result (byes are the only structural pre-advance). Every write goes through `runUnitOfWork` (transactional audit + outbox event); persisted competitions and matches use stable opaque ids; no floating-point or money behavior.
+- Scope boundary: this slice adds no user-facing UI and no HTTP surface — bracket administration and operational control UI are later slices/prompts (09b/09c/10), so the browser suite is unchanged. Authorization is preserved unchanged (the service carries the request context for audit; the gated HTTP surface arrives with the control UI).
+
 ## Known blockers
 - None.
 
@@ -123,10 +131,10 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 169 passed (133 api, 36 web)
-- `npm run test:integration` — 133 passed (adds 14 registrations: authorization/IDOR and resource scoping, eligibility, duplicate prevention, idempotent replay, concurrent capacity contention, manual-approval queue with promotion and capacity release, team owner-only + roster snapshot, and the OD-007 paid gate)
+- `npm test` — 203 passed (167 api, 36 web); the +34 api are the competition engine property/invariant tests (29) and configuration validation (5)
+- `npm run test:integration` — 142 passed (adds 9 competitions: generation from approved registrations, immutable roster-snapshot references, byes, round-robin, concurrent generation, single-result and concurrent progression, and not-ready/idempotent-result guards)
 - `npm run build` — pass
-- `npm run e2e` — 174 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the free auto-approval registration journey and the manual-approval admin-queue journey). Note: the OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; a clean re-run passes all 174. The parallel viewport matrix is owned by DRAGON-16a.
+- `npm run e2e` — 174 (unchanged; DRAGON-09a adds no user-facing UI, so the browser suite was not re-run for this slice)
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)

@@ -401,6 +401,19 @@ export class RegistrationsService {
     };
   }
 
+  /**
+   * Approved registrations as competition participants (DRAGON-09 integration).
+   * Only approved entries may enter a competition; each carries its immutable
+   * registration-time roster snapshot for a team entry (TOURN-010).
+   */
+  async listApprovedParticipants(tournamentId: string): Promise<Array<{ registrationId: string; participantType: 'individual' | 'team'; teamId: string | null; rosterSnapshotId: string | null }>> {
+    const rows = await this.#registrations()
+      .find({ tournamentId, state: 'approved' })
+      .sort({ createdAt: 1, _id: 1 })
+      .toArray();
+    return rows.map((r) => ({ registrationId: r._id, participantType: r.participantType, teamId: r.teamId, rosterSnapshotId: r.rosterSnapshotId }));
+  }
+
   /** Current occupancy for a tournament (admin summary; capacity comes from the tournament). */
   async seatSummary(tournamentId: string): Promise<{ mainCount: number; waitlistCount: number }> {
     const counter = await this.#seats(this.#db).findOne({ _id: tournamentId });

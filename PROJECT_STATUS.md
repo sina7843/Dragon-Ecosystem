@@ -15,7 +15,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-06
 - [x] DRAGON-07
 - [x] DRAGON-08
-- [ ] DRAGON-09a
+- [x] DRAGON-09a
 - [ ] DRAGON-09b
 - [ ] DRAGON-09c
 - [ ] DRAGON-10
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: `DRAGON-09` (sliced: 09a → 09b → 09c)
-- Last completed item: `DRAGON-08` (implemented and verified; not yet committed)
+- Active item: `DRAGON-09b` (advanced competition formats)
+- Last completed item: `DRAGON-09a` (competition core: single-elimination + round-robin; implemented and verified; not yet committed, stacked on the uncommitted DRAGON-08)
 - Blockers: none
