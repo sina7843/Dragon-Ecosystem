@@ -353,7 +353,33 @@
       "ANSWER_REQUIRED": "This question requires an answer.",
       "INVALID_CHOICE": "Choose one of the provided options.",
       "INVALID_REGISTRATION_TRANSITION": "That registration change is not allowed.",
-      "REASON_REQUIRED": "A reason is required."
+      "REASON_REQUIRED": "A reason is required.",
+      "COMPETITION_LOCKED": "This competition is finalized. Unlock it to make changes.",
+      "MATCH_NOT_READY": "This match is not ready for a result yet.",
+      "RESULT_ALREADY_RECORDED": "A different result was already recorded for this match.",
+      "RESULT_STALE": "This match changed. Reload and try again.",
+      "RESULT_VERSION_STALE": "This result changed since you opened it. Reload and try again.",
+      "RESULT_NOT_CORRECTABLE": "Only a completed result can be corrected.",
+      "DOWNSTREAM_HISTORY_CONFLICT": "A later completed match depends on this result. Resolve it manually first.",
+      "COMPETITION_EXISTS": "A competition has already been generated for this tournament.",
+      "COMPETITION_VERSION_STALE": "This competition changed since you opened it. Reload and try again.",
+      "VERSION_STALE": "The bracket changed concurrently. Reload and try again.",
+      "VERSION_NOT_RESTORABLE": "Only a superseded version can be restored.",
+      "LOCK_VERSION_STALE": "The lock state changed. Reload and try again.",
+      "STANDINGS_STALE": "Standings changed. Try again.",
+      "SWISS_COMPLETE": "All Swiss rounds have been generated.",
+      "SWISS_ROUND_INCOMPLETE": "Finish the current round before generating the next.",
+      "SWISS_ROUND_STALE": "The Swiss round advanced already.",
+      "SWISS_ROUND_EXISTS": "That Swiss round was already generated.",
+      "CONFIRMATION_REQUIRED": "Confirm this action to continue.",
+      "INVALID_WINNER": "Choose a filled slot as the winner.",
+      "INVALID_ROUNDS": "The number of rounds is not valid.",
+      "MANUAL_GRAPH_REQUIRED": "A custom competition requires a graph.",
+      "UNSUPPORTED_FORMAT": "That competition format is not supported.",
+      "DUPLICATE_PARTICIPANT": "A participant appears more than once.",
+      "INVALID_PARTICIPANT_COUNT": "The number of participants is outside the allowed range.",
+      "INVALID_LEGS": "The number of legs is not valid.",
+      "DUPLICATE_SEED_USE": "A seed is used more than once in the graph."
     }
   },
   "content": {
@@ -588,7 +614,8 @@
     "cancel": "Cancel",
     "archive": "Archive",
     "clone": "Clone",
-    "registrations": "Registrations"
+    "registrations": "Registrations",
+    "competition": "Manage competition"
   },
   "registration": {
     "heading": "Registration",
@@ -640,7 +667,11 @@
       "ready": "Ready",
       "completed": "Completed",
       "bye": "Bye"
-    }
+    },
+    "print": "Print",
+    "share": "Share bracket",
+    "shareCopied": "Link copied to clipboard.",
+    "round": "Round {n}"
   },
   "adminRegistrations": {
     "heading": "Registrations",
@@ -659,5 +690,72 @@
     "cancel": "Cancel",
     "reasonPrompt": "Enter a reason (required):",
     "updated": "Registration updated."
+  },
+  "competitionOps": {
+    "heading": "Competition control",
+    "back": "Back to tournaments",
+    "notGenerated": "No competition has been generated yet.",
+    "generate": "Generate competition",
+    "generated": "Competition generated.",
+    "format": "Format",
+    "state": "State",
+    "stateLabel": {
+      "generated": "Generated",
+      "in_progress": "In progress",
+      "completed": "Completed"
+    },
+    "activeVersion": "Active version",
+    "lock": "Lock",
+    "lockLabel": {
+      "open": "Open",
+      "correction_limited": "Corrections only",
+      "locked": "Finalized"
+    },
+    "queue": "Match queue",
+    "readyCount": "{n} ready",
+    "matchRound": "Round",
+    "matchup": "Match",
+    "matchState": "State",
+    "actions": "Actions",
+    "seedVs": "Seed {a} vs Seed {b}",
+    "wonBy": "won by seed {n}",
+    "scoreA": "Score A",
+    "scoreB": "Score B",
+    "winA": "Seed {n} wins",
+    "winB": "Seed {n} wins",
+    "correct": "Correct",
+    "reason": "Reason",
+    "reasonRequired": "A reason is required.",
+    "resultRecorded": "Result recorded.",
+    "resultCorrected": "Result corrected.",
+    "generateSwissRound": "Generate next Swiss round",
+    "swissRoundGenerated": "Next Swiss round generated.",
+    "lockHeading": "Lock state",
+    "applyLock": "Apply lock",
+    "lockChanged": "Lock state changed.",
+    "regenerateHeading": "Regenerate bracket",
+    "regenerate": "Regenerate",
+    "regenerated": "Bracket regenerated.",
+    "regenerateImpact": "This supersedes the current bracket ({n} recorded results are archived to history) and creates version {v}.",
+    "confirmDestructive": "I understand this replaces the current bracket.",
+    "confirmRequired": "Enter a reason and confirm to continue.",
+    "cancel": "Cancel",
+    "versionsHeading": "Version history",
+    "version": "Version",
+    "origin": "Origin",
+    "originLabel": {
+      "generation": "Generation",
+      "regeneration": "Regeneration",
+      "rollback": "Rollback"
+    },
+    "versionState": "State",
+    "versionStateLabel": {
+      "active": "Active",
+      "superseded": "Superseded"
+    },
+    "results": "Results",
+    "rollback": "Roll back",
+    "rolledBack": "Rolled back to the selected version.",
+    "rollbackImpact": "Restore version {v} as a new active version. The current bracket is archived first."
   }
 }

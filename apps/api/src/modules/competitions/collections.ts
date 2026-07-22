@@ -5,7 +5,8 @@ export const COMPETITIONS_COLLECTIONS = {
   competitions: 'competitions',
   matches: 'competition_matches',
   standings: 'competition_standings',
-  corrections: 'competition_result_corrections'
+  corrections: 'competition_result_corrections',
+  versions: 'competition_bracket_versions'
 } as const;
 
 export const COMPETITIONS_INDEXES: readonly IndexDeclaration[] = [
@@ -38,4 +39,14 @@ export const COMPETITIONS_STANDINGS_INDEXES: readonly IndexDeclaration[] = [
   { collection: COMPETITIONS_COLLECTIONS.standings, name: 'standings_version_unique', keys: { competitionId: 1, calculationVersion: 1 }, options: { unique: true } },
   { collection: COMPETITIONS_COLLECTIONS.corrections, name: 'correction_match_revision_unique', keys: { matchId: 1, revisionNumber: 1 }, options: { unique: true } },
   { collection: COMPETITIONS_COLLECTIONS.corrections, name: 'correction_competition', keys: { competitionId: 1, createdAt: 1 } }
+];
+
+/**
+ * Bracket-version safeguards (DRAGON-10). One version record per (competition,
+ * version number) and one active version per competition — the database authority
+ * that makes concurrent regeneration/rollback produce exactly one active version.
+ */
+export const COMPETITIONS_VERSION_INDEXES: readonly IndexDeclaration[] = [
+  { collection: COMPETITIONS_COLLECTIONS.versions, name: 'version_competition_number_unique', keys: { competitionId: 1, versionNumber: 1 }, options: { unique: true } },
+  { collection: COMPETITIONS_COLLECTIONS.versions, name: 'version_active_unique', keys: { competitionId: 1 }, options: { unique: true, partialFilterExpression: { state: 'active' } } }
 ];

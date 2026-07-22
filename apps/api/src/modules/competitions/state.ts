@@ -1,6 +1,7 @@
 import type { EntityId } from '../../shared/ids.ts';
 import type { BracketSide, EngineFormat } from './engine.ts';
 import type { StandingRow, StandingsStatus } from './standings.ts';
+import type { ManualGraphSpec } from './manual.ts';
 
 /**
  * Competition and match persistence contracts (BRACKET-001/003/016/018).
@@ -41,9 +42,40 @@ export interface CompetitionRecord {
   lockVersion: number;
   /** Monotonic calculation-version counter for standings projections. */
   standingsVersion: number;
+  /** The currently active bracket version (BRACKET-010); regeneration/rollback increment it. */
+  activeVersion: number;
+  /** Retained for manual regeneration; null for engine-generated formats. */
+  manualGraph: ManualGraphSpec | null;
   version: number;
   createdAt: string;
   updatedAt: string;
+}
+
+/**
+ * Immutable bracket-version log (BRACKET-010/013/014). Each generation,
+ * regeneration, or rollback appends a version; superseding a version snapshots its
+ * matches so prior data (including recorded results) is never lost.
+ */
+export interface BracketVersionRecord {
+  _id: EntityId;
+  competitionId: EntityId;
+  tournamentId: EntityId;
+  versionNumber: number;
+  state: 'active' | 'superseded';
+  origin: 'generation' | 'regeneration' | 'rollback';
+  /** For a rollback: the prior version whose bracket was restored. */
+  rolledBackFrom: number | null;
+  reason: string | null;
+  /** The seed and participant seed-order this version was built with (restored on rollback). */
+  seed: string;
+  participantsSnapshot: ParticipantRef[];
+  /** Snapshot of this version's matches, captured when it is superseded (immutable history). */
+  matchesSnapshot: MatchRecord[];
+  completedResultCount: number;
+  participantCount: number;
+  actorId: EntityId;
+  createdAt: string;
+  supersededAt: string | null;
 }
 
 /** Append-only standings projection snapshot (BRACKET-015). */

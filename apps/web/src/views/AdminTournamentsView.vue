@@ -504,6 +504,12 @@ async function clone(): Promise<void> {
               >
                 {{ t('adminTournaments.registrations') }}
               </RouterLink>
+              <RouterLink
+                :to="`${prefix}/admin/tournaments/${editing.id}/competition`"
+                data-testid="manage-competition"
+              >
+                {{ t('adminTournaments.competition') }}
+              </RouterLink>
               <button
                 v-if="editing.state === 'draft'"
                 type="button"

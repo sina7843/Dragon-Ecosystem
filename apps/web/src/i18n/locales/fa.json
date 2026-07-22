@@ -353,7 +353,33 @@
       "ANSWER_REQUIRED": "پاسخ این پرسش الزامی است.",
       "INVALID_CHOICE": "یکی از گزینه‌های ارائه‌شده را انتخاب کنید.",
       "INVALID_REGISTRATION_TRANSITION": "این تغییر ثبت‌نام مجاز نیست.",
-      "REASON_REQUIRED": "ذکر دلیل الزامی است."
+      "REASON_REQUIRED": "ذکر دلیل الزامی است.",
+      "COMPETITION_LOCKED": "این مسابقه نهایی شده است. برای تغییر، ابتدا آن را باز کنید.",
+      "MATCH_NOT_READY": "این دیدار هنوز آمادهٔ ثبت نتیجه نیست.",
+      "RESULT_ALREADY_RECORDED": "نتیجهٔ دیگری برای این دیدار ثبت شده است.",
+      "RESULT_STALE": "این دیدار تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "RESULT_VERSION_STALE": "این نتیجه پس از باز کردن تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "RESULT_NOT_CORRECTABLE": "فقط نتیجهٔ کامل‌شده قابل اصلاح است.",
+      "DOWNSTREAM_HISTORY_CONFLICT": "دیدار کامل‌شدهٔ بعدی به این نتیجه وابسته است. ابتدا آن را دستی حل کنید.",
+      "COMPETITION_EXISTS": "برای این تورنمنت پیش‌تر جدول ساخته شده است.",
+      "COMPETITION_VERSION_STALE": "این مسابقه پس از باز کردن تغییر کرده است. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "VERSION_STALE": "جدول هم‌زمان تغییر کرد. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "VERSION_NOT_RESTORABLE": "فقط نسخهٔ جایگزین‌شده قابل بازیابی است.",
+      "LOCK_VERSION_STALE": "وضعیت قفل تغییر کرد. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "STANDINGS_STALE": "جدول رده‌بندی تغییر کرد. دوباره تلاش کنید.",
+      "SWISS_COMPLETE": "همهٔ دورهای سوئیسی ساخته شده‌اند.",
+      "SWISS_ROUND_INCOMPLETE": "پیش از ساخت دور بعد، دور جاری را کامل کنید.",
+      "SWISS_ROUND_STALE": "دور سوئیسی پیش‌تر جلو رفته است.",
+      "SWISS_ROUND_EXISTS": "این دور سوئیسی پیش‌تر ساخته شده است.",
+      "CONFIRMATION_REQUIRED": "برای ادامه این کار را تأیید کنید.",
+      "INVALID_WINNER": "یک جایگاه پرشده را به‌عنوان برنده انتخاب کنید.",
+      "INVALID_ROUNDS": "تعداد دورها معتبر نیست.",
+      "MANUAL_GRAPH_REQUIRED": "مسابقهٔ سفارشی به گراف نیاز دارد.",
+      "UNSUPPORTED_FORMAT": "این قالب مسابقه پشتیبانی نمی‌شود.",
+      "DUPLICATE_PARTICIPANT": "یک شرکت‌کننده بیش از یک بار آمده است.",
+      "INVALID_PARTICIPANT_COUNT": "تعداد شرکت‌کنندگان خارج از محدودهٔ مجاز است.",
+      "INVALID_LEGS": "تعداد مراحل معتبر نیست.",
+      "DUPLICATE_SEED_USE": "یک سید بیش از یک بار در گراف استفاده شده است."
     }
   },
   "content": {
@@ -588,7 +614,8 @@
     "cancel": "لغو",
     "archive": "بایگانی",
     "clone": "کپی",
-    "registrations": "ثبت‌نام‌ها"
+    "registrations": "ثبت‌نام‌ها",
+    "competition": "مدیریت مسابقه"
   },
   "registration": {
     "heading": "ثبت‌نام",
@@ -640,7 +667,11 @@
       "ready": "آماده",
       "completed": "پایان‌یافته",
       "bye": "استراحت"
-    }
+    },
+    "print": "چاپ",
+    "share": "هم‌رسانی جدول",
+    "shareCopied": "پیوند در حافظه کپی شد.",
+    "round": "دور {n}"
   },
   "adminRegistrations": {
     "heading": "ثبت‌نام‌ها",
@@ -659,5 +690,72 @@
     "cancel": "لغو",
     "reasonPrompt": "یک دلیل وارد کنید (الزامی):",
     "updated": "ثبت‌نام به‌روزرسانی شد."
+  },
+  "competitionOps": {
+    "heading": "کنترل مسابقه",
+    "back": "بازگشت به مسابقات",
+    "notGenerated": "هنوز جدولی ساخته نشده است.",
+    "generate": "ساخت جدول مسابقه",
+    "generated": "جدول مسابقه ساخته شد.",
+    "format": "قالب",
+    "state": "وضعیت",
+    "stateLabel": {
+      "generated": "ساخته‌شده",
+      "in_progress": "در حال اجرا",
+      "completed": "پایان‌یافته"
+    },
+    "activeVersion": "نسخهٔ فعال",
+    "lock": "قفل",
+    "lockLabel": {
+      "open": "باز",
+      "correction_limited": "فقط اصلاح",
+      "locked": "نهایی‌شده"
+    },
+    "queue": "صف دیدارها",
+    "readyCount": "{n} آماده",
+    "matchRound": "دور",
+    "matchup": "دیدار",
+    "matchState": "وضعیت",
+    "actions": "کنش‌ها",
+    "seedVs": "سید {a} در برابر سید {b}",
+    "wonBy": "برندهٔ سید {n}",
+    "scoreA": "امتیاز الف",
+    "scoreB": "امتیاز ب",
+    "winA": "برد سید {n}",
+    "winB": "برد سید {n}",
+    "correct": "اصلاح",
+    "reason": "دلیل",
+    "reasonRequired": "ذکر دلیل الزامی است.",
+    "resultRecorded": "نتیجه ثبت شد.",
+    "resultCorrected": "نتیجه اصلاح شد.",
+    "generateSwissRound": "ساخت دور بعدی سوئیسی",
+    "swissRoundGenerated": "دور بعدی سوئیسی ساخته شد.",
+    "lockHeading": "وضعیت قفل",
+    "applyLock": "اعمال قفل",
+    "lockChanged": "وضعیت قفل تغییر کرد.",
+    "regenerateHeading": "بازسازی جدول",
+    "regenerate": "بازسازی",
+    "regenerated": "جدول بازسازی شد.",
+    "regenerateImpact": "این کار جدول فعلی را جایگزین می‌کند ({n} نتیجهٔ ثبت‌شده در تاریخچه بایگانی می‌شود) و نسخهٔ {v} را می‌سازد.",
+    "confirmDestructive": "می‌دانم که این کار جدول فعلی را جایگزین می‌کند.",
+    "confirmRequired": "برای ادامه دلیل را وارد و تأیید کنید.",
+    "cancel": "انصراف",
+    "versionsHeading": "تاریخچهٔ نسخه‌ها",
+    "version": "نسخه",
+    "origin": "منشأ",
+    "originLabel": {
+      "generation": "ساخت اولیه",
+      "regeneration": "بازسازی",
+      "rollback": "بازگردانی"
+    },
+    "versionState": "وضعیت",
+    "versionStateLabel": {
+      "active": "فعال",
+      "superseded": "جایگزین‌شده"
+    },
+    "results": "نتایج",
+    "rollback": "بازگردانی",
+    "rolledBack": "به نسخهٔ انتخاب‌شده بازگردانده شد.",
+    "rollbackImpact": "نسخهٔ {v} به‌عنوان نسخهٔ فعال جدید بازیابی می‌شود. جدول فعلی ابتدا بایگانی می‌شود."
   }
 }

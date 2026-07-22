@@ -21,6 +21,7 @@ import TournamentCalendarView from './views/TournamentCalendarView.vue';
 import TournamentDetailView from './views/TournamentDetailView.vue';
 import AdminTournamentsView from './views/AdminTournamentsView.vue';
 import AdminTournamentRegistrationsView from './views/AdminTournamentRegistrationsView.vue';
+import AdminTournamentCompetitionView from './views/AdminTournamentCompetitionView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -192,6 +193,12 @@ export const router = createRouter({
       path: '/:locale(fa|en)/admin/tournaments/:id/registrations',
       name: 'admin-tournament-registrations',
       component: AdminTournamentRegistrationsView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/tournaments/:id/competition',
+      name: 'admin-tournament-competition',
+      component: AdminTournamentCompetitionView,
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
     },
     {

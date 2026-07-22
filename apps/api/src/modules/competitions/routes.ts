@@ -208,4 +208,65 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
     { ...gate(), schema: { tags: ['competitions'], summary: 'Generate the next Swiss round.', params: idParam, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } },
     async (request) => deps.competitions.generateSwissRound(request.requestContext, (request.params as { id: string }).id)
   );
+
+  // --- Bracket versions: history, regeneration, rollback (BRACKET-010/013/014) ---
+
+  app.get(
+    '/admin/tournaments/:id/competition/versions',
+    { ...gate(), schema: { tags: ['competitions'], summary: 'Immutable bracket-version history.', params: idParam, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } },
+    async (request) => ({ versions: await deps.competitions.listVersions((request.params as { id: string }).id) })
+  );
+
+  app.post(
+    '/admin/tournaments/:id/competition/regenerate/preview',
+    {
+      ...gate(),
+      schema: {
+        tags: ['competitions'],
+        summary: 'Preview the impact of regenerating the bracket (non-mutating).',
+        params: idParam,
+        body: { type: 'object', additionalProperties: false, properties: { seed: { type: 'string', minLength: 1, maxLength: 200 } } },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => deps.competitions.regeneratePreview((request.params as { id: string }).id, request.body as { seed?: string })
+  );
+
+  app.post(
+    '/admin/tournaments/:id/competition/regenerate',
+    {
+      ...gate(),
+      schema: {
+        tags: ['competitions'],
+        summary: 'Regenerate the bracket (destructive; confirmation + reason required).',
+        params: idParam,
+        body: { type: 'object', required: ['expectedVersion', 'reason', 'confirm'], additionalProperties: false, properties: { expectedVersion: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 }, confirm: { type: 'boolean' }, seed: { type: 'string', minLength: 1, maxLength: 200 } } },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const competition = await deps.competitions.regenerate(request.requestContext, (request.params as { id: string }).id, request.body as Parameters<CompetitionsService['regenerate']>[2]);
+      const { _id, ...rest } = competition;
+      return { id: _id, ...rest };
+    }
+  );
+
+  app.post(
+    '/admin/tournaments/:id/competition/rollback',
+    {
+      ...gate(),
+      schema: {
+        tags: ['competitions'],
+        summary: 'Roll the bracket back to a superseded version (destructive; confirmation + reason required).',
+        params: idParam,
+        body: { type: 'object', required: ['expectedVersion', 'targetVersion', 'reason', 'confirm'], additionalProperties: false, properties: { expectedVersion: { type: 'integer', minimum: 1 }, targetVersion: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 }, confirm: { type: 'boolean' } } },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const competition = await deps.competitions.rollback(request.requestContext, (request.params as { id: string }).id, request.body as Parameters<CompetitionsService['rollback']>[2]);
+      const { _id, ...rest } = competition;
+      return { id: _id, ...rest };
+    }
+  );
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
@@ -8,7 +8,7 @@ import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
-import { getBracket, getStandings, type BracketView, type StandingsView } from '../composables/useCompetitionsApi.ts';
+import { getBracket, getStandings, type BracketMatchView, type StandingsView } from '../composables/useCompetitionsApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useAuth } from '../composables/useAuth.ts';
 import { useToasts } from '../composables/useToasts.ts';
@@ -34,7 +34,31 @@ const registering = ref(false);
 const registerError = ref<string | undefined>(undefined);
 
 const standings = ref<StandingsView | null>(null);
-const bracket = ref<BracketView | null>(null);
+const bracketMatches = ref<BracketMatchView[]>([]);
+
+// Group the whole bracket by round so a large field navigates as columns/sections
+// rather than one long list (responsive large-bracket navigation, DRAGON-10).
+const bracketRounds = computed(() => {
+  const byRound = new Map<number, BracketMatchView[]>();
+  for (const m of bracketMatches.value) {
+    const list = byRound.get(m.round) ?? [];
+    list.push(m);
+    byRound.set(m.round, list);
+  }
+  return [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([round, matches]) => ({ round, matches }));
+});
+
+function printBracket(): void {
+  globalThis.print();
+}
+async function shareBracket(): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(globalThis.location.href);
+    push('success', t('standings.shareCopied'));
+  } catch {
+    push('info', globalThis.location.href);
+  }
+}
 
 function moneyLabel(m: MoneyView): string {
   return m.assetCode === 'IRR'
@@ -65,7 +89,15 @@ onMounted(async () => {
   if (tour.value !== null) {
     try {
       standings.value = await getStandings(tour.value.id);
-      bracket.value = await getBracket(tour.value.id);
+      // Page through the whole bracket so large fields render completely (load-safe).
+      const collected: BracketMatchView[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await getBracket(tour.value.id, cursor);
+        collected.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined && collected.length < 2000);
+      bracketMatches.value = collected;
     } catch {
       standings.value = null; // 404 = competition not generated yet.
     }
@@ -356,21 +388,68 @@ async function onWithdraw(): Promise<void> {
           </table>
         </div>
 
-        <h2>{{ t('standings.bracket') }}</h2>
-        <ul
-          v-if="bracket"
+        <div class="bracket-head">
+          <h2>{{ t('standings.bracket') }}</h2>
+          <div
+            class="bracket-tools"
+            data-testid="bracket-tools"
+          >
+            <button
+              type="button"
+              class="secondary"
+              data-testid="print-bracket"
+              @click="printBracket"
+            >
+              {{ t('standings.print') }}
+            </button>
+            <button
+              type="button"
+              class="secondary"
+              data-testid="share-bracket"
+              @click="shareBracket"
+            >
+              {{ t('standings.share') }}
+            </button>
+          </div>
+        </div>
+
+        <!-- Round quick-navigation for large brackets. -->
+        <nav
+          v-if="bracketRounds.length > 1"
+          class="round-nav"
+          :aria-label="t('standings.bracket')"
+        >
+          <a
+            v-for="group in bracketRounds"
+            :key="group.round"
+            :href="`#round-${group.round}`"
+          >{{ t('standings.round', { n: group.round }) }}</a>
+        </nav>
+
+        <div
           class="bracket"
           data-testid="bracket"
         >
-          <li
-            v-for="m in bracket.items"
-            :key="m.key"
+          <section
+            v-for="group in bracketRounds"
+            :id="`round-${group.round}`"
+            :key="group.round"
+            class="round"
           >
-            {{ t('standings.matchup', { a: m.a ?? '—', b: m.b ?? '—' }) }}
-            · {{ t(`standings.matchState.${m.state}`) }}
-            <span v-if="m.winner !== null">· {{ t('standings.wonBy', { n: m.winner }) }}</span>
-          </li>
-        </ul>
+            <h3>{{ t('standings.round', { n: group.round }) }}</h3>
+            <ul>
+              <li
+                v-for="m in group.matches"
+                :key="m.key"
+                :data-state="m.state"
+              >
+                {{ t('standings.matchup', { a: m.a ?? '—', b: m.b ?? '—' }) }}
+                · {{ t(`standings.matchState.${m.state}`) }}
+                <span v-if="m.winner !== null">· {{ t('standings.wonBy', { n: m.winner }) }}</span>
+              </li>
+            </ul>
+          </section>
+        </div>
       </section>
     </template>
   </section>
@@ -491,15 +570,80 @@ async function onWithdraw(): Promise<void> {
   font-weight: 700;
 }
 
-.bracket {
-  list-style: none;
-  padding: 0;
+.bracket-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
 }
 
-.bracket li {
-  padding-block: var(--space-1);
-  border-block-end: 1px solid var(--color-border);
+.bracket-tools {
+  display: flex;
+  gap: var(--space-2);
+}
+
+.round-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block: var(--space-2);
+}
+
+.round-nav a {
+  padding-inline: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
   font-size: var(--text-sm);
+}
+
+/* Columns so a large bracket scrolls horizontally instead of stacking one long list. */
+.bracket {
+  display: flex;
+  gap: var(--space-4);
+  overflow-x: auto;
+  padding-block: var(--space-2);
+}
+
+.round {
+  min-inline-size: 14rem;
+  flex: 0 0 auto;
+}
+
+.round h3 {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.round ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.round li {
+  padding: var(--space-2);
+  margin-block-end: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
+}
+
+.round li[data-state='completed'] {
+  border-color: var(--color-accent);
+}
+
+@media print {
+  .register,
+  .bracket-tools,
+  .round-nav {
+    display: none;
+  }
+
+  .bracket {
+    flex-wrap: wrap;
+    overflow: visible;
+  }
 }
 
 .sr-only {

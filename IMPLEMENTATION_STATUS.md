@@ -13,8 +13,9 @@
 - Competition core (single-elimination + round-robin): complete (DRAGON-09a) — implemented and verified, not yet committed
 - Advanced competition formats (double elimination, Swiss, manual/custom): complete (DRAGON-09b) — implemented and verified, not yet committed
 - Standings, corrections, locking, concurrency, and presentation: complete (DRAGON-09c) — completes DRAGON-09; implemented and verified, not yet committed
-- Active prompt: DRAGON-10 — bracket operations and tournament control UI
-- Latest verified checkpoint: DRAGON-09c standings and concurrency, 2026-07-22
+- Bracket versioning/regeneration/rollback, operator console, and public bracket presentation: complete (DRAGON-10) — implemented and verified, not yet committed
+- Active prompt: DRAGON-10 complete; next eligible is DRAGON-11
+- Latest verified checkpoint: DRAGON-10 bracket operations and control UI, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -124,6 +125,16 @@
 - One focused `test-reviewer` pass over deterministic ranking, correction authorization, optimistic concurrency, idempotency, downstream-history protection, projection races, load-safe reads, and cross-tournament IDOR: verdict APPROVE, no Critical/High. One Medium correctness note was fixed — the downstream-history and lock checks are now re-verified inside the mutating transaction so a concurrent completion/lock cannot slip past.
 - **DRAGON-09 is complete** (09a single-elim/round-robin + 09b double-elim/Swiss/manual + 09c standings/corrections/concurrency).
 
+## Delivered by DRAGON-10
+- Immutable bracket versioning (`competition_bracket_versions`, BRACKET-010/013/014): generation records version 1; every regeneration and rollback appends a version and increments the competition's `activeVersion`. A version carries its origin (generation/regeneration/rollback), the seed and participant seed-order it was built with, a reason, and — once superseded — a full snapshot of its matches including any recorded results. Two database safeguards make concurrent operations safe: a unique `(competitionId, versionNumber)` index and a partial-unique `(competitionId) where state:'active'` index, so exactly one active version can ever exist. The active version's live matches are snapshotted into its record before they are deleted, so **no approved result is ever lost silently**.
+- Regeneration (`regenerate`, destructive): rebuilds the bracket from the current participants (optionally a new seed) for any format. It requires an explicit confirmation and a non-empty reason (validated server-side, not just in the UI), refuses a finalized competition (re-checked inside the transaction), and guards on the competition `version` so concurrent regeneration yields exactly one success. A non-mutating `regeneratePreview` reports how many recorded results the current bracket holds and the next version number before anything changes.
+- Rollback (`rollback`, destructive/result-changing): restores a superseded version's matches — with the results recorded at supersede time — plus its seed order and seed, as a new active version referencing the one it restored. It is itself reversible (the current active version is snapshotted first), confirmation- and reason-gated, refuses a locked competition, and is version-guarded. Standings are recomputed inside the same transaction so the projection always matches the restored matches.
+- All five formats are operable from creation through completion over the HTTP surface with no database or code intervention: generate → (Swiss: generate-next-round) → record result / correct result → lock/finalize, plus regenerate and rollback. Verified end to end by integration tests for every format.
+- Operator console (`AdminTournamentCompetitionView.vue`, gated on `tournament.manage` scoped to the tournament): a playable-first match queue with result entry (optional scores) and reason-gated correction, Swiss round progression, lock/finalize control, destructive regeneration with an impact preview + confirmation + reason, and the immutable version history with per-version rollback. Bilingual fa RTL / en LTR; every error code maps to a localized message.
+- Public bracket presentation (`TournamentDetailView.vue`): the whole bracket is paged in and grouped by round into horizontally-scrolling columns with round quick-navigation (responsive large-bracket navigation), plus print (print-optimized styles) and shareable-link actions. The tournament URL is the shareable/participant view.
+- One focused `test-reviewer` pass over result-loss, optimistic concurrency and one-active-version races, authorization/IDOR on the new routes, destructive-action gating, lifecycle correctness, and standings consistency: verdict APPROVE, no Critical/High. One correctness note was fixed — rollback now restores the version's seed order and seed (not only its matches), so public seed labels match the restored bracket; a 4-participant reseed→rollback regression test was added.
+- **DRAGON-10 is complete.**
+
 ## Known blockers
 - None.
 
@@ -142,7 +153,7 @@
 - Full security header set, CSP, and CORS allowlist — DRAGON-16b.
 - Full browser and viewport matrix from Requirements section 31 — DRAGON-16a.
 - OD-026 analytics and error monitoring — unresolved; no adapter exists.
-- Bracket versioning/regeneration/rollback with destructive-change preview (BRACKET-010/013/014), the operational control-room / bracket-admin UI (BRACKET-017 visual editor), and a background dispatcher for above-limit generation (DRAGON-14) — DRAGON-10/14; the deterministic engines, standings projection, corrections, and locking are in place.
+- Bracket versioning, regeneration, and rollback with a destructive-change preview and immutable history (BRACKET-010/013/014) — delivered by DRAGON-10. Still deferred: the BRACKET-017 drag-and-drop visual bracket *editor* (the current operator console edits by regeneration/rollback and result correction, not free-form node dragging) and a background dispatcher for above-limit generation (DRAGON-14).
 - Opponent-based Swiss tiebreaks (Buchholz/Sonneborn-Berger), richer round-robin tiebreaks (head-to-head, score difference), draw support, and named points policies — gated by OD-006/BRACKET-007; the shipped policy is win = 1 point with the seeded order as the stable fallback.
 - Double-elimination grand-final reset and exact Swiss bye-scoring/tiebreak (rule-profile-defined) — gated by OD-006/BRACKET-007; single grand final and bye-as-win defaults ship today.
 - Manual group/round-robin-style graphs with a participant appearing in multiple fixtures — deferred; the manual graph currently seeds each participant once (elimination/bracket-style), which prevents downstream self-play.
@@ -155,13 +166,13 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22, all commands run from the repository root:
+2026-07-22 (DRAGON-10), all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 244 passed (208 api, 36 web); the competition engine adds standings property tests (8) on top of the format engines (single/round-robin, double elimination full play-out, Swiss multi-round, manual graph) and configuration validation
-- `npm run test:integration` — 161 passed (adds 10 standings/concurrency: provisional-at-generation and per-result recalculation, concurrent recalculation → one current projection, deterministic reconciliation, correction revision + idempotent replay + stale-version conflict + concurrent one-winner, downstream-history block, lock rejects entry + concurrent one-winner, 128-participant bounded standings, cross-tournament IDOR)
+- `npm test` — 244 passed (208 api, 36 web); web unit suite includes the fa/en i18n key-parity and Persian-content checks that now cover the new `competitionOps` and competition error-code keys
+- `npm run test:integration` — 174 passed (adds 13 bracket-versioning: generation-establishes-v1, regeneration-archives-recorded-results-to-history, confirm+reason validation, stale-version conflict + concurrent-regenerate one-winner, rollback-restores-results, rollback-restores-seed-order, rollback-rejects-unknown/active-target, lock refuses regenerate+rollback, and every-format regeneration incl. manual)
 - `npm run build` — pass
-- `npm run e2e` — 177 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the competition standings journey: register → generate → play → public standings with a champion). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; a clean re-run passes all 177 (matrix owned by DRAGON-16a)
+- `npm run e2e` — 180 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the operator regenerate→rollback journey: generate → play → public final standings → regenerate → rollback → recorded result restored, with the operator console version history in both locales). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; this run passed all 180 clean (matrix owned by DRAGON-16a)
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)

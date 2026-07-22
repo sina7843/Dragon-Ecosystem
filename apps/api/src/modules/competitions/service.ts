@@ -17,8 +17,10 @@ import { validateCompetitionConfig } from './validation.ts';
 import { computeStandings, STANDINGS_POLICY_VERSION, type AcceptedMatch } from './standings.ts';
 import {
   canRecordResult,
+  type BracketVersionRecord,
   type CompetitionFormat,
   type CompetitionRecord,
+  type CompetitionState,
   type MatchRecord,
   type ParticipantRef,
   type ResultCorrectionRecord,
@@ -87,6 +89,9 @@ export class CompetitionsService {
   #corrections(db: Db = this.#db) {
     return db.collection<ResultCorrectionRecord>(COMPETITIONS_COLLECTIONS.corrections);
   }
+  #versions(db: Db = this.#db) {
+    return db.collection<BracketVersionRecord>(COMPETITIONS_COLLECTIONS.versions);
+  }
 
   // --- Generation ---
 
@@ -101,26 +106,7 @@ export class CompetitionsService {
     const seed = options.seed ?? tournamentId;
     const seeded = seedOrder(participantIds, seed);
     const orderedParticipants = seeded.map((id) => participants.find((p) => p.registrationId === id) as ParticipantRef);
-
-    let bracket: Bracket;
-    let swiss: CompetitionRecord['swiss'] = null;
-    if (format === 'single_elimination') {
-      bracket = generateSingleElimination(seeded);
-    } else if (format === 'round_robin') {
-      bracket = generateRoundRobin(seeded, legs);
-    } else if (format === 'double_elimination') {
-      bracket = generateDoubleElimination(seeded);
-    } else if (format === 'swiss') {
-      const targetRounds = this.#swissTargetRounds(options.targetRounds, seeded.length);
-      const result = swissPairRound({ order: seeded, wins: new Map(), priorPairs: new Set(), byeCounts: new Map() });
-      bracket = { format: 'swiss', rounds: targetRounds, matches: this.#swissRoundMatches(1, result.pairs, result.bye) };
-      swiss = { targetRounds, currentRound: 1 };
-    } else {
-      if (options.manualGraph === undefined) {
-        throw new ValidationError('A custom competition requires a graph.', [{ field: 'graph', code: 'MANUAL_GRAPH_REQUIRED', message: 'Provide the competition graph.' }]);
-      }
-      bracket = buildManual(options.manualGraph, seeded);
-    }
+    const built = this.#buildBracketFor(format, seeded, { legs, targetRounds: options.targetRounds, manualGraph: options.manualGraph });
 
     const now = utcNow();
     const competition: CompetitionRecord = {
@@ -132,21 +118,24 @@ export class CompetitionsService {
       participantCount: participantIds.length,
       participants: orderedParticipants,
       state: 'generated',
-      swiss,
+      swiss: built.swiss,
       lockState: 'open',
       lockVersion: 0,
       standingsVersion: 0,
+      activeVersion: 1,
+      manualGraph: format === 'manual' ? options.manualGraph ?? null : null,
       version: 1,
       createdAt: now,
       updatedAt: now
     };
     const refByRegistration = new Map(participants.map((p) => [p.registrationId, p]));
-    const matchDocs = this.#buildMatchDocs(bracket.matches, competition, tournamentId, format, refByRegistration, now);
+    const matchDocs = this.#buildMatchDocs(built.bracket.matches, competition, tournamentId, format, refByRegistration, now);
 
     try {
       await runUnitOfWork(this.#database, context, async (uow) => {
         await this.#competitions(uow.db).insertOne(competition, { session: uow.session });
         await this.#matches(uow.db).insertMany(matchDocs, { session: uow.session });
+        await this.#createVersion(uow, competition, 1, 'generation', null, null, now);
         await this.#recalculate(uow, competition._id, now);
         uow.audit({ action: 'competition.generated', resourceType: 'competition', resourceId: competition._id, after: { tournamentId, format, participantCount: competition.participantCount, matchCount: matchDocs.length } });
         uow.publish({ eventName: 'competition.generated', eventVersion: 1, aggregateId: competition._id, payload: { tournamentId, format, participantCount: competition.participantCount } });
@@ -156,6 +145,44 @@ export class CompetitionsService {
       throw error;
     }
     return competition;
+  }
+
+  /** Shared bracket construction for generation and regeneration. */
+  #buildBracketFor(format: CompetitionFormat, seeded: readonly string[], opts: { legs: number; targetRounds?: number | undefined; manualGraph?: ManualGraphSpec | undefined }): { bracket: Bracket; swiss: CompetitionRecord['swiss'] } {
+    if (format === 'single_elimination') return { bracket: generateSingleElimination(seeded), swiss: null };
+    if (format === 'round_robin') return { bracket: generateRoundRobin(seeded, opts.legs), swiss: null };
+    if (format === 'double_elimination') return { bracket: generateDoubleElimination(seeded), swiss: null };
+    if (format === 'swiss') {
+      const targetRounds = this.#swissTargetRounds(opts.targetRounds, seeded.length);
+      const result = swissPairRound({ order: seeded, wins: new Map(), priorPairs: new Set(), byeCounts: new Map() });
+      return { bracket: { format: 'swiss', rounds: targetRounds, matches: this.#swissRoundMatches(1, result.pairs, result.bye) }, swiss: { targetRounds, currentRound: 1 } };
+    }
+    if (opts.manualGraph === undefined) throw new ValidationError('A custom competition requires a graph.', [{ field: 'graph', code: 'MANUAL_GRAPH_REQUIRED', message: 'Provide the competition graph.' }]);
+    return { bracket: buildManual(opts.manualGraph, seeded), swiss: null };
+  }
+
+  #createVersion(uow: UnitOfWork, competition: CompetitionRecord, versionNumber: number, origin: BracketVersionRecord['origin'], reason: string | null, rolledBackFrom: number | null, now: string): Promise<unknown> {
+    return this.#versions(uow.db).insertOne(
+      {
+        _id: newId(),
+        competitionId: competition._id,
+        tournamentId: competition.tournamentId,
+        versionNumber,
+        state: 'active',
+        origin,
+        rolledBackFrom,
+        reason,
+        seed: competition.seed,
+        participantsSnapshot: competition.participants,
+        matchesSnapshot: [],
+        completedResultCount: 0,
+        participantCount: competition.participantCount,
+        actorId: uow.context.actor.accountId ?? 'system',
+        createdAt: now,
+        supersededAt: null
+      },
+      { session: uow.session }
+    );
   }
 
   #swissTargetRounds(requested: number | undefined, count: number): number {
@@ -599,5 +626,167 @@ export class CompetitionsService {
       items: page.items.map(({ sortValue: _s, id: _i, ...r }) => r as unknown as MatchRecord),
       nextCursor: page.nextCursor
     };
+  }
+
+  // --- Bracket versioning: regenerate / rollback / history (BRACKET-010/013/014) ---
+
+  /** Derives lifecycle state from a match set (fresh or restored). */
+  #deriveState(matches: readonly MatchRecord[], swiss: CompetitionRecord['swiss']): CompetitionState {
+    const remaining = matches.filter((m) => m.state === 'ready' || m.state === 'pending').length;
+    const swissMoreRounds = swiss !== null && swiss.currentRound < swiss.targetRounds;
+    if (remaining === 0 && !swissMoreRounds) return 'completed';
+    return matches.some((m) => m.state === 'completed') ? 'in_progress' : 'generated';
+  }
+
+  /** Snapshots the active version's matches into its immutable record and supersedes it. */
+  async #supersedeActive(uow: UnitOfWork, competition: CompetitionRecord, now: string): Promise<void> {
+    const matches = await this.#matches(uow.db).find({ competitionId: competition._id }, { session: uow.session }).sort({ round: 1, index: 1 }).toArray();
+    const completed = matches.filter((m) => m.state === 'completed').length;
+    const superseded = await this.#versions(uow.db).updateOne(
+      { competitionId: competition._id, versionNumber: competition.activeVersion, state: 'active' },
+      { $set: { state: 'superseded', supersededAt: now, matchesSnapshot: matches, completedResultCount: completed } },
+      { session: uow.session }
+    );
+    // No active version to supersede → another regeneration/rollback won the race.
+    if (superseded.matchedCount === 0) throw new ConflictError('VERSION_STALE', 'The bracket changed concurrently. Reload and retry.');
+  }
+
+  /** Non-mutating impact preview for a prospective regeneration (BRACKET-013). */
+  async regeneratePreview(tournamentId: EntityId, options: { seed?: string } = {}): Promise<{
+    format: CompetitionFormat;
+    participantCount: number;
+    currentCompletedResults: number;
+    activeVersion: number;
+    nextVersion: number;
+    matchCount: number;
+    rounds: number;
+    locked: boolean;
+  }> {
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) throw new NotFoundError('No competition.');
+    const matches = await this.#matches().find({ competitionId: competition._id }).toArray();
+    const seeded = seedOrder(competition.participants.map((p) => p.registrationId), options.seed ?? competition.seed);
+    const built = this.#buildBracketFor(competition.format, seeded, { legs: competition.legs, targetRounds: competition.swiss?.targetRounds, manualGraph: competition.manualGraph ?? undefined });
+    return {
+      format: competition.format,
+      participantCount: competition.participantCount,
+      currentCompletedResults: matches.filter((m) => m.state === 'completed').length,
+      activeVersion: competition.activeVersion,
+      nextVersion: competition.activeVersion + 1,
+      matchCount: built.bracket.matches.length,
+      rounds: built.bracket.rounds,
+      locked: competition.lockState === 'locked'
+    };
+  }
+
+  /**
+   * Regenerates the bracket structure from the current participants, superseding the
+   * active version (its matches — including any recorded results — are snapshotted
+   * into immutable history first, never lost silently). Destructive: requires an
+   * explicit confirmation and a reason, refuses a locked competition, and guards on
+   * the competition version so concurrent regeneration yields one success.
+   */
+  async regenerate(context: RequestContext, tournamentId: EntityId, input: { expectedVersion: number; reason: string; confirm: boolean; seed?: string }): Promise<CompetitionRecord> {
+    if (input.reason.trim() === '') throw new ValidationError('A reason is required.', [{ field: 'reason', code: 'REASON_REQUIRED', message: 'Provide a reason.' }]);
+    if (input.confirm !== true) throw new ValidationError('Regeneration must be confirmed.', [{ field: 'confirm', code: 'CONFIRMATION_REQUIRED', message: 'Confirm this destructive action.' }]);
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) throw new NotFoundError('No competition.');
+    if (competition.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; unlock it before regenerating.');
+
+    const seed = input.seed ?? competition.seed;
+    const seeded = seedOrder(competition.participants.map((p) => p.registrationId), seed);
+    const built = this.#buildBracketFor(competition.format, seeded, { legs: competition.legs, targetRounds: competition.swiss?.targetRounds, manualGraph: competition.manualGraph ?? undefined });
+    const orderedParticipants = seeded.map((id) => competition.participants.find((p) => p.registrationId === id) as ParticipantRef);
+    const newNumber = competition.activeVersion + 1;
+
+    return runUnitOfWork(this.#database, context, async (uow) => {
+      const now = utcNow();
+      const fresh = await this.#competitions(uow.db).findOne({ _id: competition._id }, { session: uow.session });
+      if (fresh !== null && fresh.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; unlock it before regenerating.');
+
+      await this.#supersedeActive(uow, competition, now);
+      await this.#matches(uow.db).deleteMany({ competitionId: competition._id }, { session: uow.session });
+
+      const nextCompetition: CompetitionRecord = { ...competition, seed, participants: orderedParticipants, swiss: built.swiss, activeVersion: newNumber, state: this.#deriveState([], built.swiss) };
+      const refByRegistration = new Map(competition.participants.map((p) => [p.registrationId, p]));
+      const matchDocs = this.#buildMatchDocs(built.bracket.matches, nextCompetition, tournamentId, competition.format, refByRegistration, now);
+      const nextState = this.#deriveState(matchDocs, built.swiss);
+      await this.#matches(uow.db).insertMany(matchDocs, { session: uow.session });
+
+      const updated = await this.#competitions(uow.db).updateOne(
+        { _id: competition._id, version: input.expectedVersion, lockState: { $ne: 'locked' } },
+        { $set: { seed, participants: orderedParticipants, swiss: built.swiss, activeVersion: newNumber, state: nextState, updatedAt: now }, $inc: { version: 1 } },
+        { session: uow.session }
+      );
+      if (updated.matchedCount === 0) throw new ConflictError('COMPETITION_VERSION_STALE', 'This competition changed since you opened it. Reload and retry.');
+
+      await this.#createVersion(uow, { ...nextCompetition, state: nextState }, newNumber, 'regeneration', input.reason.trim(), null, now);
+      await this.#recalculate(uow, competition._id, now);
+
+      uow.audit({ action: 'competition.regenerated', resourceType: 'competition', resourceId: competition._id, before: { activeVersion: competition.activeVersion }, after: { activeVersion: newNumber, matchCount: matchDocs.length }, reason: input.reason.trim() });
+      uow.publish({ eventName: 'competition.regenerated', eventVersion: 1, aggregateId: competition._id, payload: { tournamentId, activeVersion: newNumber } });
+      return { ...nextCompetition, state: nextState, version: competition.version + 1, updatedAt: now };
+    });
+  }
+
+  /**
+   * Rolls the bracket back to a superseded version, restoring its matches (with the
+   * results recorded at supersede time) as a new active version. The current active
+   * version is snapshotted first, so rollback is itself reversible and no history is
+   * lost. Destructive/result-changing: requires confirmation, reason, an unlocked
+   * competition, and the competition version guard.
+   */
+  async rollback(context: RequestContext, tournamentId: EntityId, input: { expectedVersion: number; targetVersion: number; reason: string; confirm: boolean }): Promise<CompetitionRecord> {
+    if (input.reason.trim() === '') throw new ValidationError('A reason is required.', [{ field: 'reason', code: 'REASON_REQUIRED', message: 'Provide a reason.' }]);
+    if (input.confirm !== true) throw new ValidationError('Rollback must be confirmed.', [{ field: 'confirm', code: 'CONFIRMATION_REQUIRED', message: 'Confirm this destructive action.' }]);
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) throw new NotFoundError('No competition.');
+    if (competition.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; unlock it before rolling back.');
+    const target = await this.#versions().findOne({ competitionId: competition._id, versionNumber: input.targetVersion });
+    if (target === null) throw new NotFoundError('Unknown bracket version.');
+    if (target.state !== 'superseded') throw new ConflictError('VERSION_NOT_RESTORABLE', 'Only a superseded version can be restored.');
+
+    const newNumber = competition.activeVersion + 1;
+    const restored: MatchRecord[] = target.matchesSnapshot.map((m) => ({ ...m }));
+    // Restore the version's seed order too, so public seed labels match the restored
+    // bracket (and a later regeneration reseeds from the restored configuration).
+    const restoredParticipants = target.participantsSnapshot;
+    const restoredSeed = target.seed;
+    let swiss = competition.swiss;
+    if (swiss !== null) swiss = { targetRounds: swiss.targetRounds, currentRound: restored.reduce((mx, m) => Math.max(mx, m.round), 1) };
+    const nextState = this.#deriveState(restored, swiss);
+    const restoredCompetition: CompetitionRecord = { ...competition, seed: restoredSeed, participants: restoredParticipants, swiss, activeVersion: newNumber, state: nextState };
+
+    return runUnitOfWork(this.#database, context, async (uow) => {
+      const now = utcNow();
+      const fresh = await this.#competitions(uow.db).findOne({ _id: competition._id }, { session: uow.session });
+      if (fresh !== null && fresh.lockState === 'locked') throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; unlock it before rolling back.');
+
+      await this.#supersedeActive(uow, competition, now);
+      await this.#matches(uow.db).deleteMany({ competitionId: competition._id }, { session: uow.session });
+      if (restored.length > 0) await this.#matches(uow.db).insertMany(restored.map((m) => ({ ...m, updatedAt: now })), { session: uow.session });
+
+      const updated = await this.#competitions(uow.db).updateOne(
+        { _id: competition._id, version: input.expectedVersion, lockState: { $ne: 'locked' } },
+        { $set: { seed: restoredSeed, participants: restoredParticipants, swiss, activeVersion: newNumber, state: nextState, updatedAt: now }, $inc: { version: 1 } },
+        { session: uow.session }
+      );
+      if (updated.matchedCount === 0) throw new ConflictError('COMPETITION_VERSION_STALE', 'This competition changed since you opened it. Reload and retry.');
+
+      await this.#createVersion(uow, restoredCompetition, newNumber, 'rollback', input.reason.trim(), input.targetVersion, now);
+      await this.#recalculate(uow, competition._id, now);
+
+      uow.audit({ action: 'competition.rolled_back', resourceType: 'competition', resourceId: competition._id, before: { activeVersion: competition.activeVersion }, after: { activeVersion: newNumber, rolledBackFrom: input.targetVersion }, reason: input.reason.trim() });
+      uow.publish({ eventName: 'competition.rolled_back', eventVersion: 1, aggregateId: competition._id, payload: { tournamentId, activeVersion: newNumber, rolledBackFrom: input.targetVersion } });
+      return { ...restoredCompetition, version: competition.version + 1, updatedAt: now };
+    });
+  }
+
+  /** Immutable version history (metadata only; match snapshots are omitted from the list). */
+  async listVersions(tournamentId: EntityId): Promise<Array<Omit<BracketVersionRecord, 'matchesSnapshot'> & { matchCount: number }>> {
+    const competition = await this.#competitions().findOne({ tournamentId });
+    if (competition === null) return [];
+    const versions = await this.#versions().find({ competitionId: competition._id }).sort({ versionNumber: 1 }).toArray();
+    return versions.map(({ matchesSnapshot, ...rest }) => ({ ...rest, matchCount: matchesSnapshot.length }));
   }
 }
