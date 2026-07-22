@@ -14,3 +14,13 @@ export const COMPETITIONS_INDEXES: readonly IndexDeclaration[] = [
   { collection: COMPETITIONS_COLLECTIONS.matches, name: 'match_competition_round', keys: { competitionId: 1, round: 1, index: 1 } },
   { collection: COMPETITIONS_COLLECTIONS.matches, name: 'match_competition_state', keys: { competitionId: 1, state: 1 } }
 ];
+
+/**
+ * Advanced-format safeguards (DRAGON-09b). A unique (competitionId, key) index makes
+ * logical fixture keys unique within a competition and is the sole authority that
+ * makes concurrent generation of the same Swiss round (or duplicate manual/bracket
+ * generation) collapse to one persisted structure.
+ */
+export const COMPETITIONS_ADVANCED_INDEXES: readonly IndexDeclaration[] = [
+  { collection: COMPETITIONS_COLLECTIONS.matches, name: 'match_competition_key_unique', keys: { competitionId: 1, key: 1 }, options: { unique: true } }
+];

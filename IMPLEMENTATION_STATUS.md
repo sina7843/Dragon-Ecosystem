@@ -11,8 +11,9 @@
 - Tournament authoring and discovery: complete (DRAGON-07)
 - Registration, eligibility, approval, and waitlist: complete (DRAGON-08) — implemented and verified, not yet committed
 - Competition core (single-elimination + round-robin): complete (DRAGON-09a) — implemented and verified, not yet committed
-- Active prompt: DRAGON-09b — advanced competition formats (double elimination, Swiss, manual/custom)
-- Latest verified checkpoint: DRAGON-09a competition core, 2026-07-22
+- Advanced competition formats (double elimination, Swiss, manual/custom): complete (DRAGON-09b) — implemented and verified, not yet committed
+- Active prompt: DRAGON-09c — standings and concurrency
+- Latest verified checkpoint: DRAGON-09b advanced formats, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -101,6 +102,15 @@
 - Database and concurrency guarantees: one competition per tournament via a unique index on `tournamentId` (concurrent generation collapses to one, no duplicate state); results recorded under an optimistic `(version, state:ready)` guard so concurrent progression on a match yields one success and one conflict, a result is applied at most once (idempotent replay of the same result, conflict on a different one), and a match never advances without an accepted result (byes are the only structural pre-advance). Every write goes through `runUnitOfWork` (transactional audit + outbox event); persisted competitions and matches use stable opaque ids; no floating-point or money behavior.
 - Scope boundary: this slice adds no user-facing UI and no HTTP surface — bracket administration and operational control UI are later slices/prompts (09b/09c/10), so the browser suite is unchanged. Authorization is preserved unchanged (the service carries the request context for audit; the gated HTTP surface arrives with the control UI).
 
+## Delivered by DRAGON-09b
+- Double-elimination engine (`modules/competitions/double-elimination.ts`): deterministic winners and losers brackets built from a slot-source graph. A winners-bracket loser drops to a fixed losers-bracket fixture, a losers-bracket loser is eliminated (a second loss), byes are modelled as permanently-empty slots that advance structurally without counting as a loss (non-power-of-two counts produce a valid bracket), and the two bracket champions meet in a **single** grand final. Validated by an independent play-out simulator for n=2..32 (single champion, no participant exceeds two losses, no self-play, no duplicate per round).
+- Swiss engine (`swiss.ts`): round-incremental deterministic pairing — score groups by accepted-result wins, ordered by score then seed, paired by a backtracking matching that avoids prior pairings when a rematch-free perfect matching exists and falls back deterministically otherwise; odd counts give one bye (no fabricated opponent) to the player with the fewest prior byes, then the lowest score, then the lowest seed. The next round is generated only after the current round completes; a unique key index makes concurrent generation of a round collapse to one.
+- Manual / custom format (`manual.ts`): a validated declarative competition graph (data, never executable code — OD-006). Validation rejects duplicate fixture keys, out-of-range or reused participant seeds, missing/invalid downstream targets, self-dependency, self-pairing, conflicting downstream writers, orphan slots, cycles (Kahn), and size/depth beyond bounds; a result can only ever propagate inside the validated graph.
+- Service (`service.ts`): format-dispatched generation, deterministic single-elimination/double-elimination/manual advancement (winner → next, loser → losers bracket / manual loser slot) with a bye cascade (`#fillCascade`) for empty-sibling walkovers, and `generateSwissRound` from accepted results. Matches now carry a logical `key`, `bracket` side, empty-slot markers, and loser-routing; the competition stores its seeded participants (with roster snapshots) and Swiss progression.
+- Database safeguards: a unique `(competitionId, key)` index makes logical fixture keys unique within a competition and is the authority that collapses concurrent Swiss-round (and duplicate manual/bracket) generation to one; the existing unique `tournamentId` still enforces one competition per tournament; results stay under the optimistic `(version, state:ready)` guard.
+- Gated policies (recorded, not invented): the double-elimination grand-final **reset** variant and the exact Swiss **bye scoring / tiebreak** are defined by rule profiles, which OD-006 keeps gated (BRACKET-007); this slice ships a single grand final and a bye-counts-as-a-win default and gates the alternatives. Synchronous size limits: single elimination ≤1000, double elimination ≤256, round robin ≤64, Swiss ≤16, manual ≤256 fixtures / depth ≤32.
+- One focused `test-reviewer` pass over double-elimination routing, Swiss rematch/bye invariants, custom-graph validation, result idempotency, concurrency, and resource-scoped authorization: verdict APPROVE, no Critical/High. One correctness Medium was fixed — the manual graph now rejects reusing a participant seed across fixtures (which could double-book a participant or route the same participant into both sides of a later fixture). No routes/UI were added, so authorization is unchanged from 09a.
+
 ## Known blockers
 - None.
 
@@ -119,6 +129,9 @@
 - Full security header set, CSP, and CORS allowlist — DRAGON-16b.
 - Full browser and viewport matrix from Requirements section 31 — DRAGON-16a.
 - OD-026 analytics and error monitoring — unresolved; no adapter exists.
+- Final standings and tiebreaker presentation, large-scale (1,000) background generation, bracket locking/rollback/regeneration and preview, and the operational control/bracket-admin UI (BRACKET-010/012/013/014/015/017) — DRAGON-09c/10; the deterministic engines and result-driven progression are in place.
+- Double-elimination grand-final reset and exact Swiss bye-scoring/tiebreak (rule-profile-defined) — gated by OD-006/BRACKET-007; single grand final and bye-as-win defaults ship today.
+- Manual group/round-robin-style graphs with a participant appearing in multiple fixtures — deferred; the manual graph currently seeds each participant once (elimination/bracket-style), which prevents downstream self-play.
 - Tournament match scheduling, results, corrections, and outcomes (TOURN-019..025), and cancellation/completion cleanup workflows (TOURN-027/028) — DRAGON-09/10.
 - Outbox dispatcher and notification delivery — registration emits domain events to the outbox; the dispatcher and mock-SMS/notification delivery are DRAGON-13/14.
 - Paid tournament registration and refund execution (OD-007) — gated off; a non-free tournament rejects registration until DRAGON-11/12.
@@ -131,10 +144,10 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 203 passed (167 api, 36 web); the +34 api are the competition engine property/invariant tests (29) and configuration validation (5)
-- `npm run test:integration` — 142 passed (adds 9 competitions: generation from approved registrations, immutable roster-snapshot references, byes, round-robin, concurrent generation, single-result and concurrent progression, and not-ready/idempotent-result guards)
+- `npm test` — 236 passed (200 api, 36 web); the competition engine has property/invariant tests for single-elim/round-robin (34), double elimination (14, full play-out n=2..32), Swiss (10, multi-round), manual graph (9), plus configuration validation
+- `npm run test:integration` — 151 passed (adds 9 advanced-format competitions: double-elimination generation and play-through, byes, concurrent sibling progression, Swiss round generation with rematch avoidance and incomplete-round refusal, concurrent round generation, manual graph generation/propagation and invalid-graph rejection)
 - `npm run build` — pass
-- `npm run e2e` — 174 (unchanged; DRAGON-09a adds no user-facing UI, so the browser suite was not re-run for this slice)
+- `npm run e2e` — 174 (unchanged; DRAGON-09a/09b add no user-facing UI, so the browser suite was not re-run for these slices)
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)

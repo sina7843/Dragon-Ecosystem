@@ -16,13 +16,16 @@ function code(fn: () => unknown): string | undefined {
 }
 
 describe('validateCompetitionConfig', () => {
-  test('accepts the supported formats and returns the normalized config', () => {
+  test('accepts every supported format and returns the normalized config', () => {
     assert.deepEqual(validateCompetitionConfig({ format: 'single_elimination', participantIds: ids(8) }), { format: 'single_elimination', legs: 1 });
     assert.deepEqual(validateCompetitionConfig({ format: 'round_robin', participantIds: ids(6), legs: 2 }), { format: 'round_robin', legs: 2 });
+    assert.deepEqual(validateCompetitionConfig({ format: 'double_elimination', participantIds: ids(8) }), { format: 'double_elimination', legs: 1 });
+    assert.deepEqual(validateCompetitionConfig({ format: 'swiss', participantIds: ids(8) }), { format: 'swiss', legs: 1 });
+    assert.deepEqual(validateCompetitionConfig({ format: 'manual', participantIds: ids(8) }), { format: 'manual', legs: 1 });
   });
 
-  test('rejects unsupported formats (delivered by DRAGON-09b)', () => {
-    for (const format of ['double_elimination', 'swiss', 'custom', 'nope']) {
+  test('rejects genuinely unknown formats', () => {
+    for (const format of ['custom', 'nope', 'random']) {
       assert.equal(code(() => validateCompetitionConfig({ format, participantIds: ids(8) })), 'UNSUPPORTED_FORMAT');
     }
   });

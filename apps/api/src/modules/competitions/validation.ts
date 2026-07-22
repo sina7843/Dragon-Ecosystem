@@ -10,17 +10,27 @@ import type { CompetitionFormat } from './state.ts';
  * and delivered by DRAGON-09b.
  */
 
-export const SUPPORTED_FORMATS: readonly CompetitionFormat[] = ['single_elimination', 'round_robin'];
+export const SUPPORTED_FORMATS: readonly CompetitionFormat[] = [
+  'single_elimination',
+  'round_robin',
+  'double_elimination',
+  'swiss',
+  'manual'
+];
 
 /**
  * Per-format participant-count limits. Single elimination reaches the approved
- * 1,000 limit (DEC-046). Round robin is bounded lower here because it is generated
- * synchronously (N·(N−1)/2 matches per leg); larger round-robin at the 1,000 limit
- * is a background-job concern for DRAGON-09c.
+ * 1,000 limit (DEC-046). Round robin, double elimination, Swiss, and manual are
+ * bounded lower here because they are generated synchronously; larger sizes via a
+ * background job are a DRAGON-09c concern. Swiss is bounded tightly because its
+ * pairing uses a backtracking matching.
  */
 export const FORMAT_LIMITS: Readonly<Record<CompetitionFormat, { min: number; max: number }>> = {
   single_elimination: { min: 2, max: 1000 },
-  round_robin: { min: 2, max: 64 }
+  round_robin: { min: 2, max: 64 },
+  double_elimination: { min: 2, max: 256 },
+  swiss: { min: 2, max: 16 },
+  manual: { min: 2, max: 256 }
 };
 
 const MAX_LEGS = 4;
@@ -60,9 +70,10 @@ export function validateCompetitionConfig(config: CompetitionConfig): { format: 
       { field: 'legs', code: 'INVALID_LEGS', message: `Use between 1 and ${String(MAX_LEGS)} legs.` }
     ]);
   }
-  if (format === 'single_elimination' && legs !== 1) {
-    throw new ValidationError('Single elimination has a single leg.', [
-      { field: 'legs', code: 'INVALID_LEGS', message: 'Single elimination does not support multiple legs.' }
+  // Only round robin supports multiple legs.
+  if (format !== 'round_robin' && legs !== 1) {
+    throw new ValidationError('This format has a single leg.', [
+      { field: 'legs', code: 'INVALID_LEGS', message: 'Only round robin supports multiple legs.' }
     ]);
   }
 

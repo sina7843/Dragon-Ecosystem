@@ -8,6 +8,7 @@ import { teamsMigration } from './modules/teams/migrations.ts';
 import { tournamentsMigration } from './modules/tournaments/migrations.ts';
 import { registrationsMigration } from './modules/registrations/migrations.ts';
 import { competitionsMigration } from './modules/competitions/migrations.ts';
+import { competitionsAdvancedMigration } from './modules/competitions/migrations-advanced.ts';
 
 /**
  * The ordered migration registry.
@@ -25,5 +26,6 @@ export const allMigrations: readonly Migration[] = [
   teamsMigration,
   tournamentsMigration,
   registrationsMigration,
-  competitionsMigration
+  competitionsMigration,
+  competitionsAdvancedMigration
 ];

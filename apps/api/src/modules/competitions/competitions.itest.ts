@@ -126,14 +126,10 @@ describe('generation from approved registrations', () => {
     assert.ok(refs.every((r) => r.participantType === 'team' && r.rosterSnapshotId !== null));
   });
 
-  test('generation is rejected for a non-published tournament and an unsupported format', async () => {
+  test('generation is rejected for a non-published tournament', async () => {
     const draft = await publishedTournament('single_elimination', { state: 'draft' });
     await approveMany(draft, 4);
     await assert.rejects(() => competitions.generate(ctx(), draft), /Unknown tournament/);
-
-    const de = await publishedTournament('double_elimination');
-    await approveMany(de, 4);
-    await assert.rejects(() => competitions.generate(ctx(), de), (e: { fieldErrors?: Array<{ code: string }> }) => e.fieldErrors?.[0]?.code === 'UNSUPPORTED_FORMAT');
   });
 
   test('byes are explicit and pre-advanced for a non-power-of-two count', async () => {

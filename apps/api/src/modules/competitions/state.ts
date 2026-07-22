@@ -1,5 +1,5 @@
 import type { EntityId } from '../../shared/ids.ts';
-import type { EngineFormat } from './engine.ts';
+import type { BracketSide, EngineFormat } from './engine.ts';
 
 /**
  * Competition and match persistence contracts (BRACKET-001/003/016/018).
@@ -29,7 +29,11 @@ export interface CompetitionRecord {
   seed: string;
   legs: number;
   participantCount: number;
+  /** Participants in seed order; the immutable roster snapshot travels with each. */
+  participants: ParticipantRef[];
   state: CompetitionState;
+  /** Swiss progression: how many rounds are planned and how many are generated so far. */
+  swiss: { targetRounds: number; currentRound: number } | null;
   version: number;
   createdAt: string;
   updatedAt: string;
@@ -42,17 +46,26 @@ export interface MatchRecord {
   competitionId: EntityId;
   tournamentId: EntityId;
   format: CompetitionFormat;
+  /** Deterministic logical key, unique within a competition (concurrency + graph identity). */
+  key: string;
+  bracket: BracketSide;
   round: number;
   index: number;
   slotA: ParticipantRef | null;
   slotB: ParticipantRef | null;
+  /** A null slot that is permanently empty (a bye source), distinct from an awaiting slot. */
+  slotAEmpty: boolean;
+  slotBEmpty: boolean;
   state: MatchState;
   winner: ParticipantRef | null;
   scoreA: number | null;
   scoreB: number | null;
-  /** Single-elimination advancement target; null for a final or round-robin match. */
+  /** Where the winner advances (single/double/manual); null for a final, round-robin, or Swiss match. */
   nextMatchId: EntityId | null;
   nextSlot: 'a' | 'b' | null;
+  /** Where the loser drops (double elimination / manual); null means elimination. */
+  loserNextMatchId: EntityId | null;
+  loserNextSlot: 'a' | 'b' | null;
   version: number;
   createdAt: string;
   updatedAt: string;
