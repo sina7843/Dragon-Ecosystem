@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue';
+import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
+import { useRoute, useRouter } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -8,35 +9,69 @@ import { formatDateTime, viewerTimeZone } from '../i18n/format.ts';
 import { listTournaments, type TournamentCard } from '../composables/useTournamentsApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 
-/** Public tournament discovery list (upcoming first). Only published tournaments appear. */
+/** Public tournament discovery list (upcoming first). Only published tournaments appear.
+ * Search and the participant-type filter synchronise with the URL for direct refresh. */
 
 interface GameCard { id: string; name: string }
+const PARTICIPANT_TYPES = ['individual', 'team'] as const;
 
 const { t, locale } = useI18n();
+const route = useRoute();
+const router = useRouter();
 const { messageFor } = useApiErrors();
 
 const activeLocale = (): Locale => (isLocale(locale.value) ? locale.value : 'fa');
 const prefix = computed(() => `/${activeLocale()}`);
+const activeQuery = computed(() => (route.query.q as string | undefined) ?? '');
+const activeParticipant = computed(() => (route.query.participantType as string | undefined) ?? '');
+const searchInput = ref(activeQuery.value);
+watch(activeQuery, (value) => {
+  searchInput.value = value;
+});
 
 const loading = ref(true);
 const errorMessage = ref<string | undefined>(undefined);
 const tournaments = ref<TournamentCard[]>([]);
 const gameName = ref<Map<string, string>>(new Map());
 
-onMounted(async () => {
+async function load(): Promise<void> {
+  loading.value = true;
   try {
     const [list, games] = await Promise.all([
-      listTournaments({ locale: activeLocale() }),
+      listTournaments({
+        locale: activeLocale(),
+        ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
+        ...(activeParticipant.value === '' ? {} : { participantType: activeParticipant.value })
+      }),
       apiFetch<{ items: GameCard[] }>(`/games?locale=${activeLocale()}&limit=100`)
     ]);
     tournaments.value = list.items;
     gameName.value = new Map(games.items.map((g) => [g.id, g.name]));
+    errorMessage.value = undefined;
   } catch (error) {
     errorMessage.value = messageFor(error);
   } finally {
     loading.value = false;
   }
-});
+}
+
+onMounted(() => load());
+watch([activeQuery, activeParticipant], () => load());
+
+function pushQuery(overrides: { q?: string; participantType?: string }): void {
+  const q = overrides.q ?? activeQuery.value;
+  const participantType = overrides.participantType ?? activeParticipant.value;
+  const query: Record<string, string> = {};
+  if (q !== '') query.q = q;
+  if (participantType !== '') query.participantType = participantType;
+  void router.push({ path: `${prefix.value}/tournaments`, query });
+}
+function submitSearch(): void {
+  pushQuery({ q: searchInput.value.trim() });
+}
+function selectParticipant(participantType: string): void {
+  pushQuery({ participantType });
+}
 </script>
 
 <template>
@@ -48,6 +83,51 @@ onMounted(async () => {
         {{ t('tournaments.hub.calendarLink') }}
       </RouterLink>
     </p>
+
+    <form
+      class="search"
+      role="search"
+      @submit.prevent="submitSearch"
+    >
+      <label for="tournaments-search">{{ t('search.label') }}</label>
+      <input
+        id="tournaments-search"
+        v-model="searchInput"
+        type="search"
+        data-testid="search-input"
+        :placeholder="t('search.placeholder')"
+      >
+      <button
+        type="submit"
+        data-testid="search-submit"
+      >
+        {{ t('search.submit') }}
+      </button>
+    </form>
+
+    <nav
+      class="filters"
+      :aria-label="t('tournaments.field.participantType')"
+    >
+      <button
+        type="button"
+        :aria-current="activeParticipant === '' ? 'true' : undefined"
+        data-testid="participant-all"
+        @click="selectParticipant('')"
+      >
+        {{ t('content.hub.all') }}
+      </button>
+      <button
+        v-for="p in PARTICIPANT_TYPES"
+        :key="p"
+        type="button"
+        :aria-current="activeParticipant === p ? 'true' : undefined"
+        :data-testid="`participant-${p}`"
+        @click="selectParticipant(p)"
+      >
+        {{ t(`tournaments.participant.${p}`) }}
+      </button>
+    </nav>
 
     <StateBlock
       v-if="loading"

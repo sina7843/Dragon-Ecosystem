@@ -7,6 +7,7 @@ import { ApiRequestError } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
+import { applyHead } from '../head.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
 import { fileReport } from '../composables/useModerationApi.ts';
 import { getBracket, getStandings, type BracketMatchView, type StandingsView } from '../composables/useCompetitionsApi.ts';
@@ -76,9 +77,34 @@ async function loadStatus(id: string): Promise<void> {
   }
 }
 
+function applySeo(detail: TournamentDetail): void {
+  const path = `/${activeLocale()}/tournaments/${encodeURIComponent(detail.slug)}`;
+  const origin = globalThis.location?.origin ?? '';
+  applyHead({
+    title: `${detail.name} — ${t('app.name')}`,
+    locale: activeLocale(),
+    path,
+    indexable: true,
+    description: detail.summary,
+    ogType: 'website',
+    // Structured data for the tournament as an Event (SEO-007). Dates are optional.
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Event',
+      name: detail.name,
+      description: detail.summary,
+      inLanguage: activeLocale(),
+      ...(detail.startAt ? { startDate: detail.startAt } : {}),
+      ...(detail.endAt ? { endDate: detail.endAt } : {}),
+      url: `${origin}${path}`
+    }
+  });
+}
+
 onMounted(async () => {
   try {
     tour.value = await getTournament(String(route.params['slug']), activeLocale());
+    if (tour.value !== null) applySeo(tour.value);
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) notFound.value = true;
     else errorMessage.value = messageFor(error);

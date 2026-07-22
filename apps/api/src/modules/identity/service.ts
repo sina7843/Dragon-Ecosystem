@@ -6,7 +6,8 @@ import { createRequestContext, SYSTEM_ACTOR, type RequestContext } from '../../s
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
 import { ConflictError, ForbiddenError, NotFoundError, RateLimitError, UnauthenticatedError, ValidationError } from '../../shared/errors.ts';
-import { toPage, type Page, type PageCursor } from '../../shared/pagination.ts';
+import { clampLimit, decodeCursor, toPage, type Page, type PageCursor } from '../../shared/pagination.ts';
+import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { generateOtpCode, generateSessionToken, hashOtpCode, hashSessionToken, safeEquals } from './crypto.ts';
 import { maskMobile, normalizeIranianMobile } from './mobile.ts';
 import { consumeRateLimit } from './rate-limit.ts';
@@ -500,6 +501,23 @@ export class IdentityService {
     });
     if (profile === null) return null;
     return { username: profile.username, displayName: profile.displayName };
+  }
+
+  /**
+   * Public profile directory search (DRAGON-15). Returns only profiles the owner has made
+   * public; a private profile is never listed (privacy by default). Optional free-text
+   * matches username/display name. Paginated by username.
+   */
+  async searchPublicProfiles(query: { q?: string; cursor?: string; limit?: number } = {}): Promise<Page<{ username: string; displayName: string }>> {
+    const limit = clampLimit(query.limit);
+    const filter: Record<string, unknown> = { visibility: 'public' };
+    const cursor = decodeCursor(query.cursor);
+    if (cursor !== null) filter['$or'] = [{ username: { $gt: cursor.sortValue } }, { username: cursor.sortValue, _id: { $gt: cursor.id } }];
+    const search = normalizeQuery(query.q);
+    if (search !== null) applyTextSearch(filter, search, ['username', 'displayName']);
+    const rows = await userProfiles(this.#db).find(filter).sort({ username: 1, _id: 1 }).limit(limit + 1).toArray();
+    const page = toPage(rows.map((r) => ({ ...r, sortValue: r.username, id: r._id })), limit);
+    return { items: page.items.map((r) => ({ username: r.username, displayName: r.displayName })), nextCursor: page.nextCursor };
   }
 
   /**

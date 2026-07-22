@@ -55,6 +55,7 @@ export function registerGamesRoutes(app: FastifyInstance, deps: GamesDeps): void
           additionalProperties: false,
           properties: {
             locale: { type: 'string', enum: ['fa', 'en'] },
+            q: { type: 'string', maxLength: 100 },
             cursor: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 }
           }
@@ -63,9 +64,10 @@ export function registerGamesRoutes(app: FastifyInstance, deps: GamesDeps): void
       }
     },
     async (request) => {
-      const q = request.query as { cursor?: string; limit?: number };
+      const q = request.query as { q?: string; cursor?: string; limit?: number };
       return deps.games.listPublished({
         locale: localeOf(request),
+        ...(q.q === undefined ? {} : { q: q.q }),
         ...(q.cursor === undefined ? {} : { cursor: q.cursor }),
         ...(q.limit === undefined ? {} : { limit: q.limit })
       });

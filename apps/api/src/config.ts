@@ -71,6 +71,17 @@ export interface AppConfig {
    */
   readonly analyticsExternalEnabled: boolean;
   /**
+   * Maximum accepted media upload size in bytes (MEDIA-001). Enforced on the decoded
+   * bytes before any validation, so an oversize payload is rejected up front.
+   */
+  readonly mediaMaxBytes: number;
+  /**
+   * Absolute public origin used to build sitemap/robots/canonical URLs on the server
+   * (SEO-005/006). Empty falls back to a relative sitemap; set to the real origin in
+   * production so crawlers receive absolute locations.
+   */
+  readonly publicOrigin: string;
+  /**
    * Reverse-proxy addresses whose `X-Forwarded-For` may be trusted (SEC-009).
    * Empty means trust nothing, so `request.ip` is the real socket peer — correct
    * for local development and tests where no proxy sits in front. In the Compose
@@ -248,6 +259,9 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-026 fail-closed: no external analytics tracker unless explicitly enabled.
     analyticsExternalEnabled: (source['ANALYTICS_EXTERNAL_ENABLED'] ?? '').toLowerCase() === 'true',
+    // MEDIA-001: default 5 MB cap on uploads; a valid positive override is honoured.
+    mediaMaxBytes: parsePositiveInteger(source['MEDIA_MAX_BYTES'], 5_000_000, 'MEDIA_MAX_BYTES', problems),
+    publicOrigin: (source['PUBLIC_ORIGIN'] ?? '').replace(/\/+$/, ''),
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

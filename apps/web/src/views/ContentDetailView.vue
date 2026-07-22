@@ -45,10 +45,12 @@ async function load(): Promise<void> {
 }
 
 function applySeo(detail: ContentDetail): void {
+  const path = `${prefix.value}/content/${detail.type}/${encodeURIComponent(detail.slug)}`;
+  const origin = globalThis.location?.origin ?? '';
   applyHead({
     title: `${detail.seoTitle} — ${t('app.name')}`,
     locale: activeLocale.value,
-    path: `${prefix.value}/content/${detail.type}/${encodeURIComponent(detail.slug)}`,
+    path,
     indexable: true,
     description: detail.seoDescription,
     ogType: 'article',
@@ -57,6 +59,16 @@ function applySeo(detail: ContentDetail): void {
     alternates: {
       fa: `/fa/content/${detail.type}/${encodeURIComponent(detail.alternateSlugs.fa)}`,
       en: `/en/content/${detail.type}/${encodeURIComponent(detail.alternateSlugs.en)}`
+    },
+    // Structured data for the article (SEO-007).
+    jsonLd: {
+      '@context': 'https://schema.org',
+      '@type': 'Article',
+      headline: detail.title,
+      description: detail.seoDescription,
+      inLanguage: activeLocale.value,
+      datePublished: detail.publishedAt,
+      url: `${origin}${path}`
     }
   });
 }

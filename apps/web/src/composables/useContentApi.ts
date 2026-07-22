@@ -66,6 +66,7 @@ export function listContent(params: {
   type?: string;
   category?: string;
   tag?: string;
+  q?: string;
   cursor?: string;
 }): Promise<Page<ContentCard>> {
   return apiFetch<Page<ContentCard>>(`/content${query(params)}`);
@@ -75,7 +76,7 @@ export function getContent(type: string, slug: string, locale: Locale): Promise<
   return apiFetch<ContentDetail>(`/content/${encodeURIComponent(type)}/${encodeURIComponent(slug)}${query({ locale })}`);
 }
 
-export function listGames(params: { locale: Locale; cursor?: string }): Promise<Page<GameCard>> {
+export function listGames(params: { locale: Locale; q?: string; cursor?: string }): Promise<Page<GameCard>> {
   return apiFetch<Page<GameCard>>(`/games${query(params)}`);
 }
 

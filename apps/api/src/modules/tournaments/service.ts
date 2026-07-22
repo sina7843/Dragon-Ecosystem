@@ -6,6 +6,7 @@ import { ConflictError, ForbiddenError, NotFoundError, ValidationError } from '.
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
 import { clampLimit, decodeCursor, toPage, type Page, type PageCursor } from '../../shared/pagination.ts';
+import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { resolveSlug } from '../content/slug.ts';
 import { TOURNAMENTS_COLLECTIONS } from './collections.ts';
 import {
@@ -359,6 +360,8 @@ export class TournamentsService {
     gameId?: string;
     participantType?: string;
     format?: string;
+    q?: string;
+    locale?: Locale;
     cursor?: string;
     limit?: number;
   }): Promise<Page<TournamentRecord>> {
@@ -368,6 +371,13 @@ export class TournamentsService {
     if (query.participantType !== undefined) filter['participantType'] = query.participantType;
     if (query.format !== undefined) filter['format'] = query.format;
     this.#applyCursor(filter, decodeCursor(query.cursor), 'schedule.startAt', 1);
+    // Draft-safe free-text search over the requested locale's name/summary (both locales
+    // when unspecified), narrowing the published-only filter above.
+    const search = normalizeQuery(query.q);
+    if (search !== null) {
+      const locales: Locale[] = query.locale === undefined ? ['fa', 'en'] : [query.locale];
+      applyTextSearch(filter, search, locales.flatMap((l) => [`translations.${l}.name`, `translations.${l}.summary`]));
+    }
     const rows = await this.#tournaments().find(filter).sort({ 'schedule.startAt': 1, _id: 1 }).limit(limit + 1).toArray();
     return this.#toPage(rows, limit, (r) => r.schedule.startAt ?? '', 1);
   }

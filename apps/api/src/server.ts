@@ -24,8 +24,11 @@ import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
 import { NotificationsService, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
 import { ModerationService, registerModerationRoutes } from './modules/moderation/index.ts';
 import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
+import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferences } from './modules/media/index.ts';
+import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, type Locale as SeoLocale } from './modules/seo/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
+import { utcNow } from './shared/events.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
 import { commonErrorResponses, sharedSchemas } from './http/schemas.ts';
 
@@ -84,6 +87,8 @@ export interface ServerDependencies {
   readonly notifications?: { service: NotificationsService };
   readonly moderation?: { service: ModerationService };
   readonly operations?: { service: OperationsService };
+  readonly media?: { service: MediaService };
+  readonly seo?: { service: SeoService };
 }
 
 declare module 'fastify' {
@@ -197,6 +202,34 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
       }
     );
   });
+
+  // Public media byte serving at the site root (MEDIA-007): only a published asset is
+  // served; the URL is content-addressed so responses are safely cacheable/immutable.
+  if (deps.media !== undefined) {
+    const media = deps.media.service;
+    app.register(async (root) => {
+      root.get('/media/:id', { schema: { tags: ['media'], summary: 'Serve a published media asset by id.', params: { type: 'object', required: ['id'], additionalProperties: false, properties: { id: { type: 'string' } } } } }, async (request, reply) => {
+        const found = await media.getPublishedBytes((request.params as { id: string }).id);
+        if (found === null) {
+          const { status, body } = toErrorBody(new NotFoundError('Unknown media asset.'), String(request.id));
+          return reply.status(status).send(body);
+        }
+        return reply
+          .header('content-type', found.record.contentType)
+          .header('cache-control', 'public, max-age=31536000, immutable')
+          .header('etag', `"${found.record.sha256}"`)
+          .send(found.bytes);
+      });
+    });
+  }
+
+  // SEO robots.txt + sitemap.xml at the site root (SEO-005/006).
+  if (deps.seo !== undefined) {
+    const seo = deps.seo.service;
+    app.register(async (root) => {
+      registerSeoRoutes(root, { seo });
+    });
+  }
 
   app.register(
     async (api) => {
@@ -331,6 +364,14 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 identity: deps.identity.service,
                 authorization: deps.admin.authorization,
                 operations: deps.operations.service
+              });
+            }
+            if (deps.media !== undefined) {
+              registerMediaRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                media: deps.media.service,
+                maxUploadBytes: config.mediaMaxBytes
               });
             }
           }
@@ -523,6 +564,57 @@ export function buildOperations(
   return { service: new OperationsService(database, { analyticsExternalEnabled: config.analyticsExternalEnabled }, jobs) };
 }
 
+export function buildMedia(database: Database, config: AppConfig): { service: MediaService } {
+  const storage = new MongoBlobStorage(database.db);
+  // MEDIA-008: a media URL is "referenced" while any published cover image points at it.
+  // The check reads the reference field only; it never mutates another module's data.
+  const references: MediaReferences = {
+    async isReferenced(publicUrl) {
+      const [content, games] = await Promise.all([
+        database.db.collection('content_items').countDocuments({ coverImageUrl: publicUrl }, { limit: 1 }),
+        database.db.collection('games').countDocuments({ coverImageUrl: publicUrl }, { limit: 1 })
+      ]);
+      return content + games > 0;
+    }
+  };
+  return { service: new MediaService(database, storage, { mediaMaxBytes: config.mediaMaxBytes }, references) };
+}
+
+export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
+  // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
+  // catalog would page; the launch catalog fits well within this ceiling.
+  const CAP = 5000;
+  const both = (make: (locale: SeoLocale) => string): SitemapEntry => ({
+    path: make('fa'),
+    alternates: { fa: make('fa'), en: make('en') }
+  });
+  const source: SitemapSource = {
+    async collect() {
+      const entries: SitemapEntry[] = [];
+      // Static public pages.
+      for (const base of ['', '/content', '/games', '/tournaments']) {
+        entries.push(both((locale) => `/${locale}${base}`));
+      }
+      const [content, games, tournaments] = await Promise.all([
+        database.db.collection<{ type: string; slugs: Record<string, string> }>('content_items').find({ state: 'published', publishedAt: { $lte: utcNow() } }, { projection: { type: 1, slugs: 1 } }).limit(CAP).toArray(),
+        database.db.collection<{ slug: string }>('games').find({ status: 'published' }, { projection: { slug: 1 } }).limit(CAP).toArray(),
+        database.db.collection<{ slug: string }>('tournaments').find({ state: 'published' }, { projection: { slug: 1 } }).limit(CAP).toArray()
+      ]);
+      for (const item of content) {
+        // Content slugs are per-locale (DEC): hreflang must point at each locale's own slug.
+        entries.push({
+          path: `/fa/content/${item.type}/${item.slugs['fa']}`,
+          alternates: { fa: `/fa/content/${item.type}/${item.slugs['fa']}`, en: `/en/content/${item.type}/${item.slugs['en']}` }
+        });
+      }
+      for (const game of games) entries.push(both((locale) => `/${locale}/games/${game.slug}`));
+      for (const t of tournaments) entries.push(both((locale) => `/${locale}/tournaments/${t.slug}`));
+      return entries;
+    }
+  };
+  return { service: new SeoService({ env: config.env, publicOrigin: config.publicOrigin }, source) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -556,7 +648,9 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
     notifications,
     moderation: buildModeration(database, identity),
-    operations: buildOperations(database, config, notifications, holds, checkout)
+    operations: buildOperations(database, config, notifications, holds, checkout),
+    media: buildMedia(database, config),
+    seo: buildSeo(database, config)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

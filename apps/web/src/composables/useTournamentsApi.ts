@@ -66,7 +66,14 @@ function query(params: Record<string, string | undefined>): string {
   return s === '' ? '' : `?${s}`;
 }
 
-export function listTournaments(params: { locale: Locale; game?: string; participantType?: string; cursor?: string }): Promise<Page<TournamentCard>> {
+export function listTournaments(params: {
+  locale: Locale;
+  game?: string;
+  participantType?: string;
+  format?: string;
+  q?: string;
+  cursor?: string;
+}): Promise<Page<TournamentCard>> {
   return apiFetch(`/tournaments${query(params)}`);
 }
 

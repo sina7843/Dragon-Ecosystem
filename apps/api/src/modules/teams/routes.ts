@@ -39,6 +39,27 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
   // --- Public read side ---
 
   app.get(
+    '/public/teams',
+    {
+      schema: {
+        tags: ['teams'],
+        summary: 'Search the public team directory (public, active teams only).',
+        querystring: { type: 'object', additionalProperties: false, properties: { q: { type: 'string', maxLength: 100 }, game: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
+        response: { 200: { type: 'object', additionalProperties: true }, 400: { $ref: 'ErrorResponse#' } }
+      }
+    },
+    async (request) => {
+      const query = request.query as { q?: string; game?: string; cursor?: string; limit?: number };
+      return deps.teams.searchPublicTeams({
+        ...(query.q === undefined ? {} : { q: query.q }),
+        ...(query.game === undefined ? {} : { gameId: query.game }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+        ...(query.limit === undefined ? {} : { limit: query.limit })
+      });
+    }
+  );
+
+  app.get(
     '/public/teams/:slug',
     {
       schema: {

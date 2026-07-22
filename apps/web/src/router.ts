@@ -1,30 +1,16 @@
 import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router';
-import AccountOverviewView from './views/AccountOverviewView.vue';
-import AccountProfileView from './views/AccountProfileView.vue';
-import AccountSecurityView from './views/AccountSecurityView.vue';
-import AccountWalletView from './views/AccountWalletView.vue';
-import NotificationsInboxView from './views/NotificationsInboxView.vue';
-import AdminOverviewView from './views/AdminOverviewView.vue';
-import AdminUsersView from './views/AdminUsersView.vue';
-import AdminAuditView from './views/AdminAuditView.vue';
-import AdminModerationView from './views/AdminModerationView.vue';
-import AdminContentView from './views/AdminContentView.vue';
-import AdminGamesView from './views/AdminGamesView.vue';
+// Public routes are eagerly imported (they are the crawlable, first-paint surface).
+// Admin and account routes are lazily imported below so an anonymous public visitor
+// never downloads privileged/personalized code (bundle: disabled/gated code is split out).
 import AuthMobileView from './views/AuthMobileView.vue';
 import ContentListView from './views/ContentListView.vue';
 import ContentDetailView from './views/ContentDetailView.vue';
 import GamesCatalogView from './views/GamesCatalogView.vue';
 import GameDetailView from './views/GameDetailView.vue';
-import TeamsView from './views/TeamsView.vue';
-import TeamDetailView from './views/TeamDetailView.vue';
 import PublicTeamView from './views/PublicTeamView.vue';
-import GamingIdentitiesView from './views/GamingIdentitiesView.vue';
 import TournamentsListView from './views/TournamentsListView.vue';
 import TournamentCalendarView from './views/TournamentCalendarView.vue';
 import TournamentDetailView from './views/TournamentDetailView.vue';
-import AdminTournamentsView from './views/AdminTournamentsView.vue';
-import AdminTournamentRegistrationsView from './views/AdminTournamentRegistrationsView.vue';
-import AdminTournamentCompetitionView from './views/AdminTournamentCompetitionView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -123,103 +109,103 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/account',
       name: 'account',
-      component: AccountOverviewView,
+      component: () => import('./views/AccountOverviewView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.account' }
     },
     {
       path: '/:locale(fa|en)/account/profile',
       name: 'account-profile',
-      component: AccountProfileView,
+      component: () => import('./views/AccountProfileView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.profile' }
     },
     {
       path: '/:locale(fa|en)/account/security',
       name: 'account-security',
-      component: AccountSecurityView,
+      component: () => import('./views/AccountSecurityView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.security' }
     },
     {
       path: '/:locale(fa|en)/account/wallet',
       name: 'account-wallet',
-      component: AccountWalletView,
+      component: () => import('./views/AccountWalletView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.wallet' }
     },
     {
       path: '/:locale(fa|en)/account/notifications',
       name: 'account-notifications',
-      component: NotificationsInboxView,
+      component: () => import('./views/NotificationsInboxView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.notifications' }
     },
     {
       path: '/:locale(fa|en)/account/teams',
       name: 'account-teams',
-      component: TeamsView,
+      component: () => import('./views/TeamsView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.teams' }
     },
     {
       path: '/:locale(fa|en)/account/teams/:id',
       name: 'account-team-detail',
-      component: TeamDetailView,
+      component: () => import('./views/TeamDetailView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.teams' }
     },
     {
       path: '/:locale(fa|en)/account/gaming-identities',
       name: 'account-gaming-identities',
-      component: GamingIdentitiesView,
+      component: () => import('./views/GamingIdentitiesView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.gamingIdentities' }
     },
     {
       path: '/:locale(fa|en)/admin',
       name: 'admin',
-      component: AdminOverviewView,
+      component: () => import('./views/AdminOverviewView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.admin' }
     },
     {
       path: '/:locale(fa|en)/admin/users',
       name: 'admin-users',
-      component: AdminUsersView,
+      component: () => import('./views/AdminUsersView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminUsers' }
     },
     {
       path: '/:locale(fa|en)/admin/audit',
       name: 'admin-audit',
-      component: AdminAuditView,
+      component: () => import('./views/AdminAuditView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminAudit' }
     },
     {
       path: '/:locale(fa|en)/admin/moderation',
       name: 'admin-moderation',
-      component: AdminModerationView,
+      component: () => import('./views/AdminModerationView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
     },
     {
       path: '/:locale(fa|en)/admin/content',
       name: 'admin-content',
-      component: AdminContentView,
+      component: () => import('./views/AdminContentView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminContent' }
     },
     {
       path: '/:locale(fa|en)/admin/games',
       name: 'admin-games',
-      component: AdminGamesView,
+      component: () => import('./views/AdminGamesView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminGames' }
     },
     {
       path: '/:locale(fa|en)/admin/tournaments',
       name: 'admin-tournaments',
-      component: AdminTournamentsView,
+      component: () => import('./views/AdminTournamentsView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
     },
     {
       path: '/:locale(fa|en)/admin/tournaments/:id/registrations',
       name: 'admin-tournament-registrations',
-      component: AdminTournamentRegistrationsView,
+      component: () => import('./views/AdminTournamentRegistrationsView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
     },
     {
       path: '/:locale(fa|en)/admin/tournaments/:id/competition',
       name: 'admin-tournament-competition',
-      component: AdminTournamentCompetitionView,
+      component: () => import('./views/AdminTournamentCompetitionView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
     },
     {

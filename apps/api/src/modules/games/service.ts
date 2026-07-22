@@ -6,6 +6,7 @@ import { ConflictError, NotFoundError, ValidationError, type FieldError } from '
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
 import { clampLimit, decodeCursor, toPage, type Page } from '../../shared/pagination.ts';
+import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { resolveSlug } from '../content/slug.ts';
 import { GAMES_COLLECTIONS } from './collections.ts';
 
@@ -220,7 +221,7 @@ export class GamesService {
     return this.#page(rows, limit, (r) => r.updatedAt);
   }
 
-  async listPublished(query: { locale: Locale; cursor?: string; limit?: number }): Promise<Page<{
+  async listPublished(query: { locale: Locale; q?: string; cursor?: string; limit?: number }): Promise<Page<{
     id: string;
     slug: string;
     name: string;
@@ -233,6 +234,9 @@ export class GamesService {
     if (cursor !== null) {
       filter['$or'] = [{ slug: { $gt: cursor.sortValue } }, { slug: cursor.sortValue, _id: { $gt: cursor.id } }];
     }
+    // Draft-safe free-text search over the requested locale's name/description.
+    const search = normalizeQuery(query.q);
+    if (search !== null) applyTextSearch(filter, search, [`translations.${query.locale}.name`, `translations.${query.locale}.description`]);
     const rows = await this.#games().find(filter).sort({ slug: 1, _id: 1 }).limit(limit + 1).toArray();
     const page = toPage(rows.map((r) => ({ ...r, sortValue: r.slug, id: r._id })), limit);
     return {

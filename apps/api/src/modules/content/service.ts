@@ -12,6 +12,7 @@ import {
   type Page,
   type PageCursor
 } from '../../shared/pagination.ts';
+import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { sanitizeRichText, toPlainText } from './sanitize.ts';
 import { resolveSlug } from './slug.ts';
 import { canContentTransition, requiresPublishPermission, type ContentState } from './state.ts';
@@ -347,6 +348,7 @@ export class ContentService {
     categorySlug?: string;
     tagSlug?: string;
     gameId?: string;
+    q?: string;
     cursor?: string;
     limit?: number;
   }): Promise<Page<PublicContentCard>> {
@@ -357,6 +359,10 @@ export class ContentService {
     if (query.tagSlug !== undefined) filter['tagSlugs'] = query.tagSlug;
     if (query.gameId !== undefined) filter['gameId'] = query.gameId;
     this.#applyCursor(filter, decodeCursor(query.cursor), 'publishedAt');
+    // Free-text search over the requested locale's title/summary/plain text; draft-safe
+    // because it only narrows the published filter above.
+    const search = normalizeQuery(query.q);
+    if (search !== null) applyTextSearch(filter, search, [`translations.${query.locale}.title`, `translations.${query.locale}.summary`, `translations.${query.locale}.plainText`]);
 
     const rows = await contentItems(this.#db)
       .find(filter)

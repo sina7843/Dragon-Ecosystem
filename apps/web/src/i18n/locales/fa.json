@@ -454,6 +454,12 @@
       "INCOMPLETE_TEMPLATE": "برای هر دو زبان متن وارد کنید."
     }
   },
+  "search": {
+    "label": "جست‌وجو",
+    "placeholder": "جست‌وجو…",
+    "submit": "جست‌وجو",
+    "noResults": "نتیجه‌ای برای جست‌وجوی شما یافت نشد."
+  },
   "content": {
     "type": {
       "news": "خبر",

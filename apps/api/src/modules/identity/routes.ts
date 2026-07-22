@@ -353,6 +353,26 @@ export function registerIdentityRoutes(
   );
 
   app.get(
+    '/players',
+    {
+      schema: {
+        tags: ['identity'],
+        summary: 'Search the public player directory (public profiles only).',
+        querystring: { type: 'object', additionalProperties: false, properties: { q: { type: 'string', maxLength: 100 }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
+        response: { 200: { type: 'object', additionalProperties: true }, 400: { $ref: 'ErrorResponse#' } }
+      }
+    },
+    async (request) => {
+      const query = request.query as { q?: string; cursor?: string; limit?: number };
+      return service.searchPublicProfiles({
+        ...(query.q === undefined ? {} : { q: query.q }),
+        ...(query.cursor === undefined ? {} : { cursor: query.cursor }),
+        ...(query.limit === undefined ? {} : { limit: query.limit })
+      });
+    }
+  );
+
+  app.get(
     '/players/:username',
     {
       schema: {

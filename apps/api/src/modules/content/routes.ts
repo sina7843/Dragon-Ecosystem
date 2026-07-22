@@ -64,6 +64,7 @@ export function registerContentRoutes(app: FastifyInstance, deps: ContentDeps): 
             category: { type: 'string' },
             tag: { type: 'string' },
             game: { type: 'string' },
+            q: { type: 'string', maxLength: 100 },
             cursor: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 }
           }
@@ -77,6 +78,7 @@ export function registerContentRoutes(app: FastifyInstance, deps: ContentDeps): 
         category?: string;
         tag?: string;
         game?: string;
+        q?: string;
         cursor?: string;
         limit?: number;
       };
@@ -86,6 +88,7 @@ export function registerContentRoutes(app: FastifyInstance, deps: ContentDeps): 
         ...(q.category === undefined ? {} : { categorySlug: q.category }),
         ...(q.tag === undefined ? {} : { tagSlug: q.tag }),
         ...(q.game === undefined ? {} : { gameId: q.game }),
+        ...(q.q === undefined ? {} : { q: q.q }),
         ...(q.cursor === undefined ? {} : { cursor: q.cursor }),
         ...(q.limit === undefined ? {} : { limit: q.limit })
       });

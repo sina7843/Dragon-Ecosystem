@@ -5,6 +5,8 @@ import type { RequestContext } from '../../shared/context.ts';
 import { ConflictError, ForbiddenError, NotFoundError, ValidationError, type FieldError } from '../../shared/errors.ts';
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
+import { clampLimit, decodeCursor, toPage, type Page } from '../../shared/pagination.ts';
+import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { resolveSlug } from '../content/slug.ts';
 import { TEAMS_COLLECTIONS } from './collections.ts';
 import {
@@ -633,6 +635,24 @@ export class TeamsService {
   }
 
   /** Privacy-aware public view: only a public, active team is visible; its roster shows public identities only. */
+  /**
+   * Public team directory search (DRAGON-15). Lists only public, active teams; a private
+   * or disbanded team is never returned. Optional free-text matches the team name.
+   * Paginated by slug.
+   */
+  async searchPublicTeams(query: { q?: string; gameId?: string; cursor?: string; limit?: number } = {}): Promise<Page<{ slug: string; name: string; gameId: string }>> {
+    const limit = clampLimit(query.limit);
+    const filter: Record<string, unknown> = { visibility: 'public', status: 'active' };
+    if (query.gameId !== undefined) filter['gameId'] = query.gameId;
+    const cursor = decodeCursor(query.cursor);
+    if (cursor !== null) filter['$or'] = [{ slug: { $gt: cursor.sortValue } }, { slug: cursor.sortValue, _id: { $gt: cursor.id } }];
+    const search = normalizeQuery(query.q);
+    if (search !== null) applyTextSearch(filter, search, ['name']);
+    const rows = await this.#teams().find(filter).sort({ slug: 1, _id: 1 }).limit(limit + 1).toArray();
+    const page = toPage(rows.map((r) => ({ ...r, sortValue: r.slug, id: r._id })), limit);
+    return { items: page.items.map((r) => ({ slug: r.slug, name: r.name, gameId: r.gameId })), nextCursor: page.nextCursor };
+  }
+
   async getPublicTeam(slug: string): Promise<{ slug: string; name: string; description: string; gameId: string; members: MemberView[] } | null> {
     const team = await this.#teams().findOne({ slug, visibility: 'public', status: 'active' });
     if (team === null) return null;

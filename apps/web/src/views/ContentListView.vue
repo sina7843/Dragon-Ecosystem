@@ -22,6 +22,11 @@ const { messageFor } = useApiErrors();
 const activeLocale = computed<Locale>(() => (isLocale(locale.value) ? locale.value : 'fa'));
 const prefix = computed(() => `/${activeLocale.value}`);
 const activeType = computed(() => (route.query.type as string | undefined) ?? '');
+const activeQuery = computed(() => (route.query.q as string | undefined) ?? '');
+const searchInput = ref(activeQuery.value);
+watch(activeQuery, (value) => {
+  searchInput.value = value;
+});
 
 const loading = ref(true);
 const error = ref<string | undefined>(undefined);
@@ -34,6 +39,7 @@ async function load(cursor?: string): Promise<void> {
     const page = await listContent({
       locale: activeLocale.value,
       ...(activeType.value === '' ? {} : { type: activeType.value }),
+      ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
       ...(cursor === undefined ? {} : { cursor })
     });
     items.value = cursor === undefined ? page.items : [...items.value, ...page.items];
@@ -47,12 +53,24 @@ async function load(cursor?: string): Promise<void> {
 }
 
 onMounted(() => load());
-// Re-fetch when the filter or locale changes.
-watch([activeType, activeLocale], () => load());
+// Re-fetch when the filter, search text, or locale changes.
+watch([activeType, activeQuery, activeLocale], () => load());
+
+function pushQuery(overrides: { type?: string; q?: string }): void {
+  const type = overrides.type ?? activeType.value;
+  const q = overrides.q ?? activeQuery.value;
+  const query: Record<string, string> = {};
+  if (type !== '') query.type = type;
+  if (q !== '') query.q = q;
+  void router.push({ path: `${prefix.value}/content`, query });
+}
 
 function selectType(type: string): void {
-  const query = type === '' ? {} : { type };
-  void router.push({ path: `${prefix.value}/content`, query });
+  pushQuery({ type });
+}
+
+function submitSearch(): void {
+  pushQuery({ q: searchInput.value.trim() });
 }
 
 function detailPath(card: ContentCard): string {
@@ -88,6 +106,27 @@ function detailPath(card: ContentCard): string {
         {{ t(`content.type.${type}`) }}
       </button>
     </nav>
+
+    <form
+      class="search"
+      role="search"
+      @submit.prevent="submitSearch"
+    >
+      <label for="content-search">{{ t('search.label') }}</label>
+      <input
+        id="content-search"
+        v-model="searchInput"
+        type="search"
+        data-testid="search-input"
+        :placeholder="t('search.placeholder')"
+      >
+      <button
+        type="submit"
+        data-testid="search-submit"
+      >
+        {{ t('search.submit') }}
+      </button>
+    </form>
 
     <StateBlock
       v-if="loading && items.length === 0"

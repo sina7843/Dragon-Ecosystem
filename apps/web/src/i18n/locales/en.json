@@ -454,6 +454,12 @@
       "INCOMPLETE_TEMPLATE": "Provide a body for both languages."
     }
   },
+  "search": {
+    "label": "Search",
+    "placeholder": "Search…",
+    "submit": "Search",
+    "noResults": "No results match your search."
+  },
   "content": {
     "type": {
       "news": "News",

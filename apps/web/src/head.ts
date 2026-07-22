@@ -26,6 +26,8 @@ export interface HeadOptions {
    * locale swap of the current path.
    */
   readonly alternates?: Partial<Record<Locale, string>>;
+  /** SEO-007: structured data (schema.org) for the page, rendered as JSON-LD. */
+  readonly jsonLd?: Record<string, unknown>;
 }
 
 function upsertAttrMeta(attr: 'name' | 'property', key: string, content: string): void {
@@ -42,6 +44,22 @@ function upsertAttrMeta(attr: 'name' | 'property', key: string, content: string)
 
 function upsertMeta(name: string, content: string): void {
   upsertAttrMeta('name', name, content);
+}
+
+/** SEO-007: single managed JSON-LD script element; removed when no structured data applies. */
+function upsertJsonLd(jsonLd: Record<string, unknown> | undefined): void {
+  const head = globalThis.document?.head;
+  if (head === undefined) return;
+  const existing = head.querySelector<HTMLScriptElement>('script[data-managed="jsonld"]');
+  if (jsonLd === undefined) {
+    existing?.remove();
+    return;
+  }
+  const element = existing ?? globalThis.document.createElement('script');
+  element.type = 'application/ld+json';
+  element.setAttribute('data-managed', 'jsonld');
+  element.textContent = JSON.stringify(jsonLd);
+  if (existing === null) head.append(element);
 }
 
 function upsertLink(rel: string, href: string, hreflang?: string): void {
@@ -94,4 +112,6 @@ export function applyHead(options: HeadOptions): void {
   if (options.image !== undefined && options.image !== null && options.image !== '') {
     upsertAttrMeta('property', 'og:image', options.image.startsWith('http') ? options.image : `${origin}${options.image}`);
   }
+
+  upsertJsonLd(options.jsonLd);
 }

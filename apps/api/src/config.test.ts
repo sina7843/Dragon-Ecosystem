@@ -94,6 +94,13 @@ test('external analytics forwarding is fail-closed (OD-026)', () => {
   assert.equal(loadConfig({ ANALYTICS_EXTERNAL_ENABLED: 'TRUE' }).analyticsExternalEnabled, true);
 });
 
+test('media size cap defaults to 5 MB and honours a valid override; public origin trims trailing slashes', () => {
+  assert.equal(loadConfig({}).mediaMaxBytes, 5_000_000);
+  assert.equal(loadConfig({ MEDIA_MAX_BYTES: '1048576' }).mediaMaxBytes, 1_048_576);
+  assert.equal(loadConfig({}).publicOrigin, '');
+  assert.equal(loadConfig({ PUBLIC_ORIGIN: 'https://dragon.example//' }).publicOrigin, 'https://dragon.example');
+});
+
 test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
   // Default: off.
   assert.equal(loadConfig({}).devRoutesEnabled, false);

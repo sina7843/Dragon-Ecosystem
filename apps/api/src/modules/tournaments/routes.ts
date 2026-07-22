@@ -107,6 +107,7 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
             game: { type: 'string' },
             participantType: { type: 'string', enum: ['individual', 'team'] },
             format: { type: 'string' },
+            q: { type: 'string', maxLength: 100 },
             cursor: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 }
           }
@@ -115,12 +116,13 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
       }
     },
     async (request) => {
-      const q = request.query as { game?: string; participantType?: string; format?: string; cursor?: string; limit?: number };
+      const q = request.query as { game?: string; participantType?: string; format?: string; q?: string; cursor?: string; limit?: number };
       const locale = localeOf(request);
       const page = await deps.tournaments.listPublished({
         ...(q.game === undefined ? {} : { gameId: q.game }),
         ...(q.participantType === undefined ? {} : { participantType: q.participantType }),
         ...(q.format === undefined ? {} : { format: q.format }),
+        ...(q.q === undefined ? {} : { q: q.q, locale }),
         ...(q.cursor === undefined ? {} : { cursor: q.cursor }),
         ...(q.limit === undefined ? {} : { limit: q.limit })
       });
