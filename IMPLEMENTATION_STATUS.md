@@ -15,9 +15,10 @@
 - Standings, corrections, locking, concurrency, and presentation: complete (DRAGON-09c) — completes DRAGON-09; implemented and verified, not yet committed
 - Bracket versioning/regeneration/rollback, operator console, and public bracket presentation: complete (DRAGON-10) — implemented and verified, not yet committed
 - Ledger core and invariants: complete (DRAGON-11a) — immutable double-entry ledger foundation; implemented and verified, not yet committed
-- Mock Toman purchase and exactly-once Dragon Coin crediting: complete (DRAGON-11b) — implemented and verified, not yet committed. Parent DRAGON-11 remains open (11c not started)
-- Active prompt: DRAGON-11b complete; next eligible is DRAGON-11c
-- Latest verified checkpoint: DRAGON-11b mock purchase and crediting, 2026-07-22
+- Mock Toman purchase and exactly-once Dragon Coin crediting: complete (DRAGON-11b) — implemented and verified, not yet committed
+- Holds, releases, expiry, and gated transfer boundaries: complete (DRAGON-11c) — implemented and verified, not yet committed. **Parent DRAGON-11 is complete** (11a + 11b + 11c)
+- Active prompt: DRAGON-11 complete; next eligible is DRAGON-12
+- Latest verified checkpoint: DRAGON-11c holds and transfer boundaries, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -166,6 +167,19 @@
 - Deferred to DRAGON-11c (OD-007/DEC-050 gated): real payment-provider integration, tournament checkout, paid-registration activation, refund execution, prize payout, withdrawable cash, user-to-user transfers, holds (WALLET-006), and admin financial-adjustment UI.
 - **DRAGON-11b is complete; parent DRAGON-11 remains open.**
 
+## Delivered by DRAGON-11c
+- Balance model (`modules/ledger/service.ts`, WALLET-002/006/007): `availableBalance = ledgerBalance − heldAmount`. `heldAmount` is a projection field on the ledger user account summing active uncaptured hold reservations. A hold reduces available balance without changing the ledger balance; capture converts a hold into an immutable ledger transfer and releases the equal reservation in the same transaction (available unchanged by capture); release/expiry only free the reservation (no journal). Amounts always conserve: `originalAmount = capturedAmount + releasedAmount + remainingAmount`.
+- Hold lifecycle (`modules/holds/`): a durable, versioned hold (`active`/`partially_captured` → terminal `captured`/`released`/`expired`/`cancelled`). Creation reserves available balance with an atomic conditional update (`{$expr: balance − heldAmount ≥ amount}` `$inc heldAmount`), so concurrent holds competing for the final available balance yield exactly one winner and available balance never goes negative — proven by an integration test. Every hold carries a durable unique `businessRef` (duplicate creation cannot reserve twice); creation is idempotent per (owner, key).
+- Capture: converts part or all of a hold into a ledger transfer (user → code-owned DRC destination) committed with the hold update; the per-capture ledger `businessRef` `dragon_coin_hold_capture:<holdId>:<seq>` and the optimistic hold `version`/`captureCount` guards make concurrent captures yield exactly one credit and replay idempotent. Capture cannot exceed the remaining amount; partial capture is per-purpose. A captured hold always links a ledger transaction; a failed ledger post rolls the whole thing back.
+- Release/cancel: returns reserved availability with no journal (idempotent); cancellation is a full release. Expiry: deterministic on the server clock (never a client time), applies only to open holds, releases the remaining amount, and is a bounded, paginated callable primitive (`expireDueHolds`, ≤100/batch) with per-hold version guards making duplicate/concurrent expiry safe — the full scheduler stays with DRAGON-14. `releaseHeld` is a strict atomic invariant — it applies only when the account's current `heldAmount` ≥ the release amount (never clamps or repairs), so the reservation can never underflow; an inconsistent projection throws `HELD_INVARIANT_VIOLATION` and rolls the whole transaction back.
+- Typed transfer boundaries + feature gates (`purposes.ts`): source/destination account classes are code-owned; a client never chooses accounts. Every transfer type required by later workflows (`user_to_user`, `refund_execution`, `prize_payout`, `withdrawal`) is fail-closed disabled and returns `TRANSFER_FEATURE_DISABLED` with no hold/journal/audit/outbox effect. The only enabled hold purpose is `admin_correction` (finance-authorized, captured to the platform treasury); `tournament_entry_fee` (OD-007) and `prize_reservation` are gated and cannot create a hold. Proven to produce zero effects by integration tests.
+- Reconciliation (`holds/reconciliation.ts`, read-only, bounded ≤100 accounts, never repairs): amount conservation per hold, `heldAmount` vs open-hold remaining, non-negative available balance, capture-to-ledger linkage / orphan capture references, and expired-still-open holds. Structured findings, opaque references only.
+- HTTP surface: session-gated user reads (`/wallet/summary` ledger/held/available, `/wallet/holds`, `/wallet/holds/:id` — owner-scoped, IDOR-closed, no internal ledger account id or business reference exposed); finance operations gated on `finance.manage` (create/capture/expire/reconcile) and `finance.approve` (force-release), each with JSON-Schema validation, stable errors, rate limiting, correlation id, and audit. No generic create/capture/transfer endpoint for arbitrary clients.
+- Wallet UI (`AccountWalletView.vue`): shows total, held, and available Dragon Coin plus an owned-holds list with purpose and status, bilingual fa RTL / en LTR, exact integer formatting, empty/loading/error states, no internal financial identifiers.
+- One focused `test-reviewer` pass over insufficient-funds enforcement, hold/capture/release/expiry concurrency, amount conservation, ledger atomicity, duplicate effects, feature-gate bypass, cross-user IDOR, admin-override authorization, and reconciliation: verdict APPROVE, no Critical/High. A Low defense-in-depth note prompted a stricter guard than suggested: rather than floor `heldAmount`, `releaseHeld` now enforces a strict atomic invariant (release only when current `heldAmount` ≥ amount, otherwise `HELD_INVARIANT_VIOLATION` with a full rollback and no silent repair), backed by focused regression tests (exact-remaining release succeeds; over-release fails leaving hold/held/audit/outbox/ledger unchanged; concurrent releases cannot underflow; reconciliation reports projection drift without repairing).
+- Deferred to DRAGON-12+ (still gated): real payment-provider integration, paid tournament checkout activation, participant refund execution, prize distribution, withdrawable cash, user-to-user transfers, arbitrary admin ledger posting, and the background expiry/reconciliation scheduler (DRAGON-14).
+- **DRAGON-11c is complete. Parent DRAGON-11 (11a ledger + 11b mock purchase + 11c holds/transfers) is complete.**
+
 ## Known blockers
 - None.
 
@@ -197,15 +211,15 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22 (DRAGON-11b), all commands run from the repository root:
+2026-07-22 (DRAGON-11c), all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` (workspaces) — 278 passed (242 api, 36 web); api unit adds 12 payment unit tests (purchase state machine, integer/versioned packages, HMAC callback signing + tampered-amount/wrong-signature/unknown-event-type rejection) plus the config fail-closed tests for the payments callback secret and mock enablement
-- `npm run test:integration` (api) — 213 passed (adds 21 payment integration: create + idempotent create, exactly-once credit with audit+outbox, duplicate + two-concurrent-identical + two-concurrent-different-eventId callbacks all yielding one credit, conflicting outcome rejected, wrong-signature/amount-mismatch/unknown-purchase rejection, failed/cancelled/late-after-expiry flows, IDOR-closed history + pagination, finance correction via one compensating tx, duplicate-correction prevention, insufficient-balance correction rejection, and index uniqueness/partial)
+- `npm test` (workspaces) — 283 passed (247 api, 36 web); api unit adds 5 hold unit/property tests (state machine, purpose/transfer gate registries fail-closed, and a 500-iteration amount-conservation property: original = captured + released + remaining after every valid capture/release)
+- `npm run test:integration` (api) — 229 passed (adds 16 hold integration: reserve available balance, insufficient-funds rejected with no effect, gated purpose rejected, idempotent create + conflicting payload + duplicate businessRef, two concurrent holds → one winner + non-negative available, full/partial capture with one ledger transfer, capture idempotent + concurrent → one credit, concurrent capture-vs-release one winner, full release + idempotent, bounded idempotent expiry, IDOR-closed reads, gated transfers produce no effect, reconciliation conservation + drift detection + unbounded rejection, index uniqueness)
 - `npm run build` — pass
-- migrations against the disposable test DB — `014-payments` applies cleanly (all 14 migrations applied and recorded)
-- `npm run e2e` — 189 passed across small-mobile 320px, mobile 375px, and desktop 1440px, fa RTL + en LTR (adds the wallet journey: buy → awaiting payment → mock verified callback → credited balance + history; a failed payment credits nothing; Persian RTL). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; an isolated re-run of the affected spec passes (matrix owned by DRAGON-16a)
-- Prior DRAGON-11a checkpoint (unchanged this slice): api unit adds 20 ledger unit/property tests; integration adds 18 ledger tests
+- migrations against the disposable test DB — `015-holds` applies cleanly (all 15 migrations applied and recorded)
+- `npm run e2e` — 189 passed across small-mobile 320px, mobile 375px, and desktop 1440px, fa RTL + en LTR (the wallet journey now shows total/held/available balances and an owned-holds list; buy → verified callback → credited available balance, held stays zero). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; an isolated re-run of the affected spec passes (matrix owned by DRAGON-16a)
+- Prior DRAGON-11a/11b checkpoints (unchanged this slice): ledger 20 unit + 18 integration; payments 12 unit + 21 integration
 
 Earlier DRAGON-10 verification, 2026-07-22:
 - `npm test` — 244 passed (208 api, 36 web)

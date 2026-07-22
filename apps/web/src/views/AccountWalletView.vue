@@ -8,7 +8,6 @@ import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useToasts } from '../composables/useToasts.ts';
 import {
   createPurchase,
-  getDragonCoinBalance,
   listPackages,
   listPurchases,
   mockPay,
@@ -16,6 +15,7 @@ import {
   type PackageView,
   type PurchaseView
 } from '../composables/usePaymentsApi.ts';
+import { getWalletSummary, listHolds, type HoldView, type WalletSummary } from '../composables/useHoldsApi.ts';
 
 /**
  * Dragon Coin wallet (DRAGON-11b). Shows packages, the current balance, and
@@ -33,7 +33,8 @@ const activeLocale = (): Locale => (isLocale(locale.value) ? locale.value : 'fa'
 const loading = ref(true);
 const loadError = ref<string | undefined>(undefined);
 const packages = ref<PackageView[]>([]);
-const balance = ref(0);
+const summary = ref<WalletSummary>({ ledgerBalance: 0, heldAmount: 0, availableBalance: 0 });
+const holds = ref<HoldView[]>([]);
 const history = ref<PurchaseView[]>([]);
 const active = ref<PurchaseView | null>(null);
 const busy = ref(false);
@@ -41,7 +42,8 @@ const busy = ref(false);
 const pendingActive = computed(() => active.value !== null && active.value.state === 'payment_pending');
 
 async function refresh(): Promise<void> {
-  balance.value = (await getDragonCoinBalance()).balance;
+  summary.value = await getWalletSummary();
+  holds.value = (await listHolds()).items;
   history.value = (await listPurchases()).items;
 }
 
@@ -102,12 +104,29 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
     />
 
     <template v-else>
-      <p
-        class="balance"
-        data-testid="dragon-coin-balance"
+      <dl
+        class="balances"
+        data-testid="wallet-balances"
       >
-        {{ t('wallet.balance') }}: <strong>{{ formatNumber(balance, activeLocale()) }}</strong> {{ t('wallet.coinUnit') }}
-      </p>
+        <div>
+          <dt>{{ t('wallet.total') }}</dt>
+          <dd data-testid="balance-total">
+            {{ formatNumber(summary.ledgerBalance, activeLocale()) }} {{ t('wallet.coinUnit') }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('wallet.held') }}</dt>
+          <dd data-testid="balance-held">
+            {{ formatNumber(summary.heldAmount, activeLocale()) }} {{ t('wallet.coinUnit') }}
+          </dd>
+        </div>
+        <div>
+          <dt>{{ t('wallet.available') }}</dt>
+          <dd data-testid="balance-available">
+            <strong>{{ formatNumber(summary.availableBalance, activeLocale()) }}</strong> {{ t('wallet.coinUnit') }}
+          </dd>
+        </div>
+      </dl>
 
       <h2>{{ t('wallet.packages') }}</h2>
       <ul
@@ -174,6 +193,49 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
         </template>
       </section>
 
+      <h2>{{ t('wallet.holds') }}</h2>
+      <StateBlock
+        v-if="holds.length === 0"
+        variant="empty"
+        data-testid="no-holds"
+        :message="t('wallet.noHolds')"
+      />
+      <div
+        v-else
+        class="scroll"
+      >
+        <table data-testid="hold-list">
+          <caption class="sr-only">
+            {{ t('wallet.holds') }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                {{ t('wallet.holdPurpose') }}
+              </th>
+              <th scope="col">
+                {{ t('wallet.held') }}
+              </th>
+              <th scope="col">
+                {{ t('wallet.status') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="hold in holds"
+              :key="hold.id"
+              :data-testid="`hold-${hold.id}`"
+              :data-state="hold.state"
+            >
+              <td>{{ t(`wallet.holdPurposeLabel.${hold.purpose}`) }}</td>
+              <td>{{ formatNumber(hold.remainingAmount, activeLocale()) }}</td>
+              <td>{{ t(`wallet.holdState.${hold.state}`) }}</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
       <h2>{{ t('wallet.history') }}</h2>
       <StateBlock
         v-if="history.length === 0"
@@ -224,7 +286,20 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
 </template>
 
 <style scoped>
-.balance {
+.balances {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-block: var(--space-3);
+}
+
+.balances dt {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.balances dd {
+  margin: 0;
   font-size: var(--text-lg);
 }
 

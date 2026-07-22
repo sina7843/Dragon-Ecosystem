@@ -42,6 +42,8 @@ export interface BalanceView {
   assetCode: AssetCode;
   scale: number;
   balance: number;
+  heldAmount: number;
+  availableBalance: number;
   balanceVersion: number;
   entryCount: number;
   allowsNegative: boolean;
@@ -112,6 +114,7 @@ export class LedgerService {
       allowsNegative: policy.allowsNegative,
       status: 'active',
       balance: 0,
+      heldAmount: 0,
       balanceVersion: 0,
       entryCount: 0,
       createdAt: now,
@@ -376,17 +379,66 @@ export class LedgerService {
   }
 
   #toBalanceView(account: LedgerAccountRecord): BalanceView {
+    const heldAmount = account.heldAmount ?? 0;
     return {
       accountId: account._id,
       accountType: account.accountType,
       assetCode: account.assetCode,
       scale: account.scale,
       balance: account.balance,
+      heldAmount,
+      availableBalance: account.balance - heldAmount,
       balanceVersion: account.balanceVersion,
       entryCount: account.entryCount,
       allowsNegative: account.allowsNegative,
       status: account.status
     };
+  }
+
+  // --- Hold reservations (DRAGON-11c) ---
+
+  /** Ledger, held, and available balance for an account (available = balance − heldAmount). */
+  async getAvailability(ref: AccountRef): Promise<{ ledgerBalance: number; heldAmount: number; availableBalance: number }> {
+    const account = await this.getAccount(ref);
+    const ledgerBalance = account?.balance ?? 0;
+    const heldAmount = account?.heldAmount ?? 0;
+    return { ledgerBalance, heldAmount, availableBalance: ledgerBalance - heldAmount };
+  }
+
+  /**
+   * Atomically reserves `amount` of available balance on an account inside the
+   * caller's transaction. The `$expr` guard compares two fields (balance − held ≥
+   * amount) in one conditional update, so concurrent reservations competing for the
+   * final available balance yield exactly one winner (the loser retries on write
+   * conflict, then fails the guard). Returns false when available balance is
+   * insufficient. Never lets total holds exceed the ledger balance.
+   */
+  async reserveHeld(uow: UnitOfWork, accountId: EntityId, amount: number): Promise<boolean> {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new ValidationError('The hold amount is not valid.', [{ field: 'amount', code: 'UNSAFE_INTEGER', message: 'Use a positive whole amount.' }]);
+    const updated = await this.#accounts(uow.db).updateOne(
+      { _id: accountId, status: 'active', $expr: { $gte: [{ $subtract: ['$balance', { $ifNull: ['$heldAmount', 0] }] }, amount] } },
+      { $inc: { heldAmount: amount, balanceVersion: 1 }, $set: { updatedAt: utcNow() } },
+      { session: uow.session }
+    );
+    return updated.matchedCount === 1;
+  }
+
+  /**
+   * Releases `amount` of reserved availability inside the caller's transaction
+   * (release/capture/expiry). Strict atomic invariant: the update only applies when
+   * the account's current heldAmount is at least `amount`, so the reservation can
+   * never underflow. It never clamps or silently repairs — if the projection cannot
+   * satisfy the release (a held-balance/projection inconsistency), it throws a stable
+   * financial-invariant error and the caller's whole transaction rolls back.
+   */
+  async releaseHeld(uow: UnitOfWork, accountId: EntityId, amount: number): Promise<void> {
+    if (!Number.isSafeInteger(amount) || amount <= 0) throw new ValidationError('The release amount is not valid.', [{ field: 'amount', code: 'UNSAFE_INTEGER', message: 'Use a positive whole amount.' }]);
+    const updated = await this.#accounts(uow.db).updateOne(
+      { _id: accountId, heldAmount: { $gte: amount } },
+      { $inc: { heldAmount: -amount, balanceVersion: 1 }, $set: { updatedAt: utcNow() } },
+      { session: uow.session }
+    );
+    if (updated.matchedCount === 0) throw new ConflictError('HELD_INVARIANT_VIOLATION', 'A hold release would drive the held balance below zero; the held projection is inconsistent.');
   }
 
   /** Cursor-paginated, stable (recordedAt, id)-ordered entries for one account. */

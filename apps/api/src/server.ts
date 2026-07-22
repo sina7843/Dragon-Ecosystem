@@ -18,6 +18,7 @@ import { RegistrationsService, registerRegistrationsRoutes } from './modules/reg
 import { CompetitionsService, registerCompetitionsRoutes } from './modules/competitions/index.ts';
 import { LedgerService } from './modules/ledger/index.ts';
 import { PaymentsService, MockPaymentProvider, registerPaymentsRoutes } from './modules/payments/index.ts';
+import { HoldsService, HoldsReconciliation, registerHoldsRoutes } from './modules/holds/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -72,6 +73,7 @@ export interface ServerDependencies {
   readonly registrations?: { service: RegistrationsService };
   readonly competitions?: { service: CompetitionsService };
   readonly payments?: { service: PaymentsService; db: Db; mockEnabled: boolean };
+  readonly holds?: { service: HoldsService; reconciliation: HoldsReconciliation; db: Db };
 }
 
 declare module 'fastify' {
@@ -275,6 +277,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 mockEnabled: deps.payments.mockEnabled
               });
             }
+            if (deps.holds !== undefined) {
+              registerHoldsRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                holds: deps.holds.service,
+                reconciliation: deps.holds.reconciliation,
+                db: deps.holds.db
+              });
+            }
           }
         }
       }
@@ -382,6 +393,10 @@ export function buildPayments(database: Database, config: AppConfig, ledger: { s
   return { service, db: database.db, mockEnabled: config.payments.mockEnabled && config.env !== 'production' };
 }
 
+export function buildHolds(database: Database, ledger: { service: LedgerService }): { service: HoldsService; reconciliation: HoldsReconciliation; db: Db } {
+  return { service: new HoldsService(database, ledger.service), reconciliation: new HoldsReconciliation(database), db: database.db };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -405,7 +420,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     tournaments,
     registrations,
     competitions: buildCompetitions(database, tournaments, registrations),
-    payments: buildPayments(database, config, ledger)
+    payments: buildPayments(database, config, ledger),
+    holds: buildHolds(database, ledger)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

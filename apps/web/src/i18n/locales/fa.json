@@ -393,7 +393,20 @@
       "INSUFFICIENT_BALANCE_FOR_CORRECTION": "سکه‌ها پیش‌تر خرج شده‌اند؛ بازگردانی نیاز به رسیدگی دستی دارد.",
       "PROVIDER_UNAVAILABLE": "سرویس پرداخت در دسترس نیست. کمی بعد تلاش کنید.",
       "MOCK_PROVIDER_DISABLED": "پرداخت آزمایشی اینجا در دسترس نیست.",
-      "INVALID_CORRECTION_REFERENCE": "ذکر شناسهٔ اصلاح الزامی است."
+      "INVALID_CORRECTION_REFERENCE": "ذکر شناسهٔ اصلاح الزامی است.",
+      "INSUFFICIENT_AVAILABLE_BALANCE": "موجودی در دسترس شما کافی نیست.",
+      "HOLD_PURPOSE_DISABLED": "این نوع مسدودی در دسترس نیست.",
+      "HOLD_ALREADY_EXISTS": "برای این عملیات مسدودی وجود دارد.",
+      "HOLD_NOT_ACTIVE": "این مسدودی دیگر قابل تغییر نیست.",
+      "CAPTURE_EXCEEDS_REMAINING": "مبلغ از باقی‌ماندهٔ مسدودی بیشتر است.",
+      "RELEASE_EXCEEDS_REMAINING": "مبلغ از باقی‌ماندهٔ مسدودی بیشتر است.",
+      "PARTIAL_CAPTURE_NOT_ALLOWED": "برداشت جزئی برای این مسدودی مجاز نیست.",
+      "STALE_HOLD_VERSION": "این مسدودی تغییر کرد. صفحه را تازه کنید و دوباره تلاش کنید.",
+      "TRANSFER_FEATURE_DISABLED": "این انتقال هنوز در دسترس نیست.",
+      "UNSUPPORTED_TRANSFER_TYPE": "این نوع انتقال پشتیبانی نمی‌شود.",
+      "INVALID_HOLD_PURPOSE": "این هدف مسدودی معتبر نیست.",
+      "INVALID_BUSINESS_REFERENCE": "ذکر شناسهٔ کسب‌وکار الزامی است.",
+      "HELD_INVARIANT_VIOLATION": "به‌دلیل ناسازگاری در موجودی مسدودشده این عملیات کامل نشد. با پشتیبانی تماس بگیرید."
     }
   },
   "content": {
@@ -799,6 +812,25 @@
       "cancelled": "لغوشده",
       "expired": "منقضی‌شده",
       "corrected": "اصلاح‌شده"
+    },
+    "total": "کل",
+    "held": "مسدودشده",
+    "available": "در دسترس",
+    "holds": "مسدودی‌ها",
+    "noHolds": "مسدودی‌ای ندارید.",
+    "holdPurpose": "هدف",
+    "holdPurposeLabel": {
+      "admin_correction": "اصلاح اداری",
+      "tournament_entry_fee": "ورودی مسابقه",
+      "prize_reservation": "ذخیرهٔ جایزه"
+    },
+    "holdState": {
+      "active": "فعال",
+      "partially_captured": "بخشی برداشت‌شده",
+      "captured": "برداشت‌شده",
+      "released": "آزادشده",
+      "expired": "منقضی‌شده",
+      "cancelled": "لغوشده"
     }
   }
 }

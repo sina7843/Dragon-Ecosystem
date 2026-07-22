@@ -393,7 +393,20 @@
       "INSUFFICIENT_BALANCE_FOR_CORRECTION": "The coins have already been spent; the reversal needs manual resolution.",
       "PROVIDER_UNAVAILABLE": "The payment service is unavailable. Try again shortly.",
       "MOCK_PROVIDER_DISABLED": "Test payments are not available here.",
-      "INVALID_CORRECTION_REFERENCE": "A correction reference is required."
+      "INVALID_CORRECTION_REFERENCE": "A correction reference is required.",
+      "INSUFFICIENT_AVAILABLE_BALANCE": "Your available balance is not enough.",
+      "HOLD_PURPOSE_DISABLED": "This hold purpose is not available.",
+      "HOLD_ALREADY_EXISTS": "A hold already exists for this operation.",
+      "HOLD_NOT_ACTIVE": "This hold can no longer be changed.",
+      "CAPTURE_EXCEEDS_REMAINING": "The amount exceeds the remaining hold.",
+      "RELEASE_EXCEEDS_REMAINING": "The amount exceeds the remaining hold.",
+      "PARTIAL_CAPTURE_NOT_ALLOWED": "Partial capture is not allowed for this hold.",
+      "STALE_HOLD_VERSION": "This hold changed. Reload and try again.",
+      "TRANSFER_FEATURE_DISABLED": "This transfer is not available yet.",
+      "UNSUPPORTED_TRANSFER_TYPE": "That transfer type is not supported.",
+      "INVALID_HOLD_PURPOSE": "That hold purpose is not valid.",
+      "INVALID_BUSINESS_REFERENCE": "A business reference is required.",
+      "HELD_INVARIANT_VIOLATION": "This action could not complete due to a held-balance inconsistency. Contact support."
     }
   },
   "content": {
@@ -799,6 +812,25 @@
       "cancelled": "Cancelled",
       "expired": "Expired",
       "corrected": "Corrected"
+    },
+    "total": "Total",
+    "held": "Held",
+    "available": "Available",
+    "holds": "Holds",
+    "noHolds": "You have no holds.",
+    "holdPurpose": "Purpose",
+    "holdPurposeLabel": {
+      "admin_correction": "Administrative correction",
+      "tournament_entry_fee": "Tournament entry fee",
+      "prize_reservation": "Prize reservation"
+    },
+    "holdState": {
+      "active": "Active",
+      "partially_captured": "Partially captured",
+      "captured": "Captured",
+      "released": "Released",
+      "expired": "Expired",
+      "cancelled": "Cancelled"
     }
   }
 }

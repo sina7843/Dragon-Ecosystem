@@ -34,6 +34,11 @@ export interface LedgerAccountRecord {
   status: 'active' | 'disabled';
   /** Balance projection (entries remain authoritative); maintained inside the posting transaction. */
   balance: number;
+  /**
+   * Sum of active uncaptured hold reservations against this account (DRAGON-11c).
+   * Available balance is `balance - heldAmount`; holds never change `balance`.
+   */
+  heldAmount: number;
   /** Monotonic guard for projection maintenance and drift detection. */
   balanceVersion: number;
   entryCount: number;

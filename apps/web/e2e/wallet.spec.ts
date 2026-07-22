@@ -30,7 +30,10 @@ test('a user buys Dragon Coin and the verified payment credits the balance (en)'
   await signIn(page, 'en');
   await page.goto('/en/account/wallet');
 
-  await expect(page.getByTestId('dragon-coin-balance')).toContainText('0');
+  // Total, held, and available are shown; a fresh user has zero held (available == total).
+  await expect(page.getByTestId('balance-available')).toContainText('0');
+  await expect(page.getByTestId('balance-held')).toContainText('0');
+  await expect(page.getByTestId('no-holds')).toBeVisible();
   await page.getByTestId('buy-starter').click();
 
   // The purchase is awaiting payment — success is NOT claimed before the callback.
@@ -40,7 +43,9 @@ test('a user buys Dragon Coin and the verified payment credits the balance (en)'
   // Complete the mock payment; only now is it verified and credited.
   await page.getByTestId('simulate-success').click();
   await expect(page.getByTestId('active-state')).toHaveAttribute('data-state', 'succeeded');
-  await expect(page.getByTestId('dragon-coin-balance')).toContainText('100');
+  await expect(page.getByTestId('balance-total')).toContainText('100');
+  await expect(page.getByTestId('balance-available')).toContainText('100');
+  await expect(page.getByTestId('balance-held')).toContainText('0');
   await expect(page.getByTestId('purchase-history').locator('tr[data-state="succeeded"]')).toHaveCount(1);
 
   const bodyText = await page.locator('body').innerText();
@@ -54,7 +59,7 @@ test('a failed mock payment does not credit the balance (en)', async ({ page }) 
   await expect(page.getByTestId('active-state')).toHaveAttribute('data-state', 'payment_pending');
   await page.getByTestId('simulate-failure').click();
   await expect(page.getByTestId('active-state')).toHaveAttribute('data-state', 'failed');
-  await expect(page.getByTestId('dragon-coin-balance')).toContainText('0');
+  await expect(page.getByTestId('balance-available')).toContainText('0');
 });
 
 test('the wallet renders RTL and localized in Persian', async ({ page }) => {
