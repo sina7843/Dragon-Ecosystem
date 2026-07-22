@@ -82,6 +82,17 @@ export function formatTomanValue(rialAmount: number, locale: Locale): string {
   return formatNumber(toman, locale);
 }
 
+/**
+ * Wraps a value in a Unicode first-strong isolate (U+2068 … U+2069) so a code-like or
+ * mixed-direction string — a mobile number, transaction id, slug, URL, or money amount —
+ * keeps its own direction when interpolated into a Persian (RTL) sentence, without
+ * reordering the surrounding text (section 17.5). `<bdi>` and `dir="ltr"` cover the DOM
+ * cases; this covers plain-string interpolation where no element wraps the value.
+ */
+export function isolate(value: string | number): string {
+  return `⁨${String(value)}⁩`;
+}
+
 const PERSIAN_DIGIT_BASE = 0x06f0;
 const ARABIC_DIGIT_BASE = 0x0660;
 

@@ -15,6 +15,10 @@ const props = defineProps<{
   hint?: string | undefined;
   error?: string | undefined;
   type?: string | undefined;
+  /** HTML autocomplete token (e.g. 'email', 'username', 'one-time-code') for autofill. */
+  autocomplete?: string | undefined;
+  /** Mobile keyboard hint (e.g. 'numeric', 'tel', 'email'). */
+  inputmode?: 'text' | 'numeric' | 'tel' | 'email' | 'url' | 'decimal' | 'search' | undefined;
   required?: boolean;
   latin?: boolean;
   disabled?: boolean;
@@ -55,6 +59,8 @@ function onInput(event: Event): void {
       :value="props.modelValue"
       :required="props.required"
       :disabled="props.disabled"
+      :autocomplete="props.autocomplete"
+      :inputmode="props.inputmode"
       :dir="props.latin ? 'ltr' : undefined"
       :aria-invalid="props.error === undefined ? undefined : 'true'"
       :aria-describedby="describedBy"
@@ -73,6 +79,7 @@ function onInput(event: Event): void {
       v-if="props.error"
       :id="errorId"
       class="error"
+      role="alert"
       data-testid="field-error"
     >
       <!-- Status is never carried by colour alone (section 23.2). -->
@@ -95,7 +102,8 @@ label {
 
 input {
   padding: var(--space-2) var(--space-3);
-  border: 1px solid var(--color-border);
+  /* Interactive control boundary meets non-text 3:1 (A11Y-008). */
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);

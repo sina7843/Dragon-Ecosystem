@@ -8,13 +8,22 @@ import { useToasts } from '../composables/useToasts.ts';
  */
 const { t } = useI18n();
 const { toasts, dismiss } = useToasts();
+
+// An urgent tone interrupts (assertive alert); routine notices are polite. The live
+// role lives on each toast, not the container, so the container's label is not re-read
+// with every announcement and each toast is announced exactly once on insertion.
+function toneRole(tone: string): 'alert' | 'status' {
+  return tone === 'danger' || tone === 'warning' ? 'alert' : 'status';
+}
+function toneLive(tone: string): 'assertive' | 'polite' {
+  return tone === 'danger' || tone === 'warning' ? 'assertive' : 'polite';
+}
 </script>
 
 <template>
   <div
     class="toast-region"
-    role="status"
-    aria-live="polite"
+    role="region"
     :aria-label="t('toast.region')"
     data-testid="toast-region"
   >
@@ -22,6 +31,8 @@ const { toasts, dismiss } = useToasts();
       v-for="toast in toasts"
       :key="toast.id"
       :class="['toast', toast.tone]"
+      :role="toneRole(toast.tone)"
+      :aria-live="toneLive(toast.tone)"
       data-testid="toast"
     >
       <!-- The tone is stated in text, so colour is never the only carrier of meaning. -->

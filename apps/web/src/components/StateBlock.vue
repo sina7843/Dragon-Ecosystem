@@ -16,6 +16,8 @@ const props = defineProps<{
   /** Overrides for the default localized copy. */
   heading?: string;
   message?: string;
+  /** Heading level so the state fits the page hierarchy (default h2). */
+  headingLevel?: 1 | 2 | 3;
 }>();
 
 const { t } = useI18n();
@@ -23,12 +25,21 @@ const { t } = useI18n();
 const heading = computed(() => props.heading ?? t(`state.${props.variant}.heading`));
 const message = computed(() => props.message ?? t(`state.${props.variant}.message`));
 const isLoading = computed(() => props.variant === 'loading');
+const headingTag = computed(() => `h${props.headingLevel ?? 2}`);
+// error / forbidden / not-found appear in response to a failure; announce them assertively
+// so a keyboard/screen-reader user learns of the problem even without a focus move. Loading
+// is a polite status. Empty is neither (it is expected, non-urgent content).
+const role = computed(() => {
+  if (isLoading.value) return 'status';
+  if (props.variant === 'empty') return undefined;
+  return 'alert';
+});
 </script>
 
 <template>
   <div
     :class="['state', props.variant]"
-    :role="isLoading ? 'status' : undefined"
+    :role="role"
     :aria-live="isLoading ? 'polite' : undefined"
     :data-testid="`state-${props.variant}`"
   >
@@ -37,9 +48,12 @@ const isLoading = computed(() => props.variant === 'loading');
       class="spinner"
       aria-hidden="true"
     />
-    <p class="heading">
+    <component
+      :is="headingTag"
+      class="heading"
+    >
       {{ heading }}
-    </p>
+    </component>
     <p class="message">
       {{ message }}
     </p>
@@ -94,6 +108,14 @@ const isLoading = computed(() => props.variant === 'loading');
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* The spinner hardcodes its own duration, so honour reduced motion explicitly: the
+   polite status text ("Loading…") already conveys progress without any motion. */
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation: none;
   }
 }
 </style>

@@ -30,6 +30,7 @@ const { t } = useI18n();
   transition: transform var(--motion-fast) var(--motion-ease);
 }
 
+.skip-link:focus,
 .skip-link:focus-visible {
   transform: translateY(0);
 }

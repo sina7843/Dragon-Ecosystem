@@ -5,9 +5,23 @@ import {
   formatDateTime,
   formatNumber,
   formatTomanValue,
+  isolate,
   normalizeDigits,
   rialToTomanParts
 } from './format.ts';
+
+describe('bidi isolation', () => {
+  test('wraps a value in a first-strong isolate so it keeps its direction in RTL text', () => {
+    const wrapped = isolate('09123456789');
+    assert.equal(wrapped.codePointAt(0), 0x2068);
+    assert.equal(wrapped.codePointAt(wrapped.length - 1), 0x2069);
+    assert.equal(wrapped.slice(1, -1), '09123456789');
+  });
+
+  test('accepts numbers and stringifies them', () => {
+    assert.equal(isolate(42), `${String.fromCodePoint(0x2068)}42${String.fromCodePoint(0x2069)}`);
+  });
+});
 
 describe('numbers', () => {
   test('grouping and digits are locale-aware without changing the value', () => {

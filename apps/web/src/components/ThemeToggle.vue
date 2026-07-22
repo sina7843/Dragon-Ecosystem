@@ -48,7 +48,7 @@ function onChange(event: Event): void {
 
 select {
   padding-inline: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);

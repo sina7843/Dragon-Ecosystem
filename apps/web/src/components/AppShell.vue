@@ -171,7 +171,8 @@ async function onSignOut(): Promise<void> {
 
 .sign-out {
   padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
+  /* Interactive control boundary meets non-text 3:1 (A11Y-008). */
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);

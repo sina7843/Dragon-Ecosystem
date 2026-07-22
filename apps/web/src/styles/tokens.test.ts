@@ -63,10 +63,16 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['--color-info-text', '--color-info-surface']
 ];
 
+// Non-text UI that must meet WCAG 1.4.11 3:1 (A11Y-008). Interactive control boundaries
+// (inputs, selects, buttons, the table scroll region, dialog) are drawn with
+// --color-border-strong; the accent fill is the boundary of primary buttons and the
+// current-page control. --color-border stays a subtle decorative separator (row lines,
+// card edges) that does not itself identify a control, so it is exempt from 3:1.
 const NON_TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['--color-focus', '--color-surface'],
   ['--color-border-strong', '--color-surface'],
-  ['--color-border-strong', '--color-surface-raised']
+  ['--color-border-strong', '--color-surface-raised'],
+  ['--color-accent', '--color-surface']
 ];
 
 const THEMES = [

@@ -9,6 +9,7 @@ import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useAuth } from '../composables/useAuth.ts';
 import { useToasts } from '../composables/useToasts.ts';
 import { isLocale } from '../i18n/locale.ts';
+import { isolate } from '../i18n/format.ts';
 
 /**
  * Mobile OTP authentication (PAGE-011, FORM-001, FORM-002).
@@ -115,6 +116,8 @@ function onChangeNumber(): void {
         :hint="t('auth.mobile.hint')"
         :error="mobileError"
         type="tel"
+        autocomplete="tel"
+        inputmode="tel"
         required
         latin
         :disabled="submitting"
@@ -143,9 +146,11 @@ function onChangeNumber(): void {
         id="auth-code"
         v-model="code"
         :label="t('auth.code.label')"
-        :hint="t('auth.code.hint', { seconds: resendAfterSeconds })"
+        :hint="t('auth.code.hint', { seconds: isolate(resendAfterSeconds) })"
         :error="codeError"
         type="text"
+        autocomplete="one-time-code"
+        inputmode="numeric"
         required
         latin
         :disabled="submitting"

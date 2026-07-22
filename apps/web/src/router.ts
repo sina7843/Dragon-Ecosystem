@@ -232,6 +232,8 @@ router.beforeEach((to: RouteLocationNormalized) => {
   persistLocale(locale);
 });
 
+let firstNavigation = true;
+
 // Title, canonical, hreflang, and indexability follow the resolved route.
 router.afterEach((to: RouteLocationNormalized) => {
   const locale = isLocale(to.params['locale']) ? (to.params['locale'] as Locale) : activeLocale();
@@ -240,6 +242,21 @@ router.afterEach((to: RouteLocationNormalized) => {
     locale,
     path: to.fullPath,
     indexable: to.meta.indexable
+  });
+  // A11Y: move focus to the main landmark on a client-side navigation so keyboard and
+  // screen-reader users land on the new page context instead of the stale focused link
+  // (or <body>). Skipped on the first load, where no prior focus exists to correct, and
+  // deferred until the new view has rendered. This fires only on real route changes, not
+  // on background/polling updates, so focus is never yanked mid-task.
+  if (firstNavigation) {
+    firstNavigation = false;
+    return;
+  }
+  const document = globalThis.document;
+  if (document === undefined) return;
+  requestAnimationFrame(() => {
+    const main = document.getElementById('main-content');
+    main?.focus({ preventScroll: false });
   });
 });
 

@@ -19,6 +19,7 @@ const props = defineProps<{
 }>();
 
 const expanded = ref(false);
+const toggle = ref<HTMLButtonElement | null>(null);
 const route = useRoute();
 
 // Navigating must not leave the mobile drawer open over the new page.
@@ -27,7 +28,12 @@ watch(() => route.fullPath, () => {
 });
 
 function onKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') expanded.value = false;
+  // Escape closes the disclosure and returns focus to the toggle, so the keyboard user is
+  // never stranded on a link that just collapsed to display:none.
+  if (event.key === 'Escape' && expanded.value) {
+    expanded.value = false;
+    toggle.value?.focus();
+  }
 }
 </script>
 
@@ -39,6 +45,7 @@ function onKeydown(event: KeyboardEvent): void {
   >
     <!-- Collapses into a disclosure below the tablet breakpoint (section 22.2). -->
     <button
+      ref="toggle"
       type="button"
       class="toggle"
       data-testid="nav-toggle"
@@ -76,7 +83,7 @@ function onKeydown(event: KeyboardEvent): void {
   display: inline-flex;
   align-items: center;
   padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface-raised);
   color: var(--color-text);

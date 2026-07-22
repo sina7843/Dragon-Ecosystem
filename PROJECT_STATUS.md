@@ -26,7 +26,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-13
 - [x] DRAGON-14
 - [x] DRAGON-15
-- [ ] DRAGON-16a
+- [x] DRAGON-16a
 - [ ] DRAGON-16b
 - [ ] DRAGON-16c
 - [ ] DRAGON-17a
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: none in progress; next eligible is `DRAGON-15`
-- Last completed item: `DRAGON-14` (moderation/support/recovery workflows, consent-aware pseudonymous analytics, bounded jobs runner, alerts/metrics/health, migration + persistence-incident runbooks) — implemented and verified, not yet committed
+- Active item: none in progress; next eligible is `DRAGON-16b`
+- Last completed item: `DRAGON-16a` (accessibility + bilingual UX hardening: route-change focus, live-region state announcements, per-tone toasts, dialog ids/scroll, field autocomplete/inputmode, nav focus restore, interactive-boundary contrast, bidi isolation) — implemented and verified, not yet committed. DRAGON-15 (media/search/SEO) also complete and not yet committed. Parent DRAGON-16 remains open (16b/16c)
 - Blockers: none
