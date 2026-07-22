@@ -14,8 +14,9 @@
 - Advanced competition formats (double elimination, Swiss, manual/custom): complete (DRAGON-09b) — implemented and verified, not yet committed
 - Standings, corrections, locking, concurrency, and presentation: complete (DRAGON-09c) — completes DRAGON-09; implemented and verified, not yet committed
 - Bracket versioning/regeneration/rollback, operator console, and public bracket presentation: complete (DRAGON-10) — implemented and verified, not yet committed
-- Active prompt: DRAGON-10 complete; next eligible is DRAGON-11
-- Latest verified checkpoint: DRAGON-10 bracket operations and control UI, 2026-07-22
+- Ledger core and invariants: complete (DRAGON-11a) — immutable double-entry ledger foundation; implemented and verified, not yet committed. Parent DRAGON-11 remains open (11b/11c not started)
+- Active prompt: DRAGON-11a complete; next eligible is DRAGON-11b
+- Latest verified checkpoint: DRAGON-11a ledger core and invariants, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -135,6 +136,20 @@
 - One focused `test-reviewer` pass over result-loss, optimistic concurrency and one-active-version races, authorization/IDOR on the new routes, destructive-action gating, lifecycle correctness, and standings consistency: verdict APPROVE, no Critical/High. One correctness note was fixed — rollback now restores the version's seed order and seed (not only its matches), so public seed labels match the restored bracket; a 4-participant reseed→rollback regression test was added.
 - **DRAGON-10 is complete.**
 
+## Delivered by DRAGON-11a
+- Immutable double-entry ledger (`modules/ledger/`, WALLET-001..008): three collections — `ledger_accounts`, `ledger_transactions`, `ledger_entries`. Sign convention is a single signed `amount` added directly to the account balance; a transaction is balanced when its entries sum to exactly zero for the one asset and scale it carries (no debit/credit column).
+- Pure journal invariants (`journal.ts`, database-free, property-tested): at least two entries and at most 64; no zero entries; safe-integer amounts with running-sum overflow rejection; one asset and one scale per transaction; account-type-vs-transaction-type relationship validation. Nothing partially balanced is ever stored — a failing command throws before the posting transaction opens.
+- Account model (`accounts.ts`, code-owned policy): `user_dragon_coin` (no negative) plus system singletons `platform_dragon_coin_treasury`, `cash_clearing`, `tournament_fee_holding`, `refund_clearing`, `prize_payable`. Clients never choose debit/credit accounts; a posting names a transaction type and accounts resolve by role. One canonical account per role/owner/asset/scale via a unique `identityKey` index; concurrent first-touch collapses to one record. Only DRC transaction types post in this slice; the IRR clearing accounts are declared placeholders (no user Toman wallet/endpoint/UI — WALLET-009/DEC-050 respected).
+- Posting service (`service.ts`, internal only — no HTTP): `post` (balanced, idempotent), `compensate` (correction by a new reversing transaction), `getBalance`/`getBalanceByRef`, and cursor-paginated `listEntries`. The idempotency scope is `ledger:{type}:{businessRef}` with a canonical semantic hash (no timestamps/UUIDs/order); account resolution runs inside the idempotency gate so a genuine replay short-circuits even if an account was later disabled. Every posting carries a durable, globally-unique `businessRef` (unique index) as a second duplicate-posting safeguard, and a compensation is unique per reversed transaction (partial-unique `reversalOf`). The reserved `compensation` type is not reachable from `post()`.
+- Transactional posting boundary: header, all entry lines, the balance projection, audit row, and outbox event commit inside one MongoDB transaction; a mid-transaction failure (e.g. insufficient funds after the header and entries were written) rolls back everything — no header, entries, balance change, audit, or outbox — proven by an integration test.
+- Balance model: immutable entries are authoritative; each account keeps a transactionally-maintained `balance` projection and monotonic `balanceVersion`, rebuildable and reconciled. Negative-balance policy is enforced by an atomic conditional `$inc` (`balance: { $gte: -amount }`), not a pre-transaction read, so exactly one of two concurrent final-balance spends succeeds (the loser retries on write-conflict and fails `INSUFFICIENT_FUNDS`) and no user account goes negative.
+- Reconciliation primitives (`reconciliation.ts`, read-only, never repairs): verify a transaction balances to zero with matching asset/scale and contiguous unique line numbers; recompute an account balance from entries and compare with the projection; detect orphan entries; a bounded report over an explicit ≤100-account list (unbounded requests rejected). Findings are structured (checkId, opaque entityRef, expected, actual, severity, explanation) with no user data.
+- Stable domain errors: `UNBALANCED_TRANSACTION`, `MIXED_ASSET`/`MIXED_SCALE`, `ZERO_ENTRY`, `UNSAFE_INTEGER`/`AMOUNT_OVERFLOW`, `INVALID_ACCOUNT_RELATIONSHIP`, `UNSUPPORTED_TRANSACTION_TYPE`, `DUPLICATE_BUSINESS_REFERENCE`, `DUPLICATE_COMPENSATION`, `INSUFFICIENT_FUNDS`, `ACCOUNT_DISABLED`, `RECONCILIATION_UNBOUNDED`, plus the shared idempotency conflicts — never a raw Mongo duplicate-key or collection name.
+- Indexes (migration `013-ledger`): unique account identity; unique transaction business reference; partial-unique reversal; unique `(transactionId, lineNumber)`; account-entry pagination `(accountId, recordedAt, _id)`; transaction-by-correlation. Uniqueness and partial-filter options are asserted by an integration test.
+- One focused `test-reviewer` pass over balance invariants, immutable history, idempotency, overspending concurrency, rollback, account authorization, integer/asset correctness, and reconciliation: verdict APPROVE, no Critical/High. Two correctness notes were fixed: `post()` now rejects the reserved `compensation` type (which would otherwise bypass the account-relationship policy), and account resolution moved inside the idempotency gate so a replay returns the original even if a referenced account was later disabled. The shared idempotency crash-window is unchanged; the unique `businessRef` index guarantees no double financial effect (a post-crash retry surfaces `DUPLICATE_BUSINESS_REFERENCE`, never a second posting).
+- Deferred to DRAGON-11b/11c (OD-007/DEC-050 gated): mock payment provider and callbacks, checkout, paid-registration activation, refund execution, prize payout, holds (WALLET-006), wallet purchase UI, and admin financial adjustment UI.
+- **DRAGON-11a is complete; parent DRAGON-11 remains open.**
+
 ## Known blockers
 - None.
 
@@ -166,13 +181,20 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22 (DRAGON-10), all commands run from the repository root:
+2026-07-22 (DRAGON-11a), API-scoped commands (this slice adds no user-facing UI, so browser tests were not run):
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 244 passed (208 api, 36 web); web unit suite includes the fa/en i18n key-parity and Persian-content checks that now cover the new `competitionOps` and competition error-code keys
-- `npm run test:integration` — 174 passed (adds 13 bracket-versioning: generation-establishes-v1, regeneration-archives-recorded-results-to-history, confirm+reason validation, stale-version conflict + concurrent-regenerate one-winner, rollback-restores-results, rollback-restores-seed-order, rollback-rejects-unknown/active-target, lock refuses regenerate+rollback, and every-format regeneration incl. manual)
+- `npm test` (workspaces) — 264 passed (228 api, 36 web); api unit adds 20 ledger unit/property tests (balance-to-zero, unbalanced/zero/overflow/mixed-asset rejection, account-relationship policy, order-independent canonical hashing, 200-iteration balanced-journal property)
+- `npm run test:integration` (api) — 192 passed (adds 18 ledger integration: atomic posting with audit+outbox, rollback-leaves-no-effect, idempotent replay + payload-conflict + concurrent one-journal, replay-short-circuits-past-disabled-account, post()-rejects-compensation, duplicate business reference, concurrent final-balance spend one-winner + direct overspend, account-creation race collapses to one, compensation-without-mutation + no-double-compensation, reconciliation zero-balance/drift-detection/bounded-report, cursor pagination completeness, and index uniqueness/partial definitions)
+- `npm run -w apps/api build` — pass
+- migrations against the disposable test DB — `013-ledger` applies cleanly (all 13 migrations applied and recorded)
+- Prior DRAGON-10 checkpoint (unchanged this slice): `npm test` 244, `npm run test:integration` 174, `npm run e2e` 180 across small-mobile/mobile/desktop in fa+en
+
+Earlier DRAGON-10 verification, 2026-07-22:
+- `npm test` — 244 passed (208 api, 36 web)
+- `npm run test:integration` — 174 passed
 - `npm run build` — pass
-- `npm run e2e` — 180 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the operator regenerate→rollback journey: generate → play → public final standings → regenerate → rollback → recorded result restored, with the operator console version history in both locales). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; this run passed all 180 clean (matrix owned by DRAGON-16a)
+- `npm run e2e` — 180 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)

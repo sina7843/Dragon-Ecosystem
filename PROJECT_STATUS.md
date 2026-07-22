@@ -19,7 +19,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-09b
 - [x] DRAGON-09c
 - [x] DRAGON-10
-- [ ] DRAGON-11a
+- [x] DRAGON-11a
 - [ ] DRAGON-11b
 - [ ] DRAGON-11c
 - [ ] DRAGON-12
@@ -50,6 +50,6 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: none in progress; next eligible is `DRAGON-11` (paid tournaments / payments, gated by OD-007)
-- Last completed item: `DRAGON-10` (bracket versioning/regeneration/rollback, operator console, and printable/shareable public bracket) — implemented and verified, not yet committed
+- Active item: none in progress; next eligible is `DRAGON-11b` (ledger core landed; mock payment provider / checkout still gated by OD-007)
+- Last completed item: `DRAGON-11a` (immutable double-entry ledger core and invariants) — implemented and verified, not yet committed; parent `DRAGON-11` remains open
 - Blockers: none
