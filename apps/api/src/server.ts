@@ -29,7 +29,7 @@ import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, t
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { utcNow } from './shared/events.ts';
-import { NotFoundError, toErrorBody } from './shared/errors.ts';
+import { ForbiddenError, NotFoundError, toErrorBody } from './shared/errors.ts';
 import { commonErrorResponses, sharedSchemas } from './http/schemas.ts';
 
 export const API_VERSION = '0.1.0';
@@ -47,8 +47,16 @@ export const DEFAULT_LOCALE = 'fa';
 const SECURITY_HEADERS: Readonly<Record<string, string>> = {
   'x-content-type-options': 'nosniff',
   'x-frame-options': 'DENY',
-  'referrer-policy': 'no-referrer'
+  'referrer-policy': 'no-referrer',
+  // API responses are JSON, never documents or asset hosts: lock the CSP all the way down
+  // as defence-in-depth (the SPA document's CSP is served by nginx). No inline/eval.
+  'content-security-policy': "default-src 'none'; frame-ancestors 'none'; base-uri 'none'",
+  // The API needs no powerful browser features.
+  'permissions-policy': 'camera=(), microphone=(), geolocation=(), interest-cohort=()'
 };
+
+/** Methods that never change state; the CSRF origin guard skips them (they must stay side-effect free). */
+const SAFE_METHODS: ReadonlySet<string> = new Set(['GET', 'HEAD', 'OPTIONS']);
 
 /**
  * Maps the configured trusted-proxy list to Fastify's `trustProxy` option.
@@ -130,9 +138,30 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
     request.requestContext = createRequestContext(String(request.id), ANONYMOUS_ACTOR);
   });
 
+  // CSRF defence-in-depth (SEC): when a public origin is configured (production), a
+  // state-changing request that carries a browser Origin must match it. A cross-site page
+  // always sends its own Origin on an unsafe cross-site request, so this blocks browser
+  // CSRF against the cookie session on top of SameSite=Lax. Requests with no Origin
+  // (server-to-server, native API clients) are unaffected — CSRF needs a browser, which
+  // always sets Origin. Skipped entirely when no public origin is set (local/dev/test),
+  // where the browser origin and the proxied API host legitimately differ.
+  app.addHook('onRequest', async (request, reply) => {
+    if (config.publicOrigin === '' || SAFE_METHODS.has(request.method)) return;
+    const origin = request.headers.origin;
+    if (origin === undefined || origin === config.publicOrigin) return;
+    const { status, body } = toErrorBody(new ForbiddenError('Cross-origin request rejected.'), String(request.id));
+    return reply.status(status).send(body);
+  });
+
   app.addHook('onSend', async (request, reply, payload) => {
     reply.header('x-correlation-id', request.id);
     for (const [name, value] of Object.entries(SECURITY_HEADERS)) reply.header(name, value);
+    // Dynamic API responses are never cacheable, and authenticated JSON must not linger in
+    // a shared/browser cache. Root routes that set their own cache-control (media, sitemap,
+    // robots) are left untouched.
+    if (request.url.startsWith(API_PREFIX) && reply.getHeader('cache-control') === undefined) {
+      reply.header('cache-control', 'no-store');
+    }
     return payload;
   });
 
@@ -561,7 +590,7 @@ export function buildOperations(
     { name: 'holds.expire', run: (context, limit) => holds.service.expireDueHolds(context, { limit }) },
     { name: 'checkout.expire', run: (context, limit) => checkout.service.expireDueCheckouts(context, { limit }) }
   ];
-  return { service: new OperationsService(database, { analyticsExternalEnabled: config.analyticsExternalEnabled }, jobs) };
+  return { service: new OperationsService(database, { analyticsExternalEnabled: config.analyticsExternalEnabled, pseudonymSalt: config.pseudonymSalt }, jobs) };
 }
 
 export function buildMedia(database: Database, config: AppConfig): { service: MediaService } {

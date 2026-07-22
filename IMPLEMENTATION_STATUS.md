@@ -22,9 +22,10 @@
 - Notifications (in-app inbox, templates, preferences, gated SMS/email, retry/dead-letter): complete (DRAGON-13) — implemented and verified, not yet committed
 - Moderation/support/recovery, consent-aware analytics, bounded jobs runner, alerts/metrics/health: complete (DRAGON-14) — implemented and verified, not yet committed (external analytics stays OD-026-gated off; recovery is triage-only under OD-029)
 - Media pipeline, public search/filters, and SEO (robots/sitemap/structured data): complete (DRAGON-15) — implemented and verified, not yet committed
-- Accessibility + bilingual UX hardening (shared primitives, keyboard/focus, contrast, RTL/LTR, live states): complete (DRAGON-16a) — implemented and verified, not yet committed. **Parent DRAGON-16 is NOT complete** (16b performance + 16c security remain)
-- Active prompt: DRAGON-16a complete; next eligible is DRAGON-16b
-- Latest verified checkpoint: DRAGON-16a accessibility and bilingual UX, 2026-07-23
+- Accessibility + bilingual UX hardening (shared primitives, keyboard/focus, contrast, RTL/LTR, live states): complete (DRAGON-16a) — implemented and verified, not yet committed
+- Security hardening (CSRF origin guard, CSP/HSTS/Permissions-Policy, no-store, pseudonym-salt secret): complete (DRAGON-16c) — implemented and verified, not yet committed. **Parent DRAGON-16 is NOT complete** (16b performance remains)
+- Active prompt: DRAGON-16c complete; next eligible is DRAGON-16b (the remaining DRAGON-16 sibling)
+- Latest verified checkpoint: DRAGON-16c security hardening, 2026-07-23
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -256,6 +257,20 @@ Audited every implemented shared primitive and representative journeys (DRAGON-0
 - **Deferred to DRAGON-16b/16c:** performance/bundle/cache work and security threat-model hardening are out of this slice.
 - **Manual checks actually performed:** keyboard-only operation of the design-system journey, visible focus, 320px reflow, Persian RTL / English LTR, reduced-motion, and light/dark themes were exercised via the automated Playwright matrix and token tests. A hands-on screen-reader pass was **not** performed and is not claimed.
 - **DRAGON-16a is complete. Parent DRAGON-16 is NOT complete.**
+
+## Delivered by DRAGON-16c (security-hardening slice of DRAGON-16)
+Bounded threat-model audit of DRAGON-00..15 across every trust boundary (proxy/IP, auth/OTP/session/cookie, role/scope authorization, admin/finance, payments/ledger/holds/checkout/prizes callbacks, notifications, moderation/support/recovery/analytics/operations, media upload+serve, public search/cursor/slug, secrets/logs/audit/outbox, transport/headers/deployment). **No Critical or High exploitable defect** — the shared boundaries (proxy trust, HMAC callbacks with constant-time compare, media magic-byte validation + code-owned content-type + nosniff + published-only serve, config fail-fast, error redaction, NoSQL/prototype-pollution resistance via `secure-json-parse` + `additionalProperties:false` bodies, cursor-token validation, server-derived audit actor) are well built and test-covered. Closed the confirmed Medium/Low gaps:
+- **Analytics pseudonym salt is now a secret** (`ANALYTICS_PSEUDONYM_SALT`), required + length-checked in production via `parseRequiredSecret`, distinct from `AUTH_SECRET`/`PAYMENTS_CALLBACK_SECRET`, injected into `OperationsService`. Previously a source-committed constant — anyone with repo + `analytics_events` read could de-pseudonymize every event. Never logged/returned/audited.
+- **CSRF origin guard**: a shared `onRequest` hook rejects (403, before routing, no side effects) a state-changing request whose browser `Origin` ≠ the configured `PUBLIC_ORIGIN`; safe methods and no-Origin (native/server) requests pass. `PUBLIC_ORIGIN` is now **required in production** (startup fails without a valid absolute origin), so the guard is always active in a real deployment; it is inert only outside production (where the browser origin and proxied API host legitimately differ). Complements `SameSite=Lax`. No token scheme added (same-origin deployment).
+- **Response headers**: locked CSP on API JSON (`default-src 'none'; frame-ancestors 'none'; base-uri 'none'`) + `Permissions-Policy`; a self-hosted SPA CSP in nginx (`script-src 'self'`, `style-src 'self' 'unsafe-inline'` for Vue, `img-src 'self' data:`, `connect-src 'self'`, `frame-ancestors 'none'`, `base-uri`/`form-action 'self'`), `Strict-Transport-Security`, `Permissions-Policy`, and `server_tokens off`. `unsafe-inline` limited to `style-src`; scripts never allow inline/eval.
+- **Cache**: `Cache-Control: no-store` on dynamic `/api/*` responses; content-addressed `/media/:id` (immutable) and `/robots.txt`/`/sitemap.xml` keep their own cache headers (they are root routes, not under `/api/`).
+- Tests: `server.test.ts` (origin guard bad/good/missing-Origin + safe-method, `no-store`, CSP + Permissions-Policy headers), `config.test.ts` (salt production-required + length-checked). Salt threaded through the prod-env test fixtures.
+- **Dependency audit: `npm audit` (prod + dev) → 0 vulnerabilities.** No `install`/`prepare`/`postinstall` lifecycle hooks in any workspace (no supply-chain script surface).
+- **Verified:** api typecheck, lint, 265 unit, 291 integration, 46 e2e mutation flows (auth/wallet/shell/seo-media) confirming browser mutations still work under the new headers.
+- One focused read-only `test-reviewer` security pass.
+- **Not implemented (out of scope):** DRAGON-16b performance; no live provider/refund/payout; no new auth architecture; no token-CSRF; no TLS config beyond repo-controlled files (HSTS header set; the TLS terminator itself is deployment-owned).
+- Known limitation with owner: L2 (tournament create/update bodies use `additionalProperties:true`) is not exploitable — every field is rebuilt through the service allowlist, no mass-assignment — recorded as hygiene; tighten to explicit nested body schemas in a later pass. The reviewer's High (CSRF guard could silently disable if `PUBLIC_ORIGIN` were unset in production) was resolved by making `PUBLIC_ORIGIN` production-required (startup fails), so the guard cannot be silently off in a real deployment.
+- **DRAGON-16c is complete. Parent DRAGON-16 is NOT complete** (DRAGON-16b performance remains).
 
 ## Known blockers
 - None.

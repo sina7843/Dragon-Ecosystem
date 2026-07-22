@@ -39,7 +39,7 @@ const jobs: readonly JobRunner[] = [
 ];
 
 function makeService(external: boolean): OperationsService {
-  return new OperationsService(fixture.database, { analyticsExternalEnabled: external }, jobs);
+  return new OperationsService(fixture.database, { analyticsExternalEnabled: external, pseudonymSalt: 'test-analytics-pseudonym-salt' }, jobs);
 }
 
 before(async () => {

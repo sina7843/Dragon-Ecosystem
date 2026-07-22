@@ -110,6 +110,8 @@ describe('the client-ip probe is development and test only', () => {
       MONGODB_URI: 'mongodb://mongo:27017/dragon',
       AUTH_SECRET: 'x'.repeat(32),
       PAYMENTS_CALLBACK_SECRET: 'x'.repeat(32),
+      ANALYTICS_PSEUDONYM_SALT: 'x'.repeat(32),
+      PUBLIC_ORIGIN: 'https://dragon.example',
       TRUSTED_PROXIES: '172.28.0.10'
     });
     const response = await app.inject({ method: 'GET', url: '/api/v1/dev/client-ip' });

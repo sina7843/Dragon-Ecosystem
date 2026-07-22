@@ -101,6 +101,40 @@ test('every response carries a correlation id and baseline security headers', as
   assert.match(String(response.headers['x-correlation-id']), /[0-9a-f-]{36}/);
   assert.equal(response.headers['x-content-type-options'], 'nosniff');
   assert.equal(response.headers['x-frame-options'], 'DENY');
+  // A locked-down CSP + permissions policy is applied to every API response (SEC).
+  assert.match(String(response.headers['content-security-policy']), /default-src 'none'/);
+  assert.match(String(response.headers['permissions-policy']), /geolocation=\(\)/);
+});
+
+test('dynamic API JSON responses are not cacheable, but self-caching root routes are untouched', async () => {
+  const api = await app.inject({ method: 'GET', url: '/api/v1/meta' });
+  assert.equal(api.headers['cache-control'], 'no-store');
+});
+
+test('the CSRF origin guard rejects a cross-origin browser mutation only when a public origin is configured', async () => {
+  // With no public origin (dev/test default) the guard is inert so proxied dev hosts work.
+  const devPost = await app.inject({ method: 'POST', url: '/api/v1/meta', headers: { origin: 'https://evil.example' } });
+  assert.notEqual(devPost.statusCode, 403);
+
+  const prod = buildServer(loadConfig({ NODE_ENV: 'test', PUBLIC_ORIGIN: 'https://app.example' }), { database: stubDatabase(true) });
+  await prod.ready();
+  try {
+    // A cross-site Origin on an unsafe method is rejected before routing.
+    const bad = await prod.inject({ method: 'POST', url: '/api/v1/meta', headers: { origin: 'https://evil.example' } });
+    assert.equal(bad.statusCode, 403);
+    assert.equal(bad.json<{ error: { code: string } }>().error.code, 'FORBIDDEN');
+    // The matching origin passes the guard (then 404s as an unknown POST route, not 403).
+    const good = await prod.inject({ method: 'POST', url: '/api/v1/meta', headers: { origin: 'https://app.example' } });
+    assert.notEqual(good.statusCode, 403);
+    // A request with no Origin (native API client / server-to-server) is unaffected.
+    const noOrigin = await prod.inject({ method: 'POST', url: '/api/v1/meta' });
+    assert.notEqual(noOrigin.statusCode, 403);
+    // Safe methods are never blocked.
+    const safe = await prod.inject({ method: 'GET', url: '/api/v1/meta', headers: { origin: 'https://evil.example' } });
+    assert.equal(safe.statusCode, 200);
+  } finally {
+    await prod.close();
+  }
 });
 
 test('an inbound correlation id is preserved for request tracing', async () => {

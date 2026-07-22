@@ -71,6 +71,13 @@ export interface AppConfig {
    */
   readonly analyticsExternalEnabled: boolean;
   /**
+   * Secret salt for analytics pseudonymization (OD-026). Separate from AUTH_SECRET and
+   * the payment callback secret (secrets are never reused across security functions).
+   * Required and length-checked in production so a real deployment never pseudonymizes
+   * with a public, source-committed salt; a development placeholder is used otherwise.
+   */
+  readonly pseudonymSalt: string;
+  /**
    * Maximum accepted media upload size in bytes (MEDIA-001). Enforced on the decoded
    * bytes before any validation, so an oversize payload is rejected up front.
    */
@@ -206,6 +213,43 @@ function parseTrustedProxies(raw: string | undefined, problems: string[]): strin
 /** Development-only placeholder; production startup fails without a real callback secret. */
 const DEVELOPMENT_PAYMENTS_CALLBACK_SECRET = 'development-only-insecure-payments-callback-secret';
 
+/** Development-only placeholder; production startup fails without a real pseudonym salt. */
+const DEVELOPMENT_PSEUDONYM_SALT = 'development-only-insecure-analytics-pseudonym-salt';
+
+/**
+ * Public origin for SEO URLs and, security-critically, the cross-origin (CSRF) request
+ * allowlist. Required in production and must be an absolute http(s) origin — the CSRF
+ * guard is inert without it, so a production deployment must not start without a real
+ * origin to compare against. Empty is allowed only outside production (local/dev/test).
+ */
+function parsePublicOrigin(raw: string | undefined, env: Environment, problems: string[]): string {
+  const value = (raw ?? '').replace(/\/+$/, '');
+  if (value === '') {
+    if (env === 'production') problems.push('PUBLIC_ORIGIN is required when NODE_ENV=production (SEO URLs and the cross-origin/CSRF guard)');
+    return '';
+  }
+  if (!/^https?:\/\/[^/\s]+$/.test(value)) {
+    problems.push('PUBLIC_ORIGIN must be an absolute origin such as https://dragon.example');
+  }
+  return value;
+}
+
+/** Fail-closed secret loader: required + length-checked in production, dev placeholder otherwise. */
+function parseRequiredSecret(raw: string | undefined, env: Environment, name: string, devDefault: string, problems: string[]): string {
+  const value = raw ?? '';
+  if (value === '') {
+    if (env === 'production') {
+      problems.push(`${name} is required when NODE_ENV=production`);
+      return '';
+    }
+    return devDefault;
+  }
+  if (value.length < MIN_SECRET_LENGTH) {
+    problems.push(`${name} must be at least ${String(MIN_SECRET_LENGTH)} characters`);
+  }
+  return value;
+}
+
 /**
  * Payment configuration. Fail-closed on two fronts: the mock provider is never
  * active in production unless PAYMENTS_MOCK_ENABLED is explicitly set, and the
@@ -259,9 +303,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-026 fail-closed: no external analytics tracker unless explicitly enabled.
     analyticsExternalEnabled: (source['ANALYTICS_EXTERNAL_ENABLED'] ?? '').toLowerCase() === 'true',
+    pseudonymSalt: parseRequiredSecret(source['ANALYTICS_PSEUDONYM_SALT'], env, 'ANALYTICS_PSEUDONYM_SALT', DEVELOPMENT_PSEUDONYM_SALT, problems),
     // MEDIA-001: default 5 MB cap on uploads; a valid positive override is honoured.
     mediaMaxBytes: parsePositiveInteger(source['MEDIA_MAX_BYTES'], 5_000_000, 'MEDIA_MAX_BYTES', problems),
-    publicOrigin: (source['PUBLIC_ORIGIN'] ?? '').replace(/\/+$/, ''),
+    publicOrigin: parsePublicOrigin(source['PUBLIC_ORIGIN'], env, problems),
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

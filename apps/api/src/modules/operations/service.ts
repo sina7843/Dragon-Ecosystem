@@ -17,13 +17,15 @@ import type { AlertCategory, AlertRecord, AlertSeverity, AnalyticsErrorRecord, A
  * the internal sink.
  */
 
-const PSEUDONYM_SALT = 'dragon-analytics-pseudonym-v1';
 // OD-026: no external analytics tracker is integrated. An event is forwarded externally
 // only when the gate is enabled AND a tracker exists — the latter is never true today,
 // so nothing is ever forwarded regardless of the gate.
 const EXTERNAL_TRACKER_INTEGRATED = false;
-function pseudonym(accountId: string): string {
-  return createHash('sha256').update(`${PSEUDONYM_SALT}:${accountId}`).digest('hex').slice(0, 32);
+// The pseudonymization salt is a secret loaded from config (ANALYTICS_PSEUDONYM_SALT),
+// never a source-committed constant, so a production deployment cannot be de-pseudonymized
+// by anyone who can read this repository.
+function pseudonym(salt: string, accountId: string): string {
+  return createHash('sha256').update(`${salt}:${accountId}`).digest('hex').slice(0, 32);
 }
 function boundProps(props: Readonly<Record<string, unknown>> | undefined): BoundedProps {
   const out: Record<string, string | number | boolean> = {};
@@ -49,6 +51,7 @@ export interface JobRunner {
 }
 export interface OperationsConfigView {
   analyticsExternalEnabled: boolean;
+  pseudonymSalt: string;
 }
 
 export class OperationsService {
@@ -92,7 +95,7 @@ export class OperationsService {
    */
   async track(context: RequestContext, input: { name: string; essential: boolean; accountId?: string; props?: Readonly<Record<string, unknown>>; consented?: boolean }): Promise<{ recorded: boolean; forwardedExternally: boolean }> {
     if (!input.essential && input.consented !== true) return { recorded: false, forwardedExternally: false };
-    const record: AnalyticsEventRecord = { _id: newId(), name: input.name, essential: input.essential, pseudonymId: input.accountId === undefined ? null : pseudonym(input.accountId), props: boundProps(input.props), correlationId: context.correlationId, createdAt: utcNow() };
+    const record: AnalyticsEventRecord = { _id: newId(), name: input.name, essential: input.essential, pseudonymId: input.accountId === undefined ? null : pseudonym(this.#config.pseudonymSalt, input.accountId), props: boundProps(input.props), correlationId: context.correlationId, createdAt: utcNow() };
     await this.#events().insertOne(record);
     // The event is always in the internal sink above. External forwarding requires both
     // the OD-026 gate and an integrated tracker; the latter does not exist, so this is

@@ -39,7 +39,9 @@ test('production accepts an explicit connection string and secret', () => {
     NODE_ENV: 'production',
     MONGODB_URI: 'mongodb://mongo:27017/dragon',
     AUTH_SECRET: PRODUCTION_SECRET,
-    PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET
+    PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET,
+    ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET,
+    PUBLIC_ORIGIN: 'https://dragon.example'
   });
   assert.equal(config.env, 'production');
   assert.equal(config.mongoUri, 'mongodb://mongo:27017/dragon');
@@ -59,12 +61,12 @@ test('the mock payment provider is fail-closed: off in production unless explici
   assert.equal(loadConfig({ PAYMENTS_MOCK_ENABLED: 'false' }).payments.mockEnabled, false);
   // Production: off by default even with a callback secret present.
   assert.equal(
-    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET }).payments.mockEnabled,
+    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET, PUBLIC_ORIGIN: 'https://dragon.example' }).payments.mockEnabled,
     false
   );
   // Production: on only when explicitly set.
   assert.equal(
-    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, PAYMENTS_MOCK_ENABLED: 'true' }).payments.mockEnabled,
+    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET, PUBLIC_ORIGIN: 'https://dragon.example', PAYMENTS_MOCK_ENABLED: 'true' }).payments.mockEnabled,
     true
   );
 });
@@ -94,6 +96,33 @@ test('external analytics forwarding is fail-closed (OD-026)', () => {
   assert.equal(loadConfig({ ANALYTICS_EXTERNAL_ENABLED: 'TRUE' }).analyticsExternalEnabled, true);
 });
 
+test('the analytics pseudonym salt is production-required and length-checked (not a source constant)', () => {
+  // Production fails fast without it, so no deployment pseudonymizes with a committed salt.
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET }),
+    /ANALYTICS_PSEUDONYM_SALT is required when NODE_ENV=production/
+  );
+  // A too-short salt is rejected.
+  const problems = () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, ANALYTICS_PSEUDONYM_SALT: 'short' });
+  assert.throws(problems, /ANALYTICS_PSEUDONYM_SALT must be at least/);
+  // Development uses a placeholder without failing.
+  assert.equal(typeof loadConfig({}).pseudonymSalt, 'string');
+  assert.notEqual(loadConfig({}).pseudonymSalt, '');
+});
+
+test('PUBLIC_ORIGIN is production-required (the CSRF origin guard depends on it) and format-checked', () => {
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET }),
+    /PUBLIC_ORIGIN is required when NODE_ENV=production/
+  );
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET, PUBLIC_ORIGIN: 'not-an-origin' }),
+    /PUBLIC_ORIGIN must be an absolute origin/
+  );
+  // Outside production it is optional and empty is allowed.
+  assert.equal(loadConfig({}).publicOrigin, '');
+});
+
 test('media size cap defaults to 5 MB and honours a valid override; public origin trims trailing slashes', () => {
   assert.equal(loadConfig({}).mediaMaxBytes, 5_000_000);
   assert.equal(loadConfig({ MEDIA_MAX_BYTES: '1048576' }).mediaMaxBytes, 1_048_576);
@@ -118,6 +147,8 @@ test('dev routes are fail-closed: enabled only by an explicit flag, never in pro
       MONGODB_URI: 'mongodb://mongo:27017/dragon',
       AUTH_SECRET: 'x'.repeat(32),
       PAYMENTS_CALLBACK_SECRET: 'x'.repeat(32),
+      ANALYTICS_PSEUDONYM_SALT: 'x'.repeat(32),
+      PUBLIC_ORIGIN: 'https://dragon.example',
       ENABLE_DEV_ROUTES: 'true'
     }).devRoutesEnabled,
     false

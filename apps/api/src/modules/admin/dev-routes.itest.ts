@@ -113,6 +113,8 @@ describe('/dev/grant-role registration is fail-closed', () => {
       MONGODB_URI: 'mongodb://mongo:27017/dragon',
       AUTH_SECRET: 'x'.repeat(32),
       PAYMENTS_CALLBACK_SECRET: 'x'.repeat(32),
+      ANALYTICS_PSEUDONYM_SALT: 'x'.repeat(32),
+      PUBLIC_ORIGIN: 'https://dragon.example',
       ENABLE_DEV_ROUTES: 'true'
     });
     await app.ready();
