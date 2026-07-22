@@ -13,6 +13,7 @@ import { AdminService, AuthorizationService, registerAdminRoutes } from './modul
 import { ContentService, registerContentRoutes } from './modules/content/index.ts';
 import { GamesService, registerGamesRoutes } from './modules/games/index.ts';
 import { TeamsService, registerTeamsRoutes } from './modules/teams/index.ts';
+import { TournamentsService, registerTournamentsRoutes } from './modules/tournaments/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -63,6 +64,7 @@ export interface ServerDependencies {
   readonly content?: { service: ContentService };
   readonly games?: { service: GamesService };
   readonly teams?: { service: TeamsService };
+  readonly tournaments?: { service: TournamentsService };
 }
 
 declare module 'fastify' {
@@ -235,6 +237,13 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
           if (deps.teams !== undefined) {
             registerTeamsRoutes(api, { identity: deps.identity.service, teams: deps.teams.service });
           }
+          if (deps.tournaments !== undefined) {
+            registerTournamentsRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              tournaments: deps.tournaments.service
+            });
+          }
         }
       }
     },
@@ -299,6 +308,11 @@ export function buildTeams(
   return { service: new TeamsService(database, games.service, identity.service) };
 }
 
+/** Wires the tournaments module; it references published games across the module boundary. */
+export function buildTournaments(database: Database, games: { service: GamesService }): { service: TournamentsService } {
+  return { service: new TournamentsService(database, games.service) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -314,7 +328,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     admin: buildAdmin(database),
     content: buildContent(database),
     games,
-    teams: buildTeams(database, games, identity)
+    teams: buildTeams(database, games, identity),
+    tournaments: buildTournaments(database, games)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

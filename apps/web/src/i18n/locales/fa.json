@@ -20,8 +20,10 @@
       "games": "بازی‌ها",
       "teams": "تیم‌ها",
       "gamingIdentities": "هویت‌های بازی",
+      "tournaments": "تورنمنت‌ها",
       "adminContent": "محتوا",
-      "adminGames": "بازی‌ها"
+      "adminGames": "بازی‌ها",
+      "adminTournaments": "تورنمنت‌ها"
     }
   },
   "nav": {
@@ -45,7 +47,8 @@
     "content": "محتوا",
     "games": "بازی‌ها",
     "teams": "تیم‌ها",
-    "gamingIdentities": "هویت‌های بازی"
+    "gamingIdentities": "هویت‌های بازی",
+    "tournaments": "تورنمنت‌ها"
   },
   "theme": {
     "label": "پوسته",
@@ -166,7 +169,8 @@
       "audit": "گزارش رخدادها",
       "configuration": "پیکربندی",
       "content": "محتوا",
-      "games": "بازی‌ها"
+      "games": "بازی‌ها",
+      "tournaments": "تورنمنت‌ها"
     },
     "users": {
       "heading": "کاربران",
@@ -296,7 +300,8 @@
     }
   },
   "money": {
-    "tomanUnit": "تومان"
+    "tomanUnit": "تومان",
+    "dragonCoinUnit": "دراگون کوین"
   },
   "error": {
     "code": {
@@ -328,7 +333,15 @@
       "CANNOT_REMOVE_OWNER": "مالک را نمی‌توان حذف کرد. ابتدا مالکیت را واگذار یا تیم را منحل کنید.",
       "OWNER_CANNOT_LEAVE": "مالک نمی‌تواند تیم را ترک کند. ابتدا مالکیت را واگذار یا تیم را منحل کنید.",
       "NOT_A_MEMBER": "مالک جدید باید عضو فعال تیم باشد.",
-      "ALREADY_OWNER": "شما هم‌اکنون مالک این تیم هستید."
+      "ALREADY_OWNER": "شما هم‌اکنون مالک این تیم هستید.",
+      "INVALID_CAPACITY": "بین ۱ تا ۱۰۰۰ شرکت‌کننده وارد کنید.",
+      "DATE_ORDER": "ترتیب تاریخ‌ها نادرست است.",
+      "INVALID_AMOUNT": "یک عدد صحیح بزرگ‌تر از صفر وارد کنید.",
+      "SLUG_TAKEN": "این نام یا نامک قبلاً استفاده شده است.",
+      "REQUIRED_FOR_PUBLICATION": "این مقدار پیش از انتشار الزامی است.",
+      "NOT_EDITABLE": "برای ویرایش، تورنمنت را به پیش‌نویس بازگردانید.",
+      "INVALID_TRANSITION": "این تغییر چرخه عمر مجاز نیست.",
+      "REQUIRED": "این مقدار الزامی است."
     }
   },
   "content": {
@@ -484,5 +497,84 @@
     "save": "ذخیره هویت",
     "saving": "در حال ذخیره…",
     "saved": "هویت بازی شما ذخیره شد."
+  },
+  "tournaments": {
+    "hub": {
+      "heading": "تورنمنت‌ها",
+      "intro": "رقابت‌های پیش‌رو و باز.",
+      "calendarLink": "نمایش تقویم",
+      "empty": "هنوز تورنمنتی منتشر نشده است."
+    },
+    "calendar": {
+      "heading": "تقویم تورنمنت‌ها",
+      "listLink": "نمایش فهرست",
+      "empty": "تورنمنتی زمان‌بندی نشده است."
+    },
+    "detail": {
+      "notFound": "این تورنمنت در دسترس نیست.",
+      "rank": "رتبه {rank}"
+    },
+    "field": {
+      "game": "بازی",
+      "gamePlaceholder": "یک بازی انتخاب کنید",
+      "name": "نام",
+      "summary": "خلاصه",
+      "rules": "قوانین",
+      "participantType": "نوع شرکت‌کننده",
+      "format": "قالب",
+      "capacity": "ظرفیت",
+      "registrationOpens": "شروع ثبت‌نام",
+      "registrationCloses": "پایان ثبت‌نام",
+      "startAt": "شروع",
+      "endAt": "پایان",
+      "fee": "هزینه ورود",
+      "feeKind": "نوع هزینه",
+      "feeToman": "مبلغ تومان",
+      "feeCoin": "مقدار دراگون کوین",
+      "prizes": "جوایز"
+    },
+    "participant": {
+      "individual": "انفرادی",
+      "team": "تیمی"
+    },
+    "format": {
+      "single_elimination": "حذفی تک‌حذفی",
+      "double_elimination": "حذفی دوحذفی",
+      "round_robin": "دوره‌ای",
+      "swiss": "سوئیسی",
+      "custom": "سفارشی"
+    },
+    "feeKind": {
+      "free": "رایگان",
+      "toman": "تومان",
+      "dragon_coin": "دراگون کوین",
+      "mixed": "تومان + دراگون کوین"
+    },
+    "state": {
+      "draft": "پیش‌نویس",
+      "published": "منتشرشده",
+      "cancelled": "لغوشده",
+      "completed": "پایان‌یافته",
+      "archived": "بایگانی‌شده"
+    }
+  },
+  "adminTournaments": {
+    "heading": "تورنمنت‌ها",
+    "new": "تورنمنت جدید",
+    "empty": "هنوز تورنمنتی نیست.",
+    "creating": "تورنمنت جدید",
+    "editing": "ویرایش تورنمنت",
+    "created": "پیش‌نویس ساخته شد.",
+    "saved": "تورنمنت ذخیره شد.",
+    "transitioned": "تورنمنت به‌روزرسانی شد.",
+    "cloned": "تورنمنت کپی شد.",
+    "reasonPrompt": "یک دلیل وارد کنید (الزامی):",
+    "save": "ذخیره",
+    "saving": "در حال ذخیره…",
+    "preview": "پیش‌نمایش",
+    "publish": "انتشار",
+    "cancel": "لغو",
+    "archive": "بایگانی",
+    "clone": "کپی"
   }
 }

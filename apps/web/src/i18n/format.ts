@@ -50,6 +50,11 @@ export function formatDateTime(
   return formatDate(value, locale, { ...options, timeZone });
 }
 
+/** The viewer's own IANA time zone, used to localize UTC-stored times (TOURN-019). */
+export function viewerTimeZone(): string {
+  return Intl.DateTimeFormat().resolvedOptions().timeZone;
+}
+
 /**
  * Splits a stored integer rial amount into its Toman value and any rial
  * remainder. The remainder is returned rather than rounded away so a caller can

@@ -11,7 +11,7 @@ import { isLocale } from '../i18n/locale.ts';
  * forbidden state, and the server enforces the same regardless of the UI.
  */
 const { t, locale } = useI18n();
-const { loaded, forbidden, isSuperAdmin, canReadUsers, canReadAudit, canReadConfig, canWriteContent, canManageGames, refresh } =
+const { loaded, forbidden, isSuperAdmin, canReadUsers, canReadAudit, canReadConfig, canWriteContent, canManageGames, canManageTournaments, refresh } =
   useAdmin();
 
 const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
@@ -27,6 +27,7 @@ const areas = computed<Area[]>(() =>
   [
     { to: `${prefix.value}/admin/content`, labelKey: 'admin.area.content', visible: canWriteContent.value, testid: 'area-content' },
     { to: `${prefix.value}/admin/games`, labelKey: 'admin.area.games', visible: canManageGames.value, testid: 'area-games' },
+    { to: `${prefix.value}/admin/tournaments`, labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
     { to: `${prefix.value}/admin/users`, labelKey: 'admin.area.users', visible: canReadUsers.value, testid: 'area-users' },
     { to: `${prefix.value}/admin/audit`, labelKey: 'admin.area.audit', visible: canReadAudit.value, testid: 'area-audit' },
     {

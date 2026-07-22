@@ -20,8 +20,10 @@
       "games": "Games",
       "teams": "Teams",
       "gamingIdentities": "Gaming identities",
+      "tournaments": "Tournaments",
       "adminContent": "Content",
-      "adminGames": "Games"
+      "adminGames": "Games",
+      "adminTournaments": "Tournaments"
     }
   },
   "nav": {
@@ -45,7 +47,8 @@
     "content": "Content",
     "games": "Games",
     "teams": "Teams",
-    "gamingIdentities": "Gaming identities"
+    "gamingIdentities": "Gaming identities",
+    "tournaments": "Tournaments"
   },
   "theme": {
     "label": "Theme",
@@ -166,7 +169,8 @@
       "audit": "Audit log",
       "configuration": "Configuration",
       "content": "Content",
-      "games": "Games"
+      "games": "Games",
+      "tournaments": "Tournaments"
     },
     "users": {
       "heading": "Users",
@@ -296,7 +300,8 @@
     }
   },
   "money": {
-    "tomanUnit": "Toman"
+    "tomanUnit": "Toman",
+    "dragonCoinUnit": "Dragon Coin"
   },
   "error": {
     "code": {
@@ -328,7 +333,15 @@
       "CANNOT_REMOVE_OWNER": "The owner cannot be removed. Transfer ownership or disband first.",
       "OWNER_CANNOT_LEAVE": "The owner cannot leave. Transfer ownership or disband first.",
       "NOT_A_MEMBER": "The new owner must be an active member.",
-      "ALREADY_OWNER": "You already own this team."
+      "ALREADY_OWNER": "You already own this team.",
+      "INVALID_CAPACITY": "Use between 1 and 1000 participants.",
+      "DATE_ORDER": "The dates are out of order.",
+      "INVALID_AMOUNT": "Use a whole number greater than zero.",
+      "SLUG_TAKEN": "That name or slug is already in use.",
+      "REQUIRED_FOR_PUBLICATION": "This value is required before publishing.",
+      "NOT_EDITABLE": "Return the tournament to draft to edit it.",
+      "INVALID_TRANSITION": "That lifecycle change is not allowed.",
+      "REQUIRED": "This value is required."
     }
   },
   "content": {
@@ -484,5 +497,84 @@
     "save": "Save identity",
     "saving": "Saving…",
     "saved": "Your gaming identity was saved."
+  },
+  "tournaments": {
+    "hub": {
+      "heading": "Tournaments",
+      "intro": "Upcoming and open competitions.",
+      "calendarLink": "View calendar",
+      "empty": "No tournaments published yet."
+    },
+    "calendar": {
+      "heading": "Tournament calendar",
+      "listLink": "View list",
+      "empty": "No tournaments scheduled."
+    },
+    "detail": {
+      "notFound": "This tournament is not available.",
+      "rank": "Rank {rank}"
+    },
+    "field": {
+      "game": "Game",
+      "gamePlaceholder": "Select a game",
+      "name": "Name",
+      "summary": "Summary",
+      "rules": "Rules",
+      "participantType": "Participant type",
+      "format": "Format",
+      "capacity": "Capacity",
+      "registrationOpens": "Registration opens",
+      "registrationCloses": "Registration closes",
+      "startAt": "Starts",
+      "endAt": "Ends",
+      "fee": "Entry fee",
+      "feeKind": "Fee type",
+      "feeToman": "Toman amount",
+      "feeCoin": "Dragon Coin amount",
+      "prizes": "Prizes"
+    },
+    "participant": {
+      "individual": "Individual",
+      "team": "Team"
+    },
+    "format": {
+      "single_elimination": "Single elimination",
+      "double_elimination": "Double elimination",
+      "round_robin": "Round robin",
+      "swiss": "Swiss",
+      "custom": "Custom"
+    },
+    "feeKind": {
+      "free": "Free",
+      "toman": "Toman",
+      "dragon_coin": "Dragon Coin",
+      "mixed": "Toman + Dragon Coin"
+    },
+    "state": {
+      "draft": "Draft",
+      "published": "Published",
+      "cancelled": "Cancelled",
+      "completed": "Completed",
+      "archived": "Archived"
+    }
+  },
+  "adminTournaments": {
+    "heading": "Tournaments",
+    "new": "New tournament",
+    "empty": "No tournaments yet.",
+    "creating": "New tournament",
+    "editing": "Editing tournament",
+    "created": "Draft created.",
+    "saved": "Tournament saved.",
+    "transitioned": "Tournament updated.",
+    "cloned": "Tournament cloned.",
+    "reasonPrompt": "Enter a reason (required):",
+    "save": "Save",
+    "saving": "Saving…",
+    "preview": "Preview",
+    "publish": "Publish",
+    "cancel": "Cancel",
+    "archive": "Archive",
+    "clone": "Clone"
   }
 }

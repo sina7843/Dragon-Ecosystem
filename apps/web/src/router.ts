@@ -16,6 +16,10 @@ import TeamsView from './views/TeamsView.vue';
 import TeamDetailView from './views/TeamDetailView.vue';
 import PublicTeamView from './views/PublicTeamView.vue';
 import GamingIdentitiesView from './views/GamingIdentitiesView.vue';
+import TournamentsListView from './views/TournamentsListView.vue';
+import TournamentCalendarView from './views/TournamentCalendarView.vue';
+import TournamentDetailView from './views/TournamentDetailView.vue';
+import AdminTournamentsView from './views/AdminTournamentsView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -80,6 +84,24 @@ export const router = createRouter({
       name: 'game-detail',
       component: GameDetailView,
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.games' }
+    },
+    {
+      path: '/:locale(fa|en)/tournaments',
+      name: 'tournaments',
+      component: TournamentsListView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
+    },
+    {
+      path: '/:locale(fa|en)/tournaments-calendar',
+      name: 'tournaments-calendar',
+      component: TournamentCalendarView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
+    },
+    {
+      path: '/:locale(fa|en)/tournaments/:slug',
+      name: 'tournament-detail',
+      component: TournamentDetailView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
     },
     {
       path: '/:locale(fa|en)/teams/:slug',
@@ -158,6 +180,12 @@ export const router = createRouter({
       name: 'admin-games',
       component: AdminGamesView,
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminGames' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/tournaments',
+      name: 'admin-tournaments',
+      component: AdminTournamentsView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminTournaments' }
     },
     {
       path: '/:locale(fa|en)/403',

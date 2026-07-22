@@ -8,8 +8,9 @@
 - Authorization, administration, audit, configuration: complete (DRAGON-04)
 - Content CMS and game catalog: complete (DRAGON-05)
 - Persistent teams and gaming identities: complete (DRAGON-06)
-- Active prompt: DRAGON-07 — tournament authoring and discovery
-- Latest verified checkpoint: DRAGON-06 persistent teams and gaming identities, 2026-07-22
+- Tournament authoring and discovery: complete (DRAGON-07)
+- Active prompt: DRAGON-08 — registration, eligibility, approval, and waitlist
+- Latest verified checkpoint: DRAGON-07 tournament authoring and discovery, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -70,6 +71,17 @@
 - Bilingual (fa RTL / en LTR) team hub, team detail with owner/member controls, gaming-identity management, and a public team page; router, navigation, and locale bundles updated with full key parity.
 - A single focused `test-reviewer` pass on the ownership/invitation/membership authorization and concurrency paths returned APPROVE with no Critical or High findings. Two low-risk notes were applied (slug is now stable across renames unless explicitly changed; `listTeamInvitations` returns 404 for an unknown team before 403 for a non-owner); the remaining notes were benign read-only consistency windows with no invariant impact.
 
+## Delivered by DRAGON-07
+- Tournament-definition module (`modules/tournaments`): bilingual translation-group records with a game reference, individual/team participant type, capacity capped at 1,000 (DEC-046), registration and schedule dates, format family (single/double elimination, round robin, Swiss, custom), custom rules, eligibility, approval mode, waitlist mode, entry fee, refund policy, prizes, and versioned custom questions.
+- Fee definitions (TOURN-012) for free, Toman, Dragon Coin, or fixed mixed pricing, held as exact integer `Money` (Toman stored as rial ×10, Dragon Coin as whole units) with no floating-point math; a domain ceiling keeps every amount a safe integer. No payment is executed — these are priced definitions only.
+- Versioned prize definitions (Toman and/or Dragon Coin per placement) and a versioned custom-question set: each carries its own version counter that bumps only when the set actually changes, so later submitted answers can be stamped with the question version (TOURN-007).
+- Lifecycle (draft → published, with cancel, archive, and a reserved `completed` state owned by DRAGON-09): draft validation that lists every missing mandatory value at once (TOURN-002), cross-field date ordering (registration opens < closes ≤ start < end), preview, clone, optimistic-concurrency edits restricted to drafts, and append-only revision history plus an audit event written atomically with each change.
+- Public discovery: list (upcoming first), detail by slug, and a calendar within a date range — all restricted to published tournaments; a draft/cancelled/archived tournament is a real 404 and the internal question set is never exposed publicly (TOURN-029).
+- Capability-driven tournament administration UI (authoring form, lifecycle controls, clone, preview) gated on `tournament.manage`, and bilingual public list, detail, and calendar views; router, navigation, admin capabilities, and locale bundles updated with full key parity.
+- OD-006 handled by feature-gate: no approved game/publisher/federation rule profiles are shipped, so tournaments use custom free-text rules (always publishable) and named external profiles stay out of scope until OD-006 resolves.
+- Authoring authority uses the existing global `tournament.manage` permission (any holder manages any tournament), matching the content and games modules; resource-scoped organizer/referee ownership is deferred to DRAGON-08 operations.
+- One focused `test-reviewer` pass over money handling, publication gating, authorization, and lifecycle: verdict APPROVE, no Critical/High. Two Medium notes were addressed — money amounts now have a domain ceiling so an oversized fee is a clean 422 rather than an overflow 500, and publication now aggregates missing-value and date-order problems together.
+
 ## Known blockers
 - None.
 
@@ -88,18 +100,22 @@
 - Full security header set, CSP, and CORS allowlist — DRAGON-16b.
 - Full browser and viewport matrix from Requirements section 31 — DRAGON-16a.
 - OD-026 analytics and error monitoring — unresolved; no adapter exists.
+- Tournament registration, eligibility evaluation, capacity contention, approval, and waitlist operations (TOURN-004..017) — DRAGON-08; the definition, fee/prize config, and discovery are in place.
+- Tournament match scheduling, results, corrections, and outcomes (TOURN-019..025), and cancellation/completion workflows (TOURN-027/028) — DRAGON-09/10.
+- Resource-scoped tournament staff and referee assignments (TOURN-018) and permission-controlled exports (TOURN-030) — DRAGON-08 onward; authoring uses the global `tournament.manage` permission today.
+- Approved game/publisher/federation rule profiles (OD-006) — gated off; custom free-text rules are used until a profile is approved.
 
 ## Last verification
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 142 passed (106 api, 36 web)
-- `npm run test:integration` — 106 passed (includes 21 teams: authorization/IDOR, invitation and membership state machines, concurrent accept and concurrent transfer, immutable snapshots, and privacy-aware public views)
+- `npm test` — 158 passed (122 api, 36 web)
+- `npm run test:integration` — 119 passed (adds 13 tournaments: authoring authorization, game/date/capacity validation, publication-validation aggregation, versioning and cloning, fees/prizes, and published-only discovery)
 - `npm run build` — pass
-- `npm run e2e` — 162 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the team create → invite → accept → roster journey and the private/public team visibility path)
+- `npm run e2e` — 168 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the tournament author → publish → discover journey and the draft-not-public path). Note: the OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0` (a different sign-in intermittently fails); a clean re-run passes all 168. The parallel viewport matrix is owned by DRAGON-16a.
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)
 - Package guardrails: run `03-CHECK-PACKAGE.cmd`.
 
-DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. DRAGON-05 (content sanitisation and draft isolation) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High; sanitisation on every write path, no draft/scheduled leakage, no NoSQL injection, and safe SEO/v-html rendering all confirmed. One Medium (defense-in-depth) — the dev-only `/dev/grant-role` is safe in production but fail-open if `NODE_ENV` is unset — was hardened with a loud non-production startup warning and an ENV note. DRAGON-05 traceability rows are recorded but left Pending for review by the same reviewer independence rule used earlier. DRAGON-06 (persistent teams) had one focused `test-reviewer` pass over its ownership, invitation, and membership authorization and concurrency paths: verdict APPROVE, no Critical/High; resource-scoped owner-only enforcement, correct 404-vs-403 boundaries, the partial-unique-index race guarantees, atomic ownership transfer, in-transaction audit writes, insert-only snapshots, and privacy-aware public views were all confirmed. Two low-risk notes were applied (stable slug on rename; 404-before-403 in `listTeamInvitations`); the TEAM traceability rows are marked Reviewed. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.
+DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. DRAGON-05 (content sanitisation and draft isolation) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High; sanitisation on every write path, no draft/scheduled leakage, no NoSQL injection, and safe SEO/v-html rendering all confirmed. One Medium (defense-in-depth) — the dev-only `/dev/grant-role` is safe in production but fail-open if `NODE_ENV` is unset — was hardened with a loud non-production startup warning and an ENV note. DRAGON-05 traceability rows are recorded but left Pending for review by the same reviewer independence rule used earlier. DRAGON-06 (persistent teams) had one focused `test-reviewer` pass over its ownership, invitation, and membership authorization and concurrency paths: verdict APPROVE, no Critical/High; resource-scoped owner-only enforcement, correct 404-vs-403 boundaries, the partial-unique-index race guarantees, atomic ownership transfer, in-transaction audit writes, insert-only snapshots, and privacy-aware public views were all confirmed. Two low-risk notes were applied (stable slug on rename; 404-before-403 in `listTeamInvitations`); the TEAM traceability rows are marked Reviewed. DRAGON-07 (tournament authoring) had one focused `test-reviewer` pass over money handling, publication gating, authorization, and lifecycle: verdict APPROVE, no Critical/High; exact-integer fees/prizes, published-only public reads, no public exposure of the internal question set, atomic revision+audit writes, draft-only editing, and correct state-machine and optimistic-concurrency guards were all confirmed. Two Medium notes were fixed (money domain ceiling → clean 422 instead of overflow 500; publication aggregates missing-value and date-order problems together). The TOURN authoring-scope traceability rows are marked Reviewed. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.

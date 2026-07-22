@@ -29,6 +29,7 @@ export function useAdmin(): {
   canReadConfig: ComputedRef<boolean>;
   canWriteContent: ComputedRef<boolean>;
   canManageGames: ComputedRef<boolean>;
+  canManageTournaments: ComputedRef<boolean>;
   refresh: () => Promise<void>;
 } {
   async function refresh(): Promise<void> {
@@ -61,6 +62,7 @@ export function useAdmin(): {
     canReadConfig: computed(() => has('config.read')),
     canWriteContent: computed(() => has('content.write')),
     canManageGames: computed(() => has('games.manage')),
+    canManageTournaments: computed(() => has('tournament.manage')),
     refresh
   };
 }

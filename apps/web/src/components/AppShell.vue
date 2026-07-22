@@ -32,6 +32,7 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '', key: 'nav.home' },
     { path: '/content', key: 'nav.content' },
     { path: '/games', key: 'nav.games' },
+    { path: '/tournaments', key: 'nav.tournaments' },
     { path: '/account', key: 'nav.account' }
   ],
   account: [
