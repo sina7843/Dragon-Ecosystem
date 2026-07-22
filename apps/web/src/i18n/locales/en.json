@@ -16,6 +16,7 @@
       "security": "Security",
       "adminUsers": "Users",
       "adminAudit": "Audit",
+      "adminModeration": "Moderation",
       "content": "Content",
       "games": "Games",
       "teams": "Teams",
@@ -174,7 +175,8 @@
       "configuration": "Configuration",
       "content": "Content",
       "games": "Games",
-      "tournaments": "Tournaments"
+      "tournaments": "Tournaments",
+      "moderation": "Moderation"
     },
     "users": {
       "heading": "Users",
@@ -216,6 +218,32 @@
       "exported": "The export was recorded.",
       "loadMore": "Load more",
       "empty": "No audit events to show."
+    },
+    "moderation": {
+      "heading": "Moderation queue",
+      "caption": "Moderation cases",
+      "time": "Reported",
+      "subject": "Subject",
+      "severity": "Severity",
+      "state": "State",
+      "reportCount": "Reports",
+      "emergency": "Emergency",
+      "stateFilter": "State",
+      "loadMore": "Load more",
+      "empty": "No moderation cases to show.",
+      "severityValue": {
+        "low": "Low",
+        "medium": "Medium",
+        "high": "High",
+        "critical": "Critical"
+      },
+      "stateValue": {
+        "open": "Open",
+        "assigned": "Assigned",
+        "actioned": "Actioned",
+        "dismissed": "Dismissed",
+        "all": "All"
+      }
     }
   },
   "designSystem": {
@@ -888,6 +916,17 @@
       "registration_confirmed": "Your paid tournament registration is confirmed.",
       "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
       "prize_paid": "Your cash prize has been marked paid."
+    }
+  },
+  "moderation": {
+    "report": {
+      "action": "Report",
+      "reasonLabel": "Reason",
+      "detailsLabel": "Additional details (optional)",
+      "submit": "Submit report",
+      "sending": "Sending…",
+      "cancel": "Cancel",
+      "sent": "Your report was received."
     }
   }
 }

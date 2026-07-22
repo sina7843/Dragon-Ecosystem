@@ -22,6 +22,8 @@ import { HoldsService, HoldsReconciliation, registerHoldsRoutes } from './module
 import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/index.ts';
 import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
 import { NotificationsService, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
+import { ModerationService, registerModerationRoutes } from './modules/moderation/index.ts';
+import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -80,6 +82,8 @@ export interface ServerDependencies {
   readonly checkout?: { service: CheckoutService; db: Db; mockEnabled: boolean };
   readonly prizes?: { service: PrizesService };
   readonly notifications?: { service: NotificationsService };
+  readonly moderation?: { service: ModerationService };
+  readonly operations?: { service: OperationsService };
 }
 
 declare module 'fastify' {
@@ -315,6 +319,20 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 notifications: deps.notifications.service
               });
             }
+            if (deps.moderation !== undefined) {
+              registerModerationRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                moderation: deps.moderation.service
+              });
+            }
+            if (deps.operations !== undefined) {
+              registerOperationsRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                operations: deps.operations.service
+              });
+            }
           }
         }
       }
@@ -475,6 +493,36 @@ export function buildNotifications(database: Database, config: AppConfig): { ser
   return { service: new NotificationsService(database, { smsEnabled: config.notificationsSmsEnabled, emailEnabled: config.notificationsEmailEnabled }, config.env, contacts) };
 }
 
+export function buildModeration(database: Database, identity: { service: IdentityService }): { service: ModerationService } {
+  // Moderation only reaches identity through a narrow suspend adapter — it never
+  // touches authentication or account internals directly.
+  return {
+    service: new ModerationService(database, {
+      async suspendAccount(accountId, context, reason, emergency) {
+        await identity.service.transitionAccountState(accountId, 'suspended', context, reason, { emergency });
+      }
+    })
+  };
+}
+
+export function buildOperations(
+  database: Database,
+  config: AppConfig,
+  notifications: { service: NotificationsService },
+  holds: { service: HoldsService },
+  checkout: { service: CheckoutService }
+): { service: OperationsService } {
+  // The bounded runner drains the outbox → deliveries → expiries in a fixed order;
+  // each returns bounded numeric counters recorded as the job execution result.
+  const jobs: readonly JobRunner[] = [
+    { name: 'notifications.outbox', run: (context, limit) => notifications.service.processOutbox(context, { limit }) },
+    { name: 'notifications.deliveries', run: (context, limit) => notifications.service.processDeliveries(context, { limit }) },
+    { name: 'holds.expire', run: (context, limit) => holds.service.expireDueHolds(context, { limit }) },
+    { name: 'checkout.expire', run: (context, limit) => checkout.service.expireDueCheckouts(context, { limit }) }
+  ];
+  return { service: new OperationsService(database, { analyticsExternalEnabled: config.analyticsExternalEnabled }, jobs) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -490,6 +538,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const ledger = buildLedger(database);
   const holds = buildHolds(database, ledger);
   const competitions = buildCompetitions(database, tournaments, registrations);
+  const checkout = buildCheckout(database, config, tournaments, registrations, ledger, holds);
+  const notifications = buildNotifications(database, config);
   const app = buildServer(config, {
     database,
     identity,
@@ -502,9 +552,11 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     competitions,
     payments: buildPayments(database, config, ledger),
     holds,
-    checkout: buildCheckout(database, config, tournaments, registrations, ledger, holds),
+    checkout,
     prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
-    notifications: buildNotifications(database, config)
+    notifications,
+    moderation: buildModeration(database, identity),
+    operations: buildOperations(database, config, notifications, holds, checkout)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

@@ -7,6 +7,7 @@ import NotificationsInboxView from './views/NotificationsInboxView.vue';
 import AdminOverviewView from './views/AdminOverviewView.vue';
 import AdminUsersView from './views/AdminUsersView.vue';
 import AdminAuditView from './views/AdminAuditView.vue';
+import AdminModerationView from './views/AdminModerationView.vue';
 import AdminContentView from './views/AdminContentView.vue';
 import AdminGamesView from './views/AdminGamesView.vue';
 import AuthMobileView from './views/AuthMobileView.vue';
@@ -184,6 +185,12 @@ export const router = createRouter({
       name: 'admin-audit',
       component: AdminAuditView,
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminAudit' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/moderation',
+      name: 'admin-moderation',
+      component: AdminModerationView,
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
     },
     {
       path: '/:locale(fa|en)/admin/content',

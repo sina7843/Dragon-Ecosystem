@@ -16,6 +16,7 @@
       "security": "امنیت",
       "adminUsers": "کاربران",
       "adminAudit": "رخدادنگاری",
+      "adminModeration": "نظارت",
       "content": "محتوا",
       "games": "بازی‌ها",
       "teams": "تیم‌ها",
@@ -174,7 +175,8 @@
       "configuration": "پیکربندی",
       "content": "محتوا",
       "games": "بازی‌ها",
-      "tournaments": "تورنمنت‌ها"
+      "tournaments": "تورنمنت‌ها",
+      "moderation": "نظارت"
     },
     "users": {
       "heading": "کاربران",
@@ -216,6 +218,32 @@
       "exported": "برون‌بری ثبت شد.",
       "loadMore": "نمایش بیشتر",
       "empty": "رخدادی برای نمایش نیست."
+    },
+    "moderation": {
+      "heading": "صف نظارت",
+      "caption": "پرونده‌های نظارتی",
+      "time": "زمان گزارش",
+      "subject": "موضوع",
+      "severity": "شدت",
+      "state": "وضعیت",
+      "reportCount": "تعداد گزارش‌ها",
+      "emergency": "اضطراری",
+      "stateFilter": "وضعیت",
+      "loadMore": "نمایش بیشتر",
+      "empty": "پرونده نظارتی برای نمایش نیست.",
+      "severityValue": {
+        "low": "کم",
+        "medium": "متوسط",
+        "high": "زیاد",
+        "critical": "بحرانی"
+      },
+      "stateValue": {
+        "open": "باز",
+        "assigned": "واگذارشده",
+        "actioned": "اقدام‌شده",
+        "dismissed": "ردشده",
+        "all": "همه"
+      }
     }
   },
   "designSystem": {
@@ -888,6 +916,17 @@
       "registration_confirmed": "ثبت‌نام پولی شما در مسابقه نهایی شد.",
       "coins_added": "{dragonCoin} دراگون‌کوین به موجودی شما افزوده شد.",
       "prize_paid": "جایزهٔ نقدی شما پرداخت‌شده علامت خورد."
+    }
+  },
+  "moderation": {
+    "report": {
+      "action": "گزارش تخلف",
+      "reasonLabel": "دلیل",
+      "detailsLabel": "جزئیات بیشتر (اختیاری)",
+      "submit": "ارسال گزارش",
+      "sending": "در حال ارسال…",
+      "cancel": "انصراف",
+      "sent": "گزارش شما دریافت شد."
     }
   }
 }

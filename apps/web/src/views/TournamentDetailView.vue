@@ -8,6 +8,7 @@ import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
+import { fileReport } from '../composables/useModerationApi.ts';
 import { getBracket, getStandings, type BracketMatchView, type StandingsView } from '../composables/useCompetitionsApi.ts';
 import { startCheckout, confirmCheckout, mockPayCheckout, newCheckoutKey, type CheckoutView } from '../composables/useCheckoutApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
@@ -120,6 +121,43 @@ async function onRegister(): Promise<void> {
   }
 }
 
+// --- Report this tournament (DRAGON-14) ---
+const reportOpen = ref(false);
+const reportReason = ref('');
+const reportDetails = ref('');
+const reportBusy = ref(false);
+const reportSent = ref(false);
+const reportError = ref<string | undefined>(undefined);
+
+function openReport(): void {
+  reportOpen.value = true;
+  reportSent.value = false;
+  reportError.value = undefined;
+}
+
+async function submitReport(): Promise<void> {
+  if (tour.value === null || reportBusy.value || reportReason.value.trim() === '') return;
+  reportBusy.value = true;
+  reportError.value = undefined;
+  try {
+    await fileReport({
+      subjectType: 'tournament',
+      subjectId: tour.value.id,
+      reason: reportReason.value.trim(),
+      ...(reportDetails.value.trim() === '' ? {} : { details: reportDetails.value.trim() })
+    });
+    reportSent.value = true;
+    reportOpen.value = false;
+    reportReason.value = '';
+    reportDetails.value = '';
+    push('success', t('moderation.report.sent'));
+  } catch (error) {
+    reportError.value = messageFor(error);
+  } finally {
+    reportBusy.value = false;
+  }
+}
+
 async function onWithdraw(): Promise<void> {
   if (tour.value === null) return;
   try {
@@ -194,9 +232,71 @@ function confirmPaid(): void {
     />
 
     <template v-else-if="tour">
-      <h1 data-testid="tournament-title">
-        {{ tour.name }}
-      </h1>
+      <div class="title-row">
+        <h1 data-testid="tournament-title">
+          {{ tour.name }}
+        </h1>
+        <button
+          v-if="authenticated && !reportOpen"
+          type="button"
+          class="secondary"
+          data-testid="report-tournament"
+          @click="openReport"
+        >
+          {{ t('moderation.report.action') }}
+        </button>
+      </div>
+
+      <form
+        v-if="reportOpen"
+        class="report-form"
+        data-testid="report-form"
+        novalidate
+        @submit.prevent="submitReport"
+      >
+        <p
+          v-if="reportError"
+          class="summary"
+          role="alert"
+          data-testid="report-error"
+        >
+          {{ reportError }}
+        </p>
+        <div class="field">
+          <label for="report-reason">{{ t('moderation.report.reasonLabel') }}</label>
+          <input
+            id="report-reason"
+            v-model="reportReason"
+            required
+          >
+        </div>
+        <div class="field">
+          <label for="report-details">{{ t('moderation.report.detailsLabel') }}</label>
+          <textarea
+            id="report-details"
+            v-model="reportDetails"
+          />
+        </div>
+        <div class="row">
+          <button
+            type="submit"
+            class="primary"
+            data-testid="report-submit"
+            :disabled="reportBusy || reportReason.trim() === ''"
+          >
+            {{ reportBusy ? t('moderation.report.sending') : t('moderation.report.submit') }}
+          </button>
+          <button
+            type="button"
+            class="secondary"
+            data-testid="report-cancel"
+            @click="reportOpen = false"
+          >
+            {{ t('moderation.report.cancel') }}
+          </button>
+        </div>
+      </form>
+
       <p class="summary">
         {{ tour.summary }}
       </p>
@@ -564,6 +664,38 @@ function confirmPaid(): void {
 .summary {
   color: var(--color-text-muted);
   font-size: var(--text-lg);
+}
+
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  align-items: center;
+  justify-content: space-between;
+}
+
+.report-form {
+  margin-block: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.report-form .row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+}
+
+.report-form textarea {
+  inline-size: 100%;
+  max-inline-size: 28rem;
+  min-block-size: 4rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
 }
 
 .facts {

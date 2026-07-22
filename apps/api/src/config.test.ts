@@ -88,6 +88,12 @@ test('notification SMS and email channels are fail-closed (OD-008 / OD-003)', ()
   assert.equal(loadConfig({ NOTIFICATIONS_EMAIL_ENABLED: 'true' }).notificationsEmailEnabled, true);
 });
 
+test('external analytics forwarding is fail-closed (OD-026)', () => {
+  assert.equal(loadConfig({}).analyticsExternalEnabled, false);
+  assert.equal(loadConfig({ ANALYTICS_EXTERNAL_ENABLED: '1' }).analyticsExternalEnabled, false);
+  assert.equal(loadConfig({ ANALYTICS_EXTERNAL_ENABLED: 'TRUE' }).analyticsExternalEnabled, true);
+});
+
 test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
   // Default: off.
   assert.equal(loadConfig({}).devRoutesEnabled, false);

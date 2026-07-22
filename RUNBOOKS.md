@@ -91,3 +91,107 @@ audit events. The bootstrap CLI does not re-enable after revocation — the
 singleton guard persists — so recovery is always done through the console by an
 existing super admin, never by re-running the CLI. Keep at least one active super
 administrator at all times.
+
+---
+
+## Migration rollback and forward-fix
+
+**When:** a migration fails, is recorded as stalled (`applying`), or shipped a
+schema/index change that must be reversed.
+
+**Why forward-fix, not backup/restore (DRAGON-14):** the migration runner is
+**forward-only and idempotent** — each version is claimed by an insert into the
+`schema_migrations` collection and applied at most once; there is no `down`
+step, and the platform intentionally ships **no** backup/restore release
+requirement. Reversal is done by shipping a *new* corrective migration, never by
+restoring a snapshot. This keeps the applied-version history append-only and
+auditable, and avoids a restore silently discarding committed business data
+written after the bad migration.
+
+### A stalled migration (`applying`)
+
+If a process dies mid-migration, its version stays `applying` and the next run
+**refuses** with `Migration <version> is recorded as "applying" since <time>`
+rather than silently retrying (a half-applied change must be inspected, not
+re-run blindly).
+
+1. Inspect what the migration does and what it actually wrote (e.g. which
+   indexes/collections exist) against the target database.
+2. If the migration's writes are **not** present (it died before doing work),
+   delete only that one stalled record so it can re-apply:
+
+   ```
+   db.schema_migrations.deleteOne({ _id: "<version>", state: "applying" })
+   ```
+
+   Then re-run `npm run migrate --workspace @dragon/api`.
+3. If the writes **are** partially present, finish or undo them by hand to match
+   the migration's intended end state, then set the record to `applied` (do not
+   re-run a partially-completed migration):
+
+   ```
+   db.schema_migrations.updateOne({ _id: "<version>" }, { $set: { state: "applied" } })
+   ```
+
+### Reversing an applied migration (forward-fix)
+
+Do **not** edit or delete the original migration or its applied record — history
+stays append-only. Instead add a new, higher-numbered migration that reverses the
+unwanted effect (drop the index it created, restore the previous shape, backfill
+corrected values). Example: `021-revert-020-<reason>`. Ship it through the normal
+`npm run migrate` path. It is audited by its own version record.
+
+### Verification
+
+- `npm run migrate --workspace @dragon/api` exits `0` and reports the expected
+  versions applied.
+- No `schema_migrations` record is left in state `applying`.
+- The affected collections/indexes match the intended end state.
+
+---
+
+## Persistence incident (Mongo / ledger / bracket / queue / OTP-mock / payment-mock)
+
+**When:** a health check or alert fires for a persistence-layer failure. The
+operations module (`POST /admin/ops/health-check`, `GET /admin/ops/metrics`,
+`GET /admin/ops/alerts`) surfaces these. Alert categories: `mongo`, `ledger`,
+`bracket`, `queue`, `otp_mock`, `payment_mock`.
+
+**Why no restore step:** as above, there is no backup/restore requirement.
+Recovery is diagnosis + a bounded, idempotent re-run of the affected work, never
+a snapshot restore.
+
+### Triage
+
+1. `GET /admin/ops/metrics` — read `pendingOutbox`, `deadLetterDeliveries`,
+   `failedJobs`, `openAlerts`.
+2. `GET /admin/ops/alerts?status=open` — read the category and detail of each open
+   alert. Details are redacted (first line only, control chars stripped, no
+   stacks or secrets).
+
+### By category
+
+- **`mongo` (persistence check failed):** confirm the replica set is reachable
+  and primary is elected (transactions require it). Once healthy, re-run
+  `POST /admin/ops/health-check`; the alert clears when the next check passes.
+  Acknowledge the alert once resolved (`POST /admin/ops/alerts/:id/acknowledge`).
+- **`queue` (outbox backlog / dead-letter / failed job):** the job runner
+  (`POST /admin/ops/run-jobs`) drains the outbox → deliveries → hold/checkout
+  expiries. It is **bounded and idempotent** — re-running it is always safe. For
+  dead-lettered notification deliveries, inspect the delivery, fix the underlying
+  channel/config, then re-run the jobs. A repeatedly-failing job records each
+  failure in `job_executions` and raises a fresh `queue` alert.
+- **`ledger` / `bracket`:** these are financial/competition invariants — do
+  **not** hand-edit documents. Use the module's own reconciliation/regeneration
+  path (holds reconciliation; bracket versioned regeneration/rollback) which
+  detects drift and repairs it inside a transaction with an audit trail.
+- **`otp_mock` / `payment_mock`:** mock-adapter failures. These never touch real
+  providers; verify the mock is enabled for a non-production environment and that
+  the caller used a supported deterministic input.
+
+### Verification
+
+- `GET /admin/ops/metrics` shows the relevant counter back at its expected level
+  (e.g. `deadLetterDeliveries` = 0, `failedJobs` no longer increasing).
+- Each resolved alert is acknowledged; no unexplained `open` alert remains.
+- The action is audited (`ops.alert_raised` / `ops.alert_acknowledged`).

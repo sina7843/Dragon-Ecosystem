@@ -64,6 +64,13 @@ export interface AppConfig {
   readonly notificationsSmsEnabled: boolean;
   readonly notificationsEmailEnabled: boolean;
   /**
+   * OD-026 gate. Analytics events are always recorded to the internal sink; this only
+   * governs whether they are also forwarded to an external tracker. Fail-closed: off
+   * unless ANALYTICS_EXTERNAL_ENABLED is exactly `true`, so no external tracker is
+   * activated until the decision is made.
+   */
+  readonly analyticsExternalEnabled: boolean;
+  /**
    * Reverse-proxy addresses whose `X-Forwarded-For` may be trusted (SEC-009).
    * Empty means trust nothing, so `request.ip` is the real socket peer — correct
    * for local development and tests where no proxy sits in front. In the Compose
@@ -239,6 +246,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     // OD-008 / OD-003 fail-closed: notification SMS and email channels are off unless explicitly enabled.
     notificationsSmsEnabled: (source['NOTIFICATIONS_SMS_ENABLED'] ?? '').toLowerCase() === 'true',
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-026 fail-closed: no external analytics tracker unless explicitly enabled.
+    analyticsExternalEnabled: (source['ANALYTICS_EXTERNAL_ENABLED'] ?? '').toLowerCase() === 'true',
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),
       otpTtlSeconds: parsePositiveInteger(source['OTP_TTL_SECONDS'], 120, 'OTP_TTL_SECONDS', problems),

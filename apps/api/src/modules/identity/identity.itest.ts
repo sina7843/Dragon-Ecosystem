@@ -429,6 +429,20 @@ describe('account state (AUTH-009, AUTH-010)', () => {
       /Cannot move an account/
     );
   });
+
+  test('transitioning to the current state is an idempotent no-op (safe retry, no duplicate audit)', async () => {
+    await login();
+    const account = await fixture.database.db.collection(IDENTITY_COLLECTIONS.accounts).findOne({});
+    const accountId = String(account?.['_id']);
+    await service.transitionAccountState(accountId, 'suspended', createRequestContext('itest', SYSTEM_ACTOR), 'first');
+    // A repeat suspend (as a moderation act retry would issue) must not throw and must not
+    // re-audit — the account is already suspended.
+    await service.transitionAccountState(accountId, 'suspended', createRequestContext('itest', SYSTEM_ACTOR), 'retry');
+    const current = await fixture.database.db.collection<{ _id: string; state: string }>(IDENTITY_COLLECTIONS.accounts).findOne({ _id: accountId });
+    assert.equal(current?.state, 'suspended');
+    const changes = await fixture.database.db.collection<{ resourceId: string; action: string }>('audit_events').countDocuments({ resourceId: accountId, action: 'account.state_changed' });
+    assert.equal(changes, 1);
+  });
 });
 
 describe('mock provider boundaries', () => {

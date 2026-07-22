@@ -5,7 +5,7 @@ import { runUnitOfWork } from '../../shared/db/unit-of-work.ts';
 import { createRequestContext, SYSTEM_ACTOR, type RequestContext } from '../../shared/context.ts';
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
-import { ForbiddenError, NotFoundError, RateLimitError, UnauthenticatedError, ValidationError } from '../../shared/errors.ts';
+import { ConflictError, ForbiddenError, NotFoundError, RateLimitError, UnauthenticatedError, ValidationError } from '../../shared/errors.ts';
 import { toPage, type Page, type PageCursor } from '../../shared/pagination.ts';
 import { generateOtpCode, generateSessionToken, hashOtpCode, hashSessionToken, safeEquals } from './crypto.ts';
 import { maskMobile, normalizeIranianMobile } from './mobile.ts';
@@ -517,16 +517,24 @@ export class IdentityService {
     if (reason.trim() === '') throw new ValidationError('A reason is required.');
     const account = await accounts(this.#db).findOne({ _id: accountId });
     if (account === null) throw new NotFoundError('Unknown account.');
+    // Transitioning to the current state is an idempotent no-op. This keeps a caller that
+    // pairs a suspension with other state (e.g. moderation acting on a case) safely
+    // retryable: a retry after a partial failure re-issues the suspend without hitting
+    // the "suspended → suspended is not allowed" rule and getting stuck.
+    if (account.state === to) return;
     if (!canTransition(account.state, to)) {
       throw new ValidationError(`Cannot move an account from ${account.state} to ${to}.`);
     }
 
     await runUnitOfWork(this.#database, context, async (uow) => {
-      await accounts(uow.db).updateOne(
+      const result = await accounts(uow.db).updateOne(
         { _id: accountId, version: account.version },
         { $set: { state: to, updatedAt: utcNow() }, $inc: { version: 1 } },
         { session: uow.session }
       );
+      // Guard the optimistic lock: a concurrent write bumped the version, so the state did
+      // not change — do not emit a state_changed audit for a write that did not happen.
+      if (result.matchedCount === 0) throw new ConflictError('ACCOUNT_STATE_CONFLICT', 'The account changed since it was read. Reload and retry.');
       uow.audit({
         action: 'account.state_changed',
         resourceType: 'account',
