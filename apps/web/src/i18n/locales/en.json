@@ -341,7 +341,19 @@
       "REQUIRED_FOR_PUBLICATION": "This value is required before publishing.",
       "NOT_EDITABLE": "Return the tournament to draft to edit it.",
       "INVALID_TRANSITION": "That lifecycle change is not allowed.",
-      "REQUIRED": "This value is required."
+      "REQUIRED": "This value is required.",
+      "DUPLICATE_REGISTRATION": "You already have an active registration for this tournament.",
+      "TOURNAMENT_FULL": "This tournament is full.",
+      "PAYMENT_NOT_AVAILABLE": "Paid tournament registration is not available yet.",
+      "PARTICIPANT_TYPE_MISMATCH": "Your entry type does not match this tournament.",
+      "REGISTRATION_NOT_OPEN": "Registration has not opened yet.",
+      "REGISTRATION_CLOSED": "Registration has closed.",
+      "PROFILE_REQUIRED": "Complete your profile before registering.",
+      "GAME_IDENTITY_REQUIRED": "Set your in-game identity for this game before registering.",
+      "ANSWER_REQUIRED": "This question requires an answer.",
+      "INVALID_CHOICE": "Choose one of the provided options.",
+      "INVALID_REGISTRATION_TRANSITION": "That registration change is not allowed.",
+      "REASON_REQUIRED": "A reason is required."
     }
   },
   "content": {
@@ -575,6 +587,42 @@
     "publish": "Publish",
     "cancel": "Cancel",
     "archive": "Archive",
-    "clone": "Clone"
+    "clone": "Clone",
+    "registrations": "Registrations"
+  },
+  "registration": {
+    "heading": "Registration",
+    "signInPrompt": "Sign in to register for this tournament.",
+    "teamOnly": "This is a team tournament. A team owner registers the team.",
+    "register": "Register",
+    "registering": "Registering…",
+    "registered": "You are registered.",
+    "withdraw": "Withdraw",
+    "withdrawn": "Your registration was withdrawn.",
+    "state": {
+      "pending": "Pending review",
+      "approved": "Approved",
+      "waitlisted": "Waitlisted",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled"
+    }
+  },
+  "adminRegistrations": {
+    "heading": "Registrations",
+    "back": "Back to tournaments",
+    "seats": "Seats: {main} filled, {waitlist} waitlisted",
+    "filter": "Filter",
+    "allStates": "All",
+    "empty": "No registrations yet.",
+    "participant": "Participant",
+    "state": "Status",
+    "actions": "Actions",
+    "approve": "Approve",
+    "waitlist": "Waitlist",
+    "promote": "Promote",
+    "reject": "Reject",
+    "cancel": "Cancel",
+    "reasonPrompt": "Enter a reason (required):",
+    "updated": "Registration updated."
   }
 }

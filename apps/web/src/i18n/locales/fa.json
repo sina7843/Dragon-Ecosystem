@@ -341,7 +341,19 @@
       "REQUIRED_FOR_PUBLICATION": "این مقدار پیش از انتشار الزامی است.",
       "NOT_EDITABLE": "برای ویرایش، تورنمنت را به پیش‌نویس بازگردانید.",
       "INVALID_TRANSITION": "این تغییر چرخه عمر مجاز نیست.",
-      "REQUIRED": "این مقدار الزامی است."
+      "REQUIRED": "این مقدار الزامی است.",
+      "DUPLICATE_REGISTRATION": "شما هم‌اکنون یک ثبت‌نام فعال برای این تورنمنت دارید.",
+      "TOURNAMENT_FULL": "ظرفیت این تورنمنت تکمیل است.",
+      "PAYMENT_NOT_AVAILABLE": "ثبت‌نام تورنمنت پولی هنوز در دسترس نیست.",
+      "PARTICIPANT_TYPE_MISMATCH": "نوع شرکت شما با این تورنمنت هم‌خوانی ندارد.",
+      "REGISTRATION_NOT_OPEN": "ثبت‌نام هنوز باز نشده است.",
+      "REGISTRATION_CLOSED": "ثبت‌نام بسته شده است.",
+      "PROFILE_REQUIRED": "پیش از ثبت‌نام پروفایل خود را کامل کنید.",
+      "GAME_IDENTITY_REQUIRED": "پیش از ثبت‌نام هویت درون‌بازی خود را برای این بازی تعیین کنید.",
+      "ANSWER_REQUIRED": "پاسخ این پرسش الزامی است.",
+      "INVALID_CHOICE": "یکی از گزینه‌های ارائه‌شده را انتخاب کنید.",
+      "INVALID_REGISTRATION_TRANSITION": "این تغییر ثبت‌نام مجاز نیست.",
+      "REASON_REQUIRED": "ذکر دلیل الزامی است."
     }
   },
   "content": {
@@ -575,6 +587,42 @@
     "publish": "انتشار",
     "cancel": "لغو",
     "archive": "بایگانی",
-    "clone": "کپی"
+    "clone": "کپی",
+    "registrations": "ثبت‌نام‌ها"
+  },
+  "registration": {
+    "heading": "ثبت‌نام",
+    "signInPrompt": "برای ثبت‌نام در این تورنمنت وارد شوید.",
+    "teamOnly": "این یک تورنمنت تیمی است. مالک تیم، تیم را ثبت‌نام می‌کند.",
+    "register": "ثبت‌نام",
+    "registering": "در حال ثبت‌نام…",
+    "registered": "ثبت‌نام شدید.",
+    "withdraw": "انصراف",
+    "withdrawn": "ثبت‌نام شما لغو شد.",
+    "state": {
+      "pending": "در انتظار بررسی",
+      "approved": "تأییدشده",
+      "waitlisted": "در فهرست انتظار",
+      "rejected": "ردشده",
+      "cancelled": "لغوشده"
+    }
+  },
+  "adminRegistrations": {
+    "heading": "ثبت‌نام‌ها",
+    "back": "بازگشت به تورنمنت‌ها",
+    "seats": "ظرفیت: {main} پرشده، {waitlist} در انتظار",
+    "filter": "فیلتر",
+    "allStates": "همه",
+    "empty": "هنوز ثبت‌نامی نیست.",
+    "participant": "شرکت‌کننده",
+    "state": "وضعیت",
+    "actions": "اقدام‌ها",
+    "approve": "تأیید",
+    "waitlist": "فهرست انتظار",
+    "promote": "ارتقا",
+    "reject": "رد",
+    "cancel": "لغو",
+    "reasonPrompt": "یک دلیل وارد کنید (الزامی):",
+    "updated": "ثبت‌نام به‌روزرسانی شد."
   }
 }

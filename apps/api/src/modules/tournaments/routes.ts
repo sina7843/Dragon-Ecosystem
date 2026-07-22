@@ -73,6 +73,15 @@ function publicDetail(t: TournamentRecord, locale: Locale) {
     fee: t.fee,
     prizes: t.prizes,
     refundPolicy: { kind: t.refundPolicy.kind, text: t.refundPolicy.text[locale] },
+    // Question prompts are the registration form (public); submitted answers stay
+    // private (TOURN-029). Only prompt text/type/options are exposed, never answers.
+    questions: t.questionSet.questions.map((q) => ({
+      key: q.key,
+      prompt: q.prompt[locale],
+      type: q.type,
+      required: q.required,
+      options: q.options.map((o) => o[locale])
+    })),
     publishedAt: t.publishedAt
   };
 }

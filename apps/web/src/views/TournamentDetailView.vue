@@ -7,12 +7,17 @@ import { ApiRequestError } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
 import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
+import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
+import { useAuth } from '../composables/useAuth.ts';
+import { useToasts } from '../composables/useToasts.ts';
 
 /** Public tournament detail. A draft, cancelled, or archived tournament is a real 404. */
 
 const { t, locale } = useI18n();
-const { messageFor } = useApiErrors();
+const { messageFor, fieldMessage } = useApiErrors();
+const { authenticated, loaded, refresh } = useAuth();
+const { push } = useToasts();
 const route = useRoute();
 
 const activeLocale = (): Locale => (isLocale(locale.value) ? locale.value : 'fa');
@@ -22,10 +27,23 @@ const notFound = ref(false);
 const errorMessage = ref<string | undefined>(undefined);
 const tour = ref<TournamentDetail | null>(null);
 
+const registration = ref<RegistrationStatus | null>(null);
+const answers = ref<Record<string, string>>({});
+const registering = ref(false);
+const registerError = ref<string | undefined>(undefined);
+
 function moneyLabel(m: MoneyView): string {
   return m.assetCode === 'IRR'
     ? `${formatTomanValue(m.amountInteger, activeLocale())} ${t('money.tomanUnit')}`
     : `${formatNumber(m.amountInteger, activeLocale())} ${t('money.dragonCoinUnit')}`;
+}
+
+async function loadStatus(id: string): Promise<void> {
+  try {
+    registration.value = await myRegistration(id);
+  } catch {
+    registration.value = null; // 404 = not registered yet.
+  }
 }
 
 onMounted(async () => {
@@ -34,10 +52,38 @@ onMounted(async () => {
   } catch (error) {
     if (error instanceof ApiRequestError && error.status === 404) notFound.value = true;
     else errorMessage.value = messageFor(error);
+    return;
   } finally {
     loading.value = false;
   }
+  if (!loaded.value) await refresh();
+  if (authenticated.value && tour.value !== null) await loadStatus(tour.value.id);
 });
+
+async function onRegister(): Promise<void> {
+  if (tour.value === null || registering.value) return;
+  registering.value = true;
+  registerError.value = undefined;
+  try {
+    const payload = tour.value.questions.map((q) => ({ key: q.key, value: answers.value[q.key] ?? '' }));
+    registration.value = await registerForTournament(tour.value.id, { idempotencyKey: newIdempotencyKey(), answers: payload });
+    push('success', t('registration.registered'));
+  } catch (error) {
+    registerError.value = fieldMessage(error, 'participantType') ?? fieldMessage(error, 'age') ?? fieldMessage(error, 'fee') ?? messageFor(error);
+  } finally {
+    registering.value = false;
+  }
+}
+
+async function onWithdraw(): Promise<void> {
+  if (tour.value === null) return;
+  try {
+    registration.value = await withdraw(tour.value.id);
+    push('info', t('registration.withdrawn'));
+  } catch (error) {
+    push('danger', messageFor(error));
+  }
+}
 </script>
 
 <template>
@@ -149,6 +195,91 @@ onMounted(async () => {
           {{ tour.rules }}
         </p>
       </section>
+
+      <section
+        class="block register"
+        data-testid="registration-panel"
+      >
+        <h2>{{ t('registration.heading') }}</h2>
+
+        <template v-if="!authenticated">
+          <p>{{ t('registration.signInPrompt') }}</p>
+        </template>
+
+        <template v-else-if="registration && ['pending', 'approved', 'waitlisted'].includes(registration.state)">
+          <p
+            class="status"
+            :data-testid="`registration-status`"
+            :data-state="registration.state"
+          >
+            {{ t(`registration.state.${registration.state}`) }}
+            <span v-if="registration.state === 'waitlisted' && registration.waitlistSeq !== null">
+              (#{{ registration.waitlistSeq }})
+            </span>
+          </p>
+          <button
+            type="button"
+            class="secondary"
+            data-testid="withdraw"
+            @click="onWithdraw"
+          >
+            {{ t('registration.withdraw') }}
+          </button>
+        </template>
+
+        <template v-else-if="tour.participantType === 'team'">
+          <p>{{ t('registration.teamOnly') }}</p>
+        </template>
+
+        <form
+          v-else
+          novalidate
+          data-testid="register-form"
+          @submit.prevent="onRegister"
+        >
+          <p
+            v-if="registerError"
+            class="summary"
+            role="alert"
+            data-testid="register-error"
+          >
+            {{ registerError }}
+          </p>
+          <div
+            v-for="question in tour.questions"
+            :key="question.key"
+            class="field"
+          >
+            <label :for="`q-${question.key}`">{{ question.prompt }}</label>
+            <select
+              v-if="question.type === 'single_choice'"
+              :id="`q-${question.key}`"
+              v-model="answers[question.key]"
+            >
+              <option
+                v-for="(option, index) in question.options"
+                :key="index"
+                :value="String(index)"
+              >
+                {{ option }}
+              </option>
+            </select>
+            <input
+              v-else
+              :id="`q-${question.key}`"
+              v-model="answers[question.key]"
+            >
+          </div>
+          <button
+            type="submit"
+            class="primary"
+            data-testid="register"
+            :disabled="registering"
+          >
+            {{ registering ? t('registration.registering') : t('registration.register') }}
+          </button>
+        </form>
+      </section>
     </template>
   </section>
 </template>
@@ -182,5 +313,65 @@ onMounted(async () => {
 
 .rules {
   white-space: pre-wrap;
+}
+
+.register {
+  padding: var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.status {
+  font-weight: 700;
+}
+
+.field {
+  margin-block-end: var(--space-3);
+}
+
+.field label {
+  display: block;
+  margin-block-end: var(--space-1);
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  inline-size: 100%;
+  max-inline-size: 28rem;
+  padding: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.summary {
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger-text);
+  border-radius: var(--radius-md);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger-text);
+  font-weight: 600;
+}
+
+.primary {
+  padding-inline: var(--space-4);
+  padding-block: var(--space-2);
+  border: 1px solid var(--color-accent);
+  border-radius: var(--radius-md);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+  cursor: pointer;
+}
+
+.secondary {
+  padding-inline: var(--space-4);
+  padding-block: var(--space-2);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
 }
 </style>

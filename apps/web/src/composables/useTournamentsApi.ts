@@ -50,6 +50,7 @@ export interface TournamentDetail extends TournamentCard {
   fee: FeeView;
   prizes: PrizeView;
   refundPolicy: { kind: string; text: string };
+  questions: Array<{ key: string; prompt: string; type: 'short_text' | 'long_text' | 'single_choice'; required: boolean; options: string[] }>;
   publishedAt: string | null;
 }
 

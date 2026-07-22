@@ -687,6 +687,11 @@ export class TeamsService {
     return rows as Array<{ gameId: string; inGameName: string; visibility: TeamVisibility }>;
   }
 
+  /** Whether an account has set an in-game identity for a game (tournament eligibility, TOURN-008). */
+  async hasGamingIdentity(accountId: string, gameId: string): Promise<boolean> {
+    return (await this.#gamingIdentities(this.#db).countDocuments({ accountId, gameId }, { limit: 1 })) > 0;
+  }
+
   /** Public gaming identities for a player, privacy-aware: a private profile is a 404 (null). */
   async getPublicGamingIdentities(username: string): Promise<Array<{ gameId: string; inGameName: string }> | null> {
     const isPublic = await this.#identity.isProfilePublic(username);
