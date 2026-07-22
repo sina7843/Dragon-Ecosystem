@@ -12,6 +12,7 @@ import { IdentityService, MockSmsAdapter, registerIdentityRoutes } from './modul
 import { AdminService, AuthorizationService, registerAdminRoutes } from './modules/admin/index.ts';
 import { ContentService, registerContentRoutes } from './modules/content/index.ts';
 import { GamesService, registerGamesRoutes } from './modules/games/index.ts';
+import { TeamsService, registerTeamsRoutes } from './modules/teams/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -61,6 +62,7 @@ export interface ServerDependencies {
   readonly admin?: { service: AdminService; authorization: AuthorizationService };
   readonly content?: { service: ContentService };
   readonly games?: { service: GamesService };
+  readonly teams?: { service: TeamsService };
 }
 
 declare module 'fastify' {
@@ -230,6 +232,9 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               games: deps.games.service
             });
           }
+          if (deps.teams !== undefined) {
+            registerTeamsRoutes(api, { identity: deps.identity.service, teams: deps.teams.service });
+          }
         }
       }
     },
@@ -281,6 +286,19 @@ export function buildGames(database: Database): { service: GamesService } {
   return { service: new GamesService(database) };
 }
 
+/**
+ * Wires the teams module. It depends on the games catalog (to reference published
+ * games) and identity (to resolve usernames and public identities) across the
+ * module boundary via their public services.
+ */
+export function buildTeams(
+  database: Database,
+  games: { service: GamesService },
+  identity: { service: IdentityService }
+): { service: TeamsService } {
+  return { service: new TeamsService(database, games.service, identity.service) };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -288,12 +306,15 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const database = await Database.connect(config.mongoUri);
   await prepareDatabase(database);
 
+  const identity = buildIdentity(database, config);
+  const games = buildGames(database);
   const app = buildServer(config, {
     database,
-    identity: buildIdentity(database, config),
+    identity,
     admin: buildAdmin(database),
     content: buildContent(database),
-    games: buildGames(database)
+    games,
+    teams: buildTeams(database, games, identity)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

@@ -607,6 +607,39 @@ export class IdentityService {
     return method?.accountId ?? null;
   }
 
+  /** Resolves a username to its account id, for cross-module lookups such as team invitations. */
+  async findAccountIdByUsername(username: string): Promise<EntityId | null> {
+    const profile = await userProfiles(this.#db).findOne({ username: username.trim().toLowerCase() }, { projection: { _id: 1 } });
+    return profile?._id ?? null;
+  }
+
+  /**
+   * Username and display name for a set of accounts, regardless of visibility.
+   * For in-context views such as a team roster, where teammates already share a
+   * team; never used to build a public directory.
+   */
+  async getIdentitySummaries(accountIds: readonly EntityId[]): Promise<Map<EntityId, { username: string; displayName: string }>> {
+    if (accountIds.length === 0) return new Map();
+    const profiles = await userProfiles(this.#db).find({ _id: { $in: [...accountIds] } }).toArray();
+    return new Map(profiles.map((p) => [p._id, { username: p.username, displayName: p.displayName }]));
+  }
+
+  /** Like {@link getIdentitySummaries} but only for accounts whose profile is public (privacy by default). */
+  async getPublicIdentities(accountIds: readonly EntityId[]): Promise<Map<EntityId, { username: string; displayName: string }>> {
+    if (accountIds.length === 0) return new Map();
+    const profiles = await userProfiles(this.#db).find({ _id: { $in: [...accountIds] }, visibility: 'public' }).toArray();
+    return new Map(profiles.map((p) => [p._id, { username: p.username, displayName: p.displayName }]));
+  }
+
+  /** Whether a username belongs to a public profile; a private or missing profile is indistinguishable (section 16.4). */
+  async isProfilePublic(username: string): Promise<boolean> {
+    const profile = await userProfiles(this.#db).findOne(
+      { username: username.trim().toLowerCase(), visibility: 'public' },
+      { projection: { _id: 1 } }
+    );
+    return profile !== null;
+  }
+
   get environment(): Environment {
     return this.#env;
   }

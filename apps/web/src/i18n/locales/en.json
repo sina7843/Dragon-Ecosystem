@@ -18,6 +18,8 @@
       "adminAudit": "Audit",
       "content": "Content",
       "games": "Games",
+      "teams": "Teams",
+      "gamingIdentities": "Gaming identities",
       "adminContent": "Content",
       "adminGames": "Games"
     }
@@ -41,7 +43,9 @@
     "closeMenu": "Close menu",
     "skipToContent": "Skip to main content",
     "content": "Content",
-    "games": "Games"
+    "games": "Games",
+    "teams": "Teams",
+    "gamingIdentities": "Gaming identities"
   },
   "theme": {
     "label": "Theme",
@@ -312,7 +316,19 @@
       "RESOURCE_NOT_FOUND": "That item could not be found.",
       "INTERNAL_ERROR": "Something went wrong. Try again shortly.",
       "NETWORK_ERROR": "The service could not be reached. Check your connection.",
-      "UNEXPECTED": "Something went wrong. Try again shortly."
+      "UNEXPECTED": "Something went wrong. Try again shortly.",
+      "TEAM_SLUG_TAKEN": "That team name is already taken.",
+      "INVALID_GAME": "Choose a published game.",
+      "USER_NOT_FOUND": "No player with that username was found.",
+      "ALREADY_MEMBER": "That player is already on this team.",
+      "INVITE_PENDING": "That player already has a pending invitation.",
+      "INVITE_EXPIRED": "This invitation has expired.",
+      "INVITE_NOT_PENDING": "This invitation is no longer available.",
+      "TEAM_UNAVAILABLE": "This team has been disbanded.",
+      "CANNOT_REMOVE_OWNER": "The owner cannot be removed. Transfer ownership or disband first.",
+      "OWNER_CANNOT_LEAVE": "The owner cannot leave. Transfer ownership or disband first.",
+      "NOT_A_MEMBER": "The new owner must be an active member.",
+      "ALREADY_OWNER": "You already own this team."
     }
   },
   "content": {
@@ -395,5 +411,78 @@
       "published": "Published",
       "archived": "Archived"
     }
+  },
+  "teams": {
+    "heading": "Teams",
+    "intro": "Create a team, manage your roster, and respond to invitations.",
+    "created": "Your team was created.",
+    "invitationAccepted": "You joined the team.",
+    "invitationDeclined": "The invitation was declined.",
+    "role": {
+      "owner": "Owner",
+      "member": "Member"
+    },
+    "visibility": {
+      "private": "Private",
+      "public": "Public"
+    },
+    "field": {
+      "name": "Team name",
+      "game": "Game",
+      "gamePlaceholder": "Select a game",
+      "visibility": "Team visibility"
+    },
+    "invitations": {
+      "heading": "Your invitations",
+      "accept": "Accept",
+      "decline": "Decline"
+    },
+    "mine": {
+      "heading": "Your teams",
+      "empty": "You are not on any team yet."
+    },
+    "create": {
+      "heading": "Create a team",
+      "submit": "Create team",
+      "creating": "Creating…"
+    },
+    "detail": {
+      "back": "Back to teams",
+      "roster": "Roster",
+      "notFound": "This team is not available.",
+      "invite": "Invite a player",
+      "inviteUsername": "Player username",
+      "sendInvite": "Send invitation",
+      "invited": "The invitation was sent.",
+      "reasonPrompt": "Enter a reason (required):",
+      "remove": "Remove",
+      "memberRemoved": "The member was removed.",
+      "makeOwner": "Make owner",
+      "transferred": "Ownership was transferred.",
+      "leave": "Leave team",
+      "left": "You left the team.",
+      "disband": "Disband team",
+      "disbanded": "The team was disbanded.",
+      "makePublic": "Make public",
+      "makePrivate": "Make private",
+      "updated": "The team was updated.",
+      "snapshot": "Capture roster snapshot",
+      "snapshotReason": "Manual roster snapshot",
+      "snapshotTaken": "A roster snapshot was captured."
+    },
+    "public": {
+      "roster": "Roster",
+      "empty": "No public members to show.",
+      "notFound": "This team is not available."
+    }
+  },
+  "gamingIdentities": {
+    "heading": "Gaming identities",
+    "intro": "Set your in-game name for each game. Public identities appear on your public profile.",
+    "game": "Game",
+    "inGameName": "In-game name",
+    "save": "Save identity",
+    "saving": "Saving…",
+    "saved": "Your gaming identity was saved."
   }
 }

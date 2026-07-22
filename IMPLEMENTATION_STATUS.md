@@ -7,8 +7,9 @@
 - Identity, sessions, and profiles: complete (DRAGON-03)
 - Authorization, administration, audit, configuration: complete (DRAGON-04)
 - Content CMS and game catalog: complete (DRAGON-05)
-- Active prompt: DRAGON-06 — persistent teams and gaming identities
-- Latest verified checkpoint: DRAGON-05 content CMS and game catalog, 2026-07-22
+- Persistent teams and gaming identities: complete (DRAGON-06)
+- Active prompt: DRAGON-07 — tournament authoring and discovery
+- Latest verified checkpoint: DRAGON-06 persistent teams and gaming identities, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -58,6 +59,17 @@
 - Admin: content management with a bilingual editor and lifecycle controls (publisher-only publish/archive), games management, capability-driven navigation.
 - Backend tests (slug/sanitize/state unit; content and games integration for authz, publication rules, drafts-not-public, concurrency) and bilingual browser journeys (publish → public in both locales, SEO assertions, draft-404).
 
+## Delivered by DRAGON-06
+- Persistent teams module (`modules/teams`): create/edit/view teams with a unique normalized slug, a private-by-default visibility, and a reference to a published game-catalog record; owner and member roles held per membership (a resource-scoped grant, not a fixed team-role column, so Phase 4 delegation is additive — TEAM-002/012).
+- Membership and invitation lifecycles: invite by username, accept (idempotent), decline, lazy expiry, remove, and voluntary leave, with membership history retained via effective `joinedAt`/`leftAt` dates.
+- Race safety is enforced by partial unique indexes inside the write transaction, never read-before-write alone: one active membership per (team, account), exactly one active owner per team, and one pending invitation per (team, account). Ownership transfer is an atomic demote/promote guarded by the one-active-owner index and conditional filters, so concurrent transfers still leave exactly one owner.
+- Every high-risk mutation writes its audit event in the same transaction through `runUnitOfWork`; the owner cannot leave or be removed (transfer or disband first); disbanding archives the team without destroying membership history.
+- Immutable, append-only roster snapshots for later tournament registration and match history (BR-007, ASM-004), plus a historical roster reconstruction from membership effective dates.
+- Game-specific player identities (in-game name per game) with privacy-aware public views: a public team lists only public-profile members, and a private profile hides its gaming identities entirely.
+- Identity module extended with cross-module lookups (username → account id, batch identity summaries, public-only identities, public-profile check) so teams never read identity collections directly (section 32.1).
+- Bilingual (fa RTL / en LTR) team hub, team detail with owner/member controls, gaming-identity management, and a public team page; router, navigation, and locale bundles updated with full key parity.
+- A single focused `test-reviewer` pass on the ownership/invitation/membership authorization and concurrency paths returned APPROVE with no Critical or High findings. Two low-risk notes were applied (slug is now stable across renames unless explicitly changed; `listTeamInvitations` returns 404 for an unknown team before 403 for a non-owner); the remaining notes were benign read-only consistency windows with no invariant impact.
+
 ## Known blockers
 - None.
 
@@ -81,13 +93,13 @@
 2026-07-22, all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` — 138 passed (102 api, 36 web)
-- `npm run test:integration` — 80 passed (includes 27 authorization-matrix, 12 content, 4 games)
+- `npm test` — 142 passed (106 api, 36 web)
+- `npm run test:integration` — 106 passed (includes 21 teams: authorization/IDOR, invitation and membership state machines, concurrent accept and concurrent transfer, immutable snapshots, and privacy-aware public views)
 - `npm run build` — pass
-- `npm run e2e` — 156 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR
+- `npm run e2e` — 162 passed across small-mobile 320px, mobile 375px, and desktop 1440px, in fa RTL and en LTR (adds the team create → invite → accept → roster journey and the private/public team visibility path)
 - `node --test .claude/tests/guardrails.test.mjs` — 7 passed
 - `npm run verify:persistence` — pass (DRAGON-01 run)
 - `npm run docker:up` — web, api, mongo all healthy; migrations applied and 28 roles seeded (DRAGON-03 run)
 - Package guardrails: run `03-CHECK-PACKAGE.cmd`.
 
-DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. DRAGON-05 (content sanitisation and draft isolation) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High; sanitisation on every write path, no draft/scheduled leakage, no NoSQL injection, and safe SEO/v-html rendering all confirmed. One Medium (defense-in-depth) — the dev-only `/dev/grant-role` is safe in production but fail-open if `NODE_ENV` is unset — was hardened with a loud non-production startup warning and an ENV note. DRAGON-05 traceability rows are recorded but left Pending for review by the same reviewer independence rule used earlier. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.
+DRAGON-03's proxy-trust security finding was reviewed, fixed, and re-checked (PASS); those rows are marked Reviewed. DRAGON-04 (security-sensitive RBAC) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High. One Medium/plausible finding — a config-key case variant could dodge high-risk dual-control classification — was fixed by canonicalising keys, with unit and integration regression tests. DRAGON-05 (content sanitisation and draft isolation) had one focused `test-reviewer` security pass: verdict PASS, no Critical/High; sanitisation on every write path, no draft/scheduled leakage, no NoSQL injection, and safe SEO/v-html rendering all confirmed. One Medium (defense-in-depth) — the dev-only `/dev/grant-role` is safe in production but fail-open if `NODE_ENV` is unset — was hardened with a loud non-production startup warning and an ENV note. DRAGON-05 traceability rows are recorded but left Pending for review by the same reviewer independence rule used earlier. DRAGON-06 (persistent teams) had one focused `test-reviewer` pass over its ownership, invitation, and membership authorization and concurrency paths: verdict APPROVE, no Critical/High; resource-scoped owner-only enforcement, correct 404-vs-403 boundaries, the partial-unique-index race guarantees, atomic ownership transfer, in-transaction audit writes, insert-only snapshots, and privacy-aware public views were all confirmed. Two low-risk notes were applied (stable slug on rename; 404-before-403 in `listTeamInvitations`); the TEAM traceability rows are marked Reviewed. Rows from DRAGON-00 through DRAGON-02 remain Pending for review.

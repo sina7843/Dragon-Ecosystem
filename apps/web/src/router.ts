@@ -12,6 +12,10 @@ import ContentListView from './views/ContentListView.vue';
 import ContentDetailView from './views/ContentDetailView.vue';
 import GamesCatalogView from './views/GamesCatalogView.vue';
 import GameDetailView from './views/GameDetailView.vue';
+import TeamsView from './views/TeamsView.vue';
+import TeamDetailView from './views/TeamDetailView.vue';
+import PublicTeamView from './views/PublicTeamView.vue';
+import GamingIdentitiesView from './views/GamingIdentitiesView.vue';
 import DesignSystemView from './views/DesignSystemView.vue';
 import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
@@ -78,6 +82,12 @@ export const router = createRouter({
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.games' }
     },
     {
+      path: '/:locale(fa|en)/teams/:slug',
+      name: 'public-team',
+      component: PublicTeamView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
+    },
+    {
       path: '/:locale(fa|en)/auth/mobile',
       name: 'auth-mobile',
       component: AuthMobileView,
@@ -100,6 +110,24 @@ export const router = createRouter({
       name: 'account-security',
       component: AccountSecurityView,
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.security' }
+    },
+    {
+      path: '/:locale(fa|en)/account/teams',
+      name: 'account-teams',
+      component: TeamsView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.teams' }
+    },
+    {
+      path: '/:locale(fa|en)/account/teams/:id',
+      name: 'account-team-detail',
+      component: TeamDetailView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.teams' }
+    },
+    {
+      path: '/:locale(fa|en)/account/gaming-identities',
+      name: 'account-gaming-identities',
+      component: GamingIdentitiesView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.gamingIdentities' }
     },
     {
       path: '/:locale(fa|en)/admin',
