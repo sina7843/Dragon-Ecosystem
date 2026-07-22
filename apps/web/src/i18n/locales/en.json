@@ -23,7 +23,8 @@
       "tournaments": "Tournaments",
       "adminContent": "Content",
       "adminGames": "Games",
-      "adminTournaments": "Tournaments"
+      "adminTournaments": "Tournaments",
+      "wallet": "Wallet"
     }
   },
   "nav": {
@@ -48,7 +49,8 @@
     "games": "Games",
     "teams": "Teams",
     "gamingIdentities": "Gaming identities",
-    "tournaments": "Tournaments"
+    "tournaments": "Tournaments",
+    "wallet": "Wallet"
   },
   "theme": {
     "label": "Theme",
@@ -379,7 +381,19 @@
       "DUPLICATE_PARTICIPANT": "A participant appears more than once.",
       "INVALID_PARTICIPANT_COUNT": "The number of participants is outside the allowed range.",
       "INVALID_LEGS": "The number of legs is not valid.",
-      "DUPLICATE_SEED_USE": "A seed is used more than once in the graph."
+      "DUPLICATE_SEED_USE": "A seed is used more than once in the graph.",
+      "INVALID_PACKAGE": "That purchase package is not available.",
+      "CALLBACK_VERIFICATION_FAILED": "The payment could not be verified.",
+      "CALLBACK_AMOUNT_MISMATCH": "The paid amount did not match the purchase.",
+      "CONFLICTING_PROVIDER_EVENT": "A different payment outcome was already recorded.",
+      "INVALID_STATE_TRANSITION": "That change is not allowed for this purchase.",
+      "PURCHASE_ALREADY_COMPLETED": "This purchase is already completed.",
+      "LEDGER_CREDIT_CONFLICT": "The purchase changed while crediting. Try again.",
+      "CORRECTION_ALREADY_APPLIED": "This correction was already applied.",
+      "INSUFFICIENT_BALANCE_FOR_CORRECTION": "The coins have already been spent; the reversal needs manual resolution.",
+      "PROVIDER_UNAVAILABLE": "The payment service is unavailable. Try again shortly.",
+      "MOCK_PROVIDER_DISABLED": "Test payments are not available here.",
+      "INVALID_CORRECTION_REFERENCE": "A correction reference is required."
     }
   },
   "content": {
@@ -757,5 +771,34 @@
     "rollback": "Roll back",
     "rolledBack": "Rolled back to the selected version.",
     "rollbackImpact": "Restore version {v} as a new active version. The current bracket is archived first."
+  },
+  "wallet": {
+    "heading": "Dragon Coin wallet",
+    "balance": "Balance",
+    "coinUnit": "Dragon Coin",
+    "tomanUnit": "Toman",
+    "packages": "Buy Dragon Coin",
+    "buy": "Buy",
+    "currentPurchase": "Current purchase",
+    "pendingNotice": "Purchase created. Complete the payment to receive your coins.",
+    "simulateHint": "Complete the mock payment to finish this purchase.",
+    "simulateSuccess": "Complete payment",
+    "simulateFailure": "Fail payment",
+    "succeeded": "Payment verified — coins credited.",
+    "history": "Purchase history",
+    "noHistory": "You have no purchases yet.",
+    "package": "Package",
+    "coins": "Dragon Coin",
+    "price": "Price",
+    "status": "Status",
+    "state": {
+      "created": "Created",
+      "payment_pending": "Awaiting payment",
+      "succeeded": "Completed",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "expired": "Expired",
+      "corrected": "Corrected"
+    }
   }
 }

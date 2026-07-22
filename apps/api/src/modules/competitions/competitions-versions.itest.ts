@@ -10,8 +10,13 @@ import { createRequestContext } from '../../shared/context.ts';
 import { newId } from '../../shared/ids.ts';
 import { utcNow } from '../../shared/events.ts';
 import { CompetitionsService } from './index.ts';
+import { seedOrder } from './engine.ts';
 import type { BracketVersionRecord, MatchRecord } from './state.ts';
 import type { ManualGraphSpec } from './manual.ts';
+
+function arraysEqual(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((value, index) => value === b[index]);
+}
 
 /**
  * Bracket-version integration coverage (DRAGON-10): regeneration and rollback with
@@ -203,8 +208,11 @@ describe('rollback restores a prior version', () => {
     const comp = await competitions.generate(ctx(), tid, { seed: 'seed-original' });
     const originalOrder = comp.participants.map((p) => p.registrationId);
 
-    // Regenerate with a different seed so the seed order is reshuffled.
-    await competitions.regenerate(ctx(), tid, { expectedVersion: 1, reason: 'reseed', confirm: true, seed: 'seed-different' });
+    // Deterministically choose a seed that actually reshuffles this exact roster,
+    // so the precondition (order changed) never flakes on a coincidental match.
+    let reseed = 'seed-0';
+    for (let i = 0; i < 100 && arraysEqual(seedOrder(originalOrder, reseed), originalOrder); i += 1) reseed = `seed-${String(i + 1)}`;
+    await competitions.regenerate(ctx(), tid, { expectedVersion: 1, reason: 'reseed', confirm: true, seed: reseed });
     const reseeded = await coll('competitions').findOne({ _id: comp._id });
     assert.notDeepEqual((reseeded?.['participants'] as Array<{ registrationId: string }>).map((p) => p.registrationId), originalOrder);
 

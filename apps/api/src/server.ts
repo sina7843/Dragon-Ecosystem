@@ -16,6 +16,8 @@ import { TeamsService, registerTeamsRoutes } from './modules/teams/index.ts';
 import { TournamentsService, registerTournamentsRoutes } from './modules/tournaments/index.ts';
 import { RegistrationsService, registerRegistrationsRoutes } from './modules/registrations/index.ts';
 import { CompetitionsService, registerCompetitionsRoutes } from './modules/competitions/index.ts';
+import { LedgerService } from './modules/ledger/index.ts';
+import { PaymentsService, MockPaymentProvider, registerPaymentsRoutes } from './modules/payments/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { NotFoundError, toErrorBody } from './shared/errors.ts';
@@ -69,6 +71,7 @@ export interface ServerDependencies {
   readonly tournaments?: { service: TournamentsService };
   readonly registrations?: { service: RegistrationsService };
   readonly competitions?: { service: CompetitionsService };
+  readonly payments?: { service: PaymentsService; db: Db; mockEnabled: boolean };
 }
 
 declare module 'fastify' {
@@ -263,6 +266,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 competitions: deps.competitions.service
               });
             }
+            if (deps.payments !== undefined) {
+              registerPaymentsRoutes(api, {
+                identity: deps.identity.service,
+                authorization: deps.admin.authorization,
+                payments: deps.payments.service,
+                db: deps.payments.db,
+                mockEnabled: deps.payments.mockEnabled
+              });
+            }
           }
         }
       }
@@ -356,6 +368,20 @@ export function buildCompetitions(
   return { service: new CompetitionsService(database, tournaments.service, registrations.service) };
 }
 
+export function buildLedger(database: Database): { service: LedgerService } {
+  return { service: new LedgerService(database) };
+}
+
+export function buildPayments(database: Database, config: AppConfig, ledger: { service: LedgerService }): { service: PaymentsService; db: Db; mockEnabled: boolean } {
+  const provider = new MockPaymentProvider(config.payments.callbackSecret);
+  const service = new PaymentsService(database, ledger.service, provider, { mockEnabled: config.payments.mockEnabled, purchaseTtlSeconds: config.payments.purchaseTtlSeconds });
+  // The self-serve `/payments/mock/pay` test control (which self-signs a success and
+  // would let a caller credit themselves) is fail-closed: registered only outside
+  // production, even if PAYMENTS_MOCK_ENABLED is explicitly set. The mock provider
+  // itself may still back purchases in a non-production or explicitly-opted prod env.
+  return { service, db: database.db, mockEnabled: config.payments.mockEnabled && config.env !== 'production' };
+}
+
 /** Entry point guard: only start listening when executed directly (pathToFileURL keeps this correct on Windows). */
 const entryPoint = process.argv[1];
 if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).href) {
@@ -368,6 +394,7 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const teams = buildTeams(database, games, identity);
   const tournaments = buildTournaments(database, games);
   const registrations = buildRegistrations(database, tournaments, identity, teams);
+  const ledger = buildLedger(database);
   const app = buildServer(config, {
     database,
     identity,
@@ -377,7 +404,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     teams,
     tournaments,
     registrations,
-    competitions: buildCompetitions(database, tournaments, registrations)
+    competitions: buildCompetitions(database, tournaments, registrations),
+    payments: buildPayments(database, config, ledger)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

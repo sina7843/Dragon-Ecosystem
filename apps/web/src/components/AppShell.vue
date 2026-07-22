@@ -40,6 +40,7 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '/account/profile', key: 'nav.profile' },
     { path: '/account/teams', key: 'nav.teams' },
     { path: '/account/gaming-identities', key: 'nav.gamingIdentities' },
+    { path: '/account/wallet', key: 'nav.wallet' },
     { path: '/account/security', key: 'nav.security' },
     { path: '', key: 'nav.home' }
   ],

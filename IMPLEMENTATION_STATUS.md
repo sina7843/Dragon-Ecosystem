@@ -14,9 +14,10 @@
 - Advanced competition formats (double elimination, Swiss, manual/custom): complete (DRAGON-09b) — implemented and verified, not yet committed
 - Standings, corrections, locking, concurrency, and presentation: complete (DRAGON-09c) — completes DRAGON-09; implemented and verified, not yet committed
 - Bracket versioning/regeneration/rollback, operator console, and public bracket presentation: complete (DRAGON-10) — implemented and verified, not yet committed
-- Ledger core and invariants: complete (DRAGON-11a) — immutable double-entry ledger foundation; implemented and verified, not yet committed. Parent DRAGON-11 remains open (11b/11c not started)
-- Active prompt: DRAGON-11a complete; next eligible is DRAGON-11b
-- Latest verified checkpoint: DRAGON-11a ledger core and invariants, 2026-07-22
+- Ledger core and invariants: complete (DRAGON-11a) — immutable double-entry ledger foundation; implemented and verified, not yet committed
+- Mock Toman purchase and exactly-once Dragon Coin crediting: complete (DRAGON-11b) — implemented and verified, not yet committed. Parent DRAGON-11 remains open (11c not started)
+- Active prompt: DRAGON-11b complete; next eligible is DRAGON-11c
+- Latest verified checkpoint: DRAGON-11b mock purchase and crediting, 2026-07-22
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.
@@ -150,6 +151,21 @@
 - Deferred to DRAGON-11b/11c (OD-007/DEC-050 gated): mock payment provider and callbacks, checkout, paid-registration activation, refund execution, prize payout, holds (WALLET-006), wallet purchase UI, and admin financial adjustment UI.
 - **DRAGON-11a is complete; parent DRAGON-11 remains open.**
 
+## Delivered by DRAGON-11b
+- Dragon Coin purchase lifecycle (`modules/payments/`, PAY-003/006): an immutable-identity purchase with a versioned state machine (`created`/`payment_pending` → `succeeded`/`failed`/`cancelled`/`expired`, and `succeeded` → `corrected`). Terminal states never return to pending; transitions are optimistic-concurrency guarded.
+- Code-owned versioned packages (`packages.ts`, PAY-012): starter/plus/pro bind an exact rial price and whole Dragon Coin quantity at `PRICING_VERSION=1`. The client selects a package code; the server owns the rate and coin amount (no client-supplied exchange rate, no dynamic pricing). Toman is derived (÷10) for display; rial is charged.
+- Deterministic mock provider (`provider.ts`, PAY-012): a narrow `PaymentProvider` interface a real provider could implement without changing ledger rules. No network call; deterministic outcomes; callbacks authenticated with an HMAC-SHA256 over a fixed-order canonical string (provider, providerRequestId, purchaseId, rialAmount, asset, eventType, eventId), compared in constant time. Every callback is untrusted input.
+- Exactly-once Dragon Coin crediting: a verified success callback and the ledger credit commit in one transaction (`LedgerService.writeWithin`) under the durable business reference `dragon_coin_purchase:<id>`. Three DB authorities make it exactly-once independent of provider idempotency — the unique ledger `businessRef` index, the partial-unique `purchase_ledger_tx_unique` index (one ledger tx per purchase), and the unique `(provider, eventId)` provider-event index. Duplicate/concurrent callbacks converge to the stored result; a purchase is never `succeeded` without a linked ledger transaction, and no credit posts without the linked purchase. Two concurrent callbacks (same or different event ids) yield exactly one credit — proven by integration tests.
+- Callback binding + failure handling: the verified callback is bound to the server-created purchase (provider, providerRequestId, asset, exact rial amount) before any effect; the credited quantity always comes from the server quote. Failure/cancellation transition without crediting; a signature/amount/reference mismatch is rejected and recorded as a rejected provider event; a late success after expiry settles the purchase as `expired` with no credit (documented rule); conflicting outcomes are rejected (`CONFLICTING_PROVIDER_EVENT`) and never overwrite history.
+- Correction by compensation (`correctPurchase`, finance-gated, WALLET-004/007, PAY-009): a `finance.approve` operator reverses a successful purchase with exactly one compensating ledger transaction committed together with the `succeeded`→`corrected` transition, guarded by expected version and a unique correction reference (duplicate correction prevented). A reversal that would drive the user balance below zero is rejected (`INSUFFICIENT_BALANCE_FOR_CORRECTION`) — no silent debt. Never edits a posted credit.
+- HTTP surface (`routes.ts`): session-gated user routes (list packages, create purchase, get owned purchase, list own history, get Dragon Coin balance) with identity from the session only; a provider callback route that uses no browser session as authority and returns a generic acknowledgement; a **fail-closed** mock-pay control registered only outside production; and a finance-gated correction route. Every mutation has JSON-Schema validation, stable domain errors, rate limiting, correlation id, and audit. No arbitrary ledger-posting endpoint. Owner views expose no ledger id, business reference, provider reference, or correlation id.
+- Bilingual wallet UI (`AccountWalletView.vue`, `/account/wallet`): packages with exact Toman and Dragon Coin, purchase initiation, all lifecycle states, current balance, purchase history, loading/empty/error states, fa RTL / en LTR, no raw provider errors or internal ids, no color-only status, locale-aware integer/Toman formatting. Success is never shown before the verified callback and credit commit.
+- Config + fail-closed startup (`config.ts`): `PAYMENTS_CALLBACK_SECRET` (required and length-checked in production), `PAYMENTS_MOCK_ENABLED` (off in production unless explicit), `PAYMENTS_PURCHASE_TTL_SECONDS`. Documented in `.env.example` and `ENVIRONMENT_VARIABLES.md`.
+- Ledger reuse (no parallel wallet): DRAGON-11a's `LedgerService` gained `ensureAccounts`, `writeWithin` (post a balanced journal inside a caller's transaction), `buildCompensation`, and `mapDuplicateKey` so payments commit the credit atomically with the purchase transition; `post`/`compensate` and all 11a invariants are unchanged and still pass.
+- One focused `test-reviewer` pass over callback authenticity, amount/purchase binding, exactly-once crediting, duplicate/concurrent callbacks, state-machine correctness, rollback atomicity, cross-user IDOR, correction authorization, and secret/provider-data exposure: verdict APPROVE, no Critical/High. One Low note was hardened — the self-serve `/payments/mock/pay` control is now fail-closed and never registered in production regardless of `PAYMENTS_MOCK_ENABLED`, so an opted-in production mock provider still cannot let a caller self-credit.
+- Deferred to DRAGON-11c (OD-007/DEC-050 gated): real payment-provider integration, tournament checkout, paid-registration activation, refund execution, prize payout, withdrawable cash, user-to-user transfers, holds (WALLET-006), and admin financial-adjustment UI.
+- **DRAGON-11b is complete; parent DRAGON-11 remains open.**
+
 ## Known blockers
 - None.
 
@@ -181,14 +197,15 @@
 - Idempotency completion is written outside the registration transaction (shared `withIdempotency`); a crash in a narrow window can strand a key `in_progress` until its 24h TTL without overbooking or duplicating — a stronger in-session/reconciliation guarantee is a shared-infrastructure change for a later hardening prompt.
 
 ## Last verification
-2026-07-22 (DRAGON-11a), API-scoped commands (this slice adds no user-facing UI, so browser tests were not run):
+2026-07-22 (DRAGON-11b), all commands run from the repository root:
 - `npm run typecheck` — pass
 - `npm run lint` — pass, 0 problems
-- `npm test` (workspaces) — 264 passed (228 api, 36 web); api unit adds 20 ledger unit/property tests (balance-to-zero, unbalanced/zero/overflow/mixed-asset rejection, account-relationship policy, order-independent canonical hashing, 200-iteration balanced-journal property)
-- `npm run test:integration` (api) — 192 passed (adds 18 ledger integration: atomic posting with audit+outbox, rollback-leaves-no-effect, idempotent replay + payload-conflict + concurrent one-journal, replay-short-circuits-past-disabled-account, post()-rejects-compensation, duplicate business reference, concurrent final-balance spend one-winner + direct overspend, account-creation race collapses to one, compensation-without-mutation + no-double-compensation, reconciliation zero-balance/drift-detection/bounded-report, cursor pagination completeness, and index uniqueness/partial definitions)
-- `npm run -w apps/api build` — pass
-- migrations against the disposable test DB — `013-ledger` applies cleanly (all 13 migrations applied and recorded)
-- Prior DRAGON-10 checkpoint (unchanged this slice): `npm test` 244, `npm run test:integration` 174, `npm run e2e` 180 across small-mobile/mobile/desktop in fa+en
+- `npm test` (workspaces) — 278 passed (242 api, 36 web); api unit adds 12 payment unit tests (purchase state machine, integer/versioned packages, HMAC callback signing + tampered-amount/wrong-signature/unknown-event-type rejection) plus the config fail-closed tests for the payments callback secret and mock enablement
+- `npm run test:integration` (api) — 213 passed (adds 21 payment integration: create + idempotent create, exactly-once credit with audit+outbox, duplicate + two-concurrent-identical + two-concurrent-different-eventId callbacks all yielding one credit, conflicting outcome rejected, wrong-signature/amount-mismatch/unknown-purchase rejection, failed/cancelled/late-after-expiry flows, IDOR-closed history + pagination, finance correction via one compensating tx, duplicate-correction prevention, insufficient-balance correction rejection, and index uniqueness/partial)
+- `npm run build` — pass
+- migrations against the disposable test DB — `014-payments` applies cleanly (all 14 migrations applied and recorded)
+- `npm run e2e` — 189 passed across small-mobile 320px, mobile 375px, and desktop 1440px, fa RTL + en LTR (adds the wallet journey: buy → awaiting payment → mock verified callback → credited balance + history; a failed payment credits nothing; Persian RTL). The OTP-heavy browser suite occasionally flakes under full-parallel contention with `retries: 0`; an isolated re-run of the affected spec passes (matrix owned by DRAGON-16a)
+- Prior DRAGON-11a checkpoint (unchanged this slice): api unit adds 20 ledger unit/property tests; integration adds 18 ledger tests
 
 Earlier DRAGON-10 verification, 2026-07-22:
 - `npm test` — 244 passed (208 api, 36 web)

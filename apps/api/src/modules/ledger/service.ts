@@ -1,6 +1,6 @@
 import type { Db } from 'mongodb';
 import type { Database } from '../../shared/db/client.ts';
-import { runUnitOfWork } from '../../shared/db/unit-of-work.ts';
+import { runUnitOfWork, type UnitOfWork } from '../../shared/db/unit-of-work.ts';
 import type { RequestContext } from '../../shared/context.ts';
 import { ConflictError, NotFoundError, ValidationError } from '../../shared/errors.ts';
 import { utcNow } from '../../shared/events.ts';
@@ -185,7 +185,12 @@ export class LedgerService {
   }
 
   async #postJournal(context: RequestContext, command: PostCommand, journal: Journal, resolved: Map<string, LedgerAccountRecord>, reversalOf: EntityId | null): Promise<PostedTransaction> {
-    return runUnitOfWork(this.#database, context, async (uow) => {
+    return runUnitOfWork(this.#database, context, async (uow) => this.#writeJournal(uow, context, command, journal, resolved, reversalOf));
+  }
+
+  /** Writes one balanced journal (header, entries, balances, audit, outbox) inside a unit of work. */
+  async #writeJournal(uow: UnitOfWork, context: RequestContext, command: PostCommand, journal: Journal, resolved: Map<string, LedgerAccountRecord>, reversalOf: EntityId | null): Promise<PostedTransaction> {
+    {
       const now = utcNow();
       const transactionId = newId();
       const transaction: LedgerTransactionRecord = {
@@ -242,7 +247,87 @@ export class LedgerService {
       uow.audit({ action: 'ledger.transaction_posted', resourceType: 'ledger_transaction', resourceId: transactionId, after: { type: command.type, assetCode: journal.assetCode, entryCount: journal.legs.length, businessRef: command.businessRef, reversalOf } });
       uow.publish({ eventName: 'ledger.transaction_posted', eventVersion: 1, aggregateId: transactionId, payload: { type: command.type, assetCode: journal.assetCode, businessRef: command.businessRef, reversalOf } });
       return { transaction, entries };
-    });
+    }
+  }
+
+  // --- Posting within a caller's transaction (DRAGON-11b) ---
+
+  /**
+   * Resolves (creating on first use) the accounts for a set of refs, outside any
+   * transaction. A caller that owns a transaction resolves accounts first, then
+   * posts inside its own unit of work so the ledger effect commits atomically with
+   * the caller's domain transition.
+   */
+  async ensureAccounts(refs: readonly AccountRef[]): Promise<Map<string, LedgerAccountRecord>> {
+    const resolved = new Map<string, LedgerAccountRecord>();
+    for (const ref of refs) {
+      this.#assertRefKind(ref);
+      resolved.set(accountIdentityKey(ref), await this.#ensureAccount(ref));
+    }
+    return resolved;
+  }
+
+  /**
+   * Posts one balanced journal inside the caller's unit of work using pre-resolved
+   * accounts. Exactly-once is the caller's responsibility via the unique businessRef
+   * index (a duplicate insert aborts the whole transaction). The 'compensation' type
+   * is permitted here only because the caller builds its legs from a stored
+   * transaction via buildCompensation(); an arbitrary compensation is still rejected
+   * by the account-relationship policy unless every leg is allowed.
+   */
+  async writeWithin(uow: UnitOfWork, context: RequestContext, command: PostCommand, resolved: Map<string, LedgerAccountRecord>, options: { expectedAsset?: AssetCode; reversalOf?: EntityId | null } = {}): Promise<PostedTransaction> {
+    const journal = buildJournal(command, options.expectedAsset);
+    for (const leg of journal.legs) {
+      const account = resolved.get(leg.identityKey);
+      if (account === undefined) throw new ConflictError('LEDGER_CREDIT_CONFLICT', 'A ledger account was not resolved before posting.');
+      if (account.status !== 'active') throw new ConflictError('ACCOUNT_DISABLED', 'A ledger account for this transaction is disabled.');
+      if (account.assetCode !== journal.assetCode || account.scale !== journal.scale) {
+        throw new ValidationError('The ledger transaction is not valid.', [{ field: 'account', code: 'MIXED_ASSET', message: 'An account asset or scale does not match the transaction.' }]);
+      }
+    }
+    return this.#writeJournal(uow, context, command, journal, resolved, options.reversalOf ?? null);
+  }
+
+  /**
+   * Builds the reversing command for a posted transaction (negated legs against the
+   * same accounts) plus the account refs to resolve, so a caller can commit the
+   * compensation inside its own transaction. Never rewrites the original.
+   */
+  async buildCompensation(transactionId: EntityId, options: { businessRef: string; idempotencyKey: string; reason: string; effectiveAt?: string }): Promise<{ command: PostCommand; expectedAsset: AssetCode; reversalOf: EntityId; refs: AccountRef[] }> {
+    if (options.reason.trim() === '') throw new ValidationError('A reason is required.', [{ field: 'reason', code: 'REASON_REQUIRED', message: 'Provide a reason.' }]);
+    const original = await this.#transactions().findOne({ _id: transactionId });
+    if (original === null) throw new NotFoundError('Unknown ledger transaction.');
+    if (original.reversalOf !== null) throw new ConflictError('CANNOT_COMPENSATE_COMPENSATION', 'A compensating transaction cannot itself be compensated.');
+    const originalEntries = await this.#entries().find({ transactionId }).sort({ lineNumber: 1 }).toArray();
+    const refs: AccountRef[] = [];
+    const entries = await Promise.all(
+      originalEntries.map(async (entry) => {
+        const account = await this.#accounts().findOne({ _id: entry.accountId });
+        if (account === null) throw new ConflictError('RECONCILIATION_MISMATCH', 'A referenced ledger account is missing.');
+        const ref: AccountRef = account.ownerKind === 'system' ? { kind: 'system', accountType: account.accountType } : { kind: 'user', ownerId: account.ownerId as string, accountType: account.accountType };
+        refs.push(ref);
+        return { account: ref, amount: -entry.amount, reference: { reversedEntry: entry._id } };
+      })
+    );
+    const command: PostCommand = {
+      type: 'compensation',
+      businessRef: options.businessRef,
+      idempotencyKey: options.idempotencyKey,
+      description: options.reason,
+      entries,
+      metadata: { reversalOf: transactionId },
+      ...(options.effectiveAt === undefined ? {} : { effectiveAt: options.effectiveAt })
+    };
+    return { command, expectedAsset: original.assetCode, reversalOf: transactionId, refs };
+  }
+
+  /** Maps a Mongo duplicate-key error from a caller's transaction to a stable ledger conflict. */
+  mapDuplicateKey(error: unknown): ConflictError | null {
+    const keyPattern = duplicateKeyPattern(error);
+    if (keyPattern === null) return null;
+    if ('reversalOf' in keyPattern) return new ConflictError('DUPLICATE_COMPENSATION', 'This transaction has already been compensated.');
+    if ('businessRef' in keyPattern) return new ConflictError('DUPLICATE_BUSINESS_REFERENCE', 'A ledger transaction already exists for this business reference.');
+    return null;
   }
 
   /**

@@ -28,12 +28,26 @@ export interface AuthConfig {
   readonly recentAuthMinutes: number;
 }
 
+export interface PaymentsConfig {
+  /**
+   * Whether the deterministic mock payment provider and its test-control route are
+   * active. Fail-closed: never true in production unless PAYMENTS_MOCK_ENABLED is
+   * explicitly set, so production cannot accidentally expose the mock pay control.
+   */
+  readonly mockEnabled: boolean;
+  /** HMAC key that authenticates provider callbacks. Never logged, never sent to a client. */
+  readonly callbackSecret: string;
+  /** How long a created purchase stays payable before it expires. */
+  readonly purchaseTtlSeconds: number;
+}
+
 export interface AppConfig {
   readonly env: Environment;
   readonly host: string;
   readonly port: number;
   readonly mongoUri: string;
   readonly auth: AuthConfig;
+  readonly payments: PaymentsConfig;
   /**
    * Reverse-proxy addresses whose `X-Forwarded-For` may be trusted (SEC-009).
    * Empty means trust nothing, so `request.ip` is the real socket peer — correct
@@ -156,6 +170,39 @@ function parseTrustedProxies(raw: string | undefined, problems: string[]): strin
   return entries;
 }
 
+/** Development-only placeholder; production startup fails without a real callback secret. */
+const DEVELOPMENT_PAYMENTS_CALLBACK_SECRET = 'development-only-insecure-payments-callback-secret';
+
+/**
+ * Payment configuration. Fail-closed on two fronts: the mock provider is never
+ * active in production unless PAYMENTS_MOCK_ENABLED is explicitly set, and the
+ * callback-verification secret is required and length-checked in production so a
+ * real deployment cannot process unauthenticated provider callbacks.
+ */
+function parsePayments(source: NodeJS.ProcessEnv, env: Environment, problems: string[]): PaymentsConfig {
+  const mockFlag = (source['PAYMENTS_MOCK_ENABLED'] ?? '').toLowerCase();
+  const mockEnabled = env === 'production' ? mockFlag === 'true' : mockFlag !== 'false';
+
+  const rawSecret = source['PAYMENTS_CALLBACK_SECRET'] ?? '';
+  let callbackSecret = rawSecret;
+  if (rawSecret === '') {
+    if (env === 'production') {
+      problems.push('PAYMENTS_CALLBACK_SECRET is required when NODE_ENV=production');
+      callbackSecret = '';
+    } else {
+      callbackSecret = DEVELOPMENT_PAYMENTS_CALLBACK_SECRET;
+    }
+  } else if (rawSecret.length < MIN_SECRET_LENGTH) {
+    problems.push(`PAYMENTS_CALLBACK_SECRET must be at least ${String(MIN_SECRET_LENGTH)} characters`);
+  }
+
+  return {
+    mockEnabled,
+    callbackSecret,
+    purchaseTtlSeconds: parsePositiveInteger(source['PAYMENTS_PURCHASE_TTL_SECONDS'], 900, 'PAYMENTS_PURCHASE_TTL_SECONDS', problems)
+  };
+}
+
 /**
  * Builds validated configuration. Throws with every problem at once so a
  * misconfigured deployment fails fast and loudly instead of degrading silently.
@@ -187,7 +234,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       otpWindowSeconds: parsePositiveInteger(source['OTP_WINDOW_SECONDS'], 900, 'OTP_WINDOW_SECONDS', problems),
       sessionTtlHours: parsePositiveInteger(source['SESSION_TTL_HOURS'], 24 * 14, 'SESSION_TTL_HOURS', problems),
       recentAuthMinutes: parsePositiveInteger(source['RECENT_AUTH_MINUTES'], 15, 'RECENT_AUTH_MINUTES', problems)
-    }
+    },
+    payments: parsePayments(source, env, problems)
   };
 
   if (problems.length > 0) {

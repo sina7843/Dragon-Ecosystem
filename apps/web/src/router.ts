@@ -2,6 +2,7 @@ import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vu
 import AccountOverviewView from './views/AccountOverviewView.vue';
 import AccountProfileView from './views/AccountProfileView.vue';
 import AccountSecurityView from './views/AccountSecurityView.vue';
+import AccountWalletView from './views/AccountWalletView.vue';
 import AdminOverviewView from './views/AdminOverviewView.vue';
 import AdminUsersView from './views/AdminUsersView.vue';
 import AdminAuditView from './views/AdminAuditView.vue';
@@ -134,6 +135,12 @@ export const router = createRouter({
       name: 'account-security',
       component: AccountSecurityView,
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.security' }
+    },
+    {
+      path: '/:locale(fa|en)/account/wallet',
+      name: 'account-wallet',
+      component: AccountWalletView,
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.wallet' }
     },
     {
       path: '/:locale(fa|en)/account/teams',

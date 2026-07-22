@@ -38,11 +38,35 @@ test('production accepts an explicit connection string and secret', () => {
   const config = loadConfig({
     NODE_ENV: 'production',
     MONGODB_URI: 'mongodb://mongo:27017/dragon',
-    AUTH_SECRET: PRODUCTION_SECRET
+    AUTH_SECRET: PRODUCTION_SECRET,
+    PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET
   });
   assert.equal(config.env, 'production');
   assert.equal(config.mongoUri, 'mongodb://mongo:27017/dragon');
   assert.equal(config.auth.secret, PRODUCTION_SECRET);
+});
+
+test('production without PAYMENTS_CALLBACK_SECRET fails startup (callbacks must be verifiable)', () => {
+  assert.throws(
+    () => loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET }),
+    /PAYMENTS_CALLBACK_SECRET is required when NODE_ENV=production/
+  );
+});
+
+test('the mock payment provider is fail-closed: off in production unless explicitly enabled', () => {
+  // Defaults on outside production; a dev placeholder callback secret is used.
+  assert.equal(loadConfig({}).payments.mockEnabled, true);
+  assert.equal(loadConfig({ PAYMENTS_MOCK_ENABLED: 'false' }).payments.mockEnabled, false);
+  // Production: off by default even with a callback secret present.
+  assert.equal(
+    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET }).payments.mockEnabled,
+    false
+  );
+  // Production: on only when explicitly set.
+  assert.equal(
+    loadConfig({ NODE_ENV: 'production', MONGODB_URI: 'mongodb://mongo:27017/dragon', AUTH_SECRET: PRODUCTION_SECRET, PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET, PAYMENTS_MOCK_ENABLED: 'true' }).payments.mockEnabled,
+    true
+  );
 });
 
 test('trusted proxies default to none, so request.ip is the real peer in dev and test', () => {
@@ -65,6 +89,7 @@ test('dev routes are fail-closed: enabled only by an explicit flag, never in pro
       NODE_ENV: 'production',
       MONGODB_URI: 'mongodb://mongo:27017/dragon',
       AUTH_SECRET: 'x'.repeat(32),
+      PAYMENTS_CALLBACK_SECRET: 'x'.repeat(32),
       ENABLE_DEV_ROUTES: 'true'
     }).devRoutesEnabled,
     false
