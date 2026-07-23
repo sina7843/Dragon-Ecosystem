@@ -14,6 +14,14 @@ const { account, authenticated, profileComplete, loaded, refresh } = useAuth();
 
 const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
 
+const modules = computed(() => [
+  { to: `${prefix.value}/account/profile`, label: t('nav.profile') },
+  { to: `${prefix.value}/account/wallet`, label: t('nav.wallet') },
+  { to: `${prefix.value}/account/teams`, label: t('nav.teams') },
+  { to: `${prefix.value}/account/notifications`, label: t('nav.notifications') },
+  { to: `${prefix.value}/account/security`, label: t('nav.security') }
+]);
+
 onMounted(async () => {
   if (!loaded.value) await refresh();
 });
@@ -21,7 +29,9 @@ onMounted(async () => {
 
 <template>
   <section>
-    <h1>{{ t('account.heading') }}</h1>
+    <div class="page-header">
+      <h1>{{ t('account.heading') }}</h1>
+    </div>
 
     <StateBlock
       v-if="!loaded"
@@ -29,27 +39,34 @@ onMounted(async () => {
     />
 
     <template v-else-if="authenticated">
-      <p data-testid="account-signed-in">
+      <p
+        class="page-lead"
+        data-testid="account-signed-in"
+      >
         {{ t('account.signedIn') }}
       </p>
 
       <p
         v-if="!profileComplete"
-        class="notice"
+        class="notice badge badge-warning"
         data-testid="profile-incomplete"
       >
         {{ t('account.completeProfile') }}
       </p>
 
-      <ul class="links">
-        <li>
-          <RouterLink :to="`${prefix}/account/profile`">
-            {{ t('nav.profile') }}
-          </RouterLink>
-        </li>
-        <li>
-          <RouterLink :to="`${prefix}/account/security`">
-            {{ t('nav.security') }}
+      <ul class="card-grid reset-list">
+        <li
+          v-for="module in modules"
+          :key="module.to"
+          class="card card-interactive"
+        >
+          <RouterLink
+            class="card-link"
+            :to="module.to"
+          >
+            <h3 class="card-title">
+              {{ module.label }}
+            </h3>
           </RouterLink>
         </li>
       </ul>
@@ -66,6 +83,7 @@ onMounted(async () => {
       />
       <p class="links">
         <RouterLink
+          class="btn btn-primary"
           :to="`${prefix}/auth/mobile`"
           data-testid="sign-in-link"
         >
@@ -77,22 +95,27 @@ onMounted(async () => {
 </template>
 
 <style scoped>
-.links {
+.reset-list {
   list-style: none;
-  margin-block: var(--space-4);
+  margin: var(--space-4) 0;
   padding: 0;
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
+}
+
+.card-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+
+.links {
+  margin-block: var(--space-4);
 }
 
 .notice {
-  padding: var(--space-3);
-  border: 1px solid var(--color-warning-text);
-  border-radius: var(--radius-md);
-  background-color: var(--color-warning-surface);
-  color: var(--color-warning-text);
-  font-weight: 600;
+  display: block;
+  width: fit-content;
+  margin-block-end: var(--space-4);
+  padding: var(--space-2) var(--space-3);
 }
 
 .meta {

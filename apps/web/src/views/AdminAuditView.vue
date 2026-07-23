@@ -106,7 +106,24 @@ async function exportAudit(): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('admin.audit.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('admin.audit.heading') }}</h1>
+      </div>
+      <div
+        v-if="canExport"
+        class="page-header-actions"
+      >
+        <button
+          type="button"
+          class="btn btn-secondary"
+          data-testid="export-audit"
+          @click="exportAudit"
+        >
+          {{ t('admin.audit.export') }}
+        </button>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -114,8 +131,8 @@ async function exportAudit(): Promise<void> {
       data-testid="audit-forbidden"
     />
     <template v-else>
-      <div class="controls">
-        <label>
+      <div class="toolbar">
+        <label class="filter-check">
           <input
             type="checkbox"
             data-testid="emergency-filter"
@@ -124,14 +141,6 @@ async function exportAudit(): Promise<void> {
           >
           {{ t('admin.audit.emergencyOnly') }}
         </label>
-        <button
-          v-if="canExport"
-          type="button"
-          data-testid="export-audit"
-          @click="exportAudit"
-        >
-          {{ t('admin.audit.export') }}
-        </button>
       </div>
 
       <StateBlock
@@ -154,7 +163,7 @@ async function exportAudit(): Promise<void> {
         <button
           v-if="nextCursor"
           type="button"
-          class="more"
+          class="btn btn-neutral more"
           data-testid="load-more"
           @click="load(nextCursor ?? undefined)"
         >

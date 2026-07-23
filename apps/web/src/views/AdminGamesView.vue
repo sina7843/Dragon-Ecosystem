@@ -19,6 +19,12 @@ interface Game {
 
 const { t } = useI18n();
 const { forbidden, refresh: refreshCaps } = useAdmin();
+
+// Presentation-only mapping to a status-pill tone; the text label always carries the state.
+function gameTone(status: string): string {
+  if (status === 'published') return 'success';
+  return 'neutral';
+}
 const { messageFor, fieldMessage } = useApiErrors();
 const { push } = useToasts();
 
@@ -112,7 +118,21 @@ async function setStatus(status: string): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('adminGames.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('adminGames.heading') }}</h1>
+      </div>
+      <div class="page-header-actions">
+        <button
+          type="button"
+          class="btn btn-primary"
+          data-testid="new-game"
+          @click="resetForm"
+        >
+          {{ t('adminGames.new') }}
+        </button>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -122,15 +142,7 @@ async function setStatus(status: string): Promise<void> {
 
     <template v-else>
       <div class="layout">
-        <div>
-          <button
-            type="button"
-            class="new"
-            data-testid="new-game"
-            @click="resetForm"
-          >
-            {{ t('adminGames.new') }}
-          </button>
+        <div class="list-pane data-panel">
           <StateBlock
             v-if="loading"
             variant="loading"
@@ -150,11 +162,16 @@ async function setStatus(status: string): Promise<void> {
             >
               <button
                 type="button"
+                class="item-row"
                 :data-testid="`edit-${game.id}`"
                 @click="edit(game)"
               >
-                <span>{{ game.translations.en.name || game.translations.fa.name || '—' }}</span>
-                <span class="state">{{ t(`adminGames.status.${game.status}`) }}</span>
+                <span class="title">{{ game.translations.en.name || game.translations.fa.name || '—' }}</span>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${gameTone(game.status)}`"
+                  :data-state="game.status"
+                >{{ t(`adminGames.status.${game.status}`) }}</span>
               </button>
             </li>
             <li
@@ -167,7 +184,7 @@ async function setStatus(status: string): Promise<void> {
         </div>
 
         <form
-          class="editor"
+          class="editor data-panel"
           novalidate
           data-testid="game-form"
           @submit.prevent="save"
@@ -175,7 +192,7 @@ async function setStatus(status: string): Promise<void> {
           <h2>{{ editing ? t('adminGames.editing') : t('adminGames.creating') }}</h2>
           <p
             v-if="formError"
-            class="summary"
+            class="form-alert"
             role="alert"
             data-testid="game-error"
           >
@@ -211,7 +228,7 @@ async function setStatus(status: string): Promise<void> {
           <div class="actions">
             <button
               type="submit"
-              class="primary"
+              class="btn btn-primary"
               data-testid="save-game"
               :disabled="saving"
             >
@@ -221,6 +238,7 @@ async function setStatus(status: string): Promise<void> {
               <button
                 v-if="editing.status !== 'published'"
                 type="button"
+                class="btn btn-secondary"
                 data-testid="publish-game"
                 @click="setStatus('published')"
               >
@@ -229,6 +247,7 @@ async function setStatus(status: string): Promise<void> {
               <button
                 v-if="editing.status === 'published'"
                 type="button"
+                class="btn btn-danger"
                 data-testid="archive-game"
                 @click="setStatus('archived')"
               >
@@ -245,8 +264,9 @@ async function setStatus(status: string): Promise<void> {
 <style scoped>
 .layout {
   display: grid;
-  gap: var(--space-5);
+  gap: var(--space-4);
   grid-template-columns: minmax(0, 1fr);
+  align-items: start;
 }
 
 @media (min-width: 60rem) {
@@ -255,41 +275,52 @@ async function setStatus(status: string): Promise<void> {
   }
 }
 
-.new {
-  inline-size: 100%;
-  margin-block-end: var(--space-3);
+.list-pane {
   padding: var(--space-3);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
 }
 
 .items {
   list-style: none;
+  margin: 0;
   padding: 0;
   display: grid;
   gap: var(--space-2);
 }
 
-.items button {
+.item-row {
   inline-size: 100%;
   display: flex;
+  align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  padding: var(--space-3);
+  padding: var(--space-2) var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
   text-align: start;
+  transition: background-color var(--motion-fast) var(--motion-ease), border-color var(--motion-fast) var(--motion-ease);
+}
+.item-row:hover {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
 }
 
-.state {
-  font-size: var(--text-xs);
+.title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.empty {
+  padding: var(--space-3);
   color: var(--color-text-muted);
+  text-align: center;
+}
+
+.editor h2 {
+  margin-block-start: 0;
 }
 
 .locale {
@@ -299,8 +330,14 @@ async function setStatus(status: string): Promise<void> {
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
 }
+.locale legend {
+  padding-inline: var(--space-1);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
 
-.summary {
+.form-alert {
   padding: var(--space-3);
   border: 1px solid var(--color-danger-text);
   border-radius: var(--radius-md);
@@ -312,20 +349,6 @@ async function setStatus(status: string): Promise<void> {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-}
-
-.actions button {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.actions .primary {
-  border-color: var(--color-accent);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
+  margin-block-start: var(--space-4);
 }
 </style>

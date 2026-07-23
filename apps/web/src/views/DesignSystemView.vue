@@ -88,8 +88,14 @@ const dialogOpen = ref(false);
 
 <template>
   <section>
-    <h1>{{ t('designSystem.heading') }}</h1>
-    <p>{{ t('designSystem.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('designSystem.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('designSystem.intro') }}
+        </p>
+      </div>
+    </div>
 
     <h2>{{ t('designSystem.statesHeading') }}</h2>
     <div class="states">
@@ -98,6 +104,103 @@ const dialogOpen = ref(false);
         :key="variant"
         :variant="variant"
       />
+    </div>
+
+    <h2>{{ t('designSystem.buttonsHeading') }}</h2>
+    <div class="toolbar">
+      <button
+        type="button"
+        class="btn btn-primary"
+      >
+        Primary
+      </button>
+      <button
+        type="button"
+        class="btn btn-secondary"
+      >
+        Secondary
+      </button>
+      <button
+        type="button"
+        class="btn btn-neutral"
+      >
+        Neutral
+      </button>
+      <button
+        type="button"
+        class="btn btn-ghost"
+      >
+        Ghost
+      </button>
+      <button
+        type="button"
+        class="btn btn-danger"
+      >
+        Danger
+      </button>
+      <button
+        type="button"
+        class="btn btn-primary"
+        disabled
+      >
+        Disabled
+      </button>
+    </div>
+
+    <h2>{{ t('designSystem.cardsHeading') }}</h2>
+    <div class="stat-grid">
+      <div class="stat-card">
+        <span class="stat-value numeric">128</span>
+        <span class="stat-label">Sample metric</span>
+      </div>
+      <div class="stat-card">
+        <span class="stat-value numeric">42</span>
+        <span class="stat-label">Another metric</span>
+      </div>
+    </div>
+    <div class="card-grid">
+      <div class="card">
+        <h3 class="card-title">
+          Plain card
+        </h3>
+        <p class="card-meta">
+          A resting surface for non-interactive content.
+        </p>
+      </div>
+      <div class="card card-interactive">
+        <h3 class="card-title">
+          Interactive card
+        </h3>
+        <p class="card-meta">
+          Use only for genuinely clickable content.
+        </p>
+      </div>
+      <div class="data-panel">
+        <h3 class="card-title">
+          Data panel
+        </h3>
+        <p class="card-meta">
+          An elevated surface for dense figures.
+        </p>
+      </div>
+    </div>
+
+    <h2>{{ t('designSystem.badgesHeading') }}</h2>
+    <div class="pill-row">
+      <span class="badge badge-neutral">Neutral</span>
+      <span class="badge badge-accent">Accent</span>
+      <span class="badge badge-success">Success</span>
+      <span class="badge badge-warning">Warning</span>
+      <span class="badge badge-danger">Danger</span>
+      <span class="badge badge-info">Info</span>
+    </div>
+    <div class="pill-row">
+      <span class="status-pill status-pill-neutral">Neutral</span>
+      <span class="status-pill status-pill-accent">Accent</span>
+      <span class="status-pill status-pill-success">Success</span>
+      <span class="status-pill status-pill-warning">Warning</span>
+      <span class="status-pill status-pill-danger">Danger</span>
+      <span class="status-pill status-pill-info">Info</span>
     </div>
 
     <h2>{{ t('designSystem.formHeading') }}</h2>
@@ -130,7 +233,7 @@ const dialogOpen = ref(false);
 
       <button
         type="submit"
-        class="primary"
+        class="btn btn-primary"
         data-testid="form-submit"
         :disabled="submitting"
       >
@@ -160,7 +263,7 @@ const dialogOpen = ref(false);
     <h2>{{ t('designSystem.dialogHeading') }}</h2>
     <button
       type="button"
-      class="primary"
+      class="btn btn-primary"
       data-testid="dialog-open"
       @click="dialogOpen = true"
     >
@@ -179,6 +282,7 @@ const dialogOpen = ref(false);
     <div class="toast-buttons">
       <button
         type="button"
+        class="btn btn-neutral"
         data-testid="toast-info"
         @click="push('info', t('toast.sample.info'))"
       >
@@ -186,6 +290,7 @@ const dialogOpen = ref(false);
       </button>
       <button
         type="button"
+        class="btn btn-danger"
         data-testid="toast-danger"
         @click="push('danger', t('toast.sample.danger'))"
       >
@@ -216,38 +321,20 @@ form {
   font-weight: 600;
 }
 
-.primary {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
-
-.primary:disabled {
-  background-color: var(--color-surface-sunken);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
-
 .pagination {
   margin-block: var(--space-4) var(--space-6);
+}
+
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-block-end: var(--space-4);
 }
 
 .toast-buttons {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-}
-
-.toast-buttons button {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
 }
 </style>

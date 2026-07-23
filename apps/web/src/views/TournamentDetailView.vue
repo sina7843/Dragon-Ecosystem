@@ -31,6 +31,19 @@ const notFound = ref(false);
 const errorMessage = ref<string | undefined>(undefined);
 const tour = ref<TournamentDetail | null>(null);
 
+// Time-based status derived from the tournament's own dates — no invented backend state.
+const heroStatus = computed<{ key: string; tone: string } | null>(() => {
+  const card = tour.value;
+  if (!card) return null;
+  const now = Date.now();
+  const start = card.startAt ? Date.parse(card.startAt) : null;
+  const end = card.endAt ? Date.parse(card.endAt) : null;
+  if (start === null) return { key: 'home.statusUnscheduled', tone: 'neutral' };
+  if (end !== null && now > end) return { key: 'home.statusFinished', tone: 'neutral' };
+  if (now >= start && (end === null || now <= end)) return { key: 'home.statusLive', tone: 'success' };
+  return { key: 'home.statusUpcoming', tone: 'accent' };
+});
+
 const registration = ref<RegistrationStatus | null>(null);
 const answers = ref<Record<string, string>>({});
 const registering = ref(false);
@@ -258,19 +271,37 @@ function confirmPaid(): void {
     />
 
     <template v-else-if="tour">
-      <div class="title-row">
-        <h1 data-testid="tournament-title">
-          {{ tour.name }}
-        </h1>
-        <button
-          v-if="authenticated && !reportOpen"
-          type="button"
-          class="secondary"
-          data-testid="report-tournament"
-          @click="openReport"
-        >
-          {{ t('moderation.report.action') }}
-        </button>
+      <div class="hero">
+        <div class="title-row">
+          <div class="title-block">
+            <div
+              v-if="heroStatus"
+              class="hero-meta"
+            >
+              <span
+                class="status-pill"
+                :class="`status-pill-${heroStatus.tone}`"
+              >{{ t(heroStatus.key) }}</span>
+              <span class="badge badge-accent">{{ t(`tournaments.feeKind.${tour.fee.kind}`) }}</span>
+              <span class="badge badge-neutral">{{ t(`tournaments.participant.${tour.participantType}`) }}</span>
+            </div>
+            <h1 data-testid="tournament-title">
+              {{ tour.name }}
+            </h1>
+          </div>
+          <button
+            v-if="authenticated && !reportOpen"
+            type="button"
+            class="btn btn-ghost"
+            data-testid="report-tournament"
+            @click="openReport"
+          >
+            {{ t('moderation.report.action') }}
+          </button>
+        </div>
+        <p class="summary">
+          {{ tour.summary }}
+        </p>
       </div>
 
       <form
@@ -323,11 +354,9 @@ function confirmPaid(): void {
         </div>
       </form>
 
-      <p class="summary">
-        {{ tour.summary }}
-      </p>
       <p
         v-if="tour.description"
+        class="description"
         data-testid="tournament-description"
       >
         {{ tour.description }}
@@ -687,24 +716,119 @@ function confirmPaid(): void {
 </template>
 
 <style scoped>
-.summary {
-  color: var(--color-text-muted);
-  font-size: var(--text-lg);
+/* ---- Hero ---- */
+.hero {
+  padding: var(--space-6);
+  margin-block-end: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+  background-image: var(--gradient-hero);
 }
 
 .title-row {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
 }
 
-.report-form {
-  margin-block: var(--space-3);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
+.title-block h1 {
+  margin: 0;
+  font-size: var(--text-3xl);
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block-end: var(--space-3);
+}
+
+.summary {
+  margin-block: var(--space-3) 0;
+  color: var(--color-text-muted);
+  font-size: var(--text-lg);
+  max-inline-size: 70ch;
+}
+
+.description {
+  margin-block: var(--space-4);
+  max-inline-size: 70ch;
+}
+
+/* Validation summaries are the only red-boxed .summary; keyed off role so the
+   hero lead paragraph is never mistaken for an error (fixes prior collision). */
+[role='alert'].summary {
+  padding: var(--space-3);
+  border: 1px solid var(--color-danger-text);
   border-radius: var(--radius-md);
+  background-color: var(--color-danger-surface);
+  color: var(--color-danger-text);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  max-inline-size: none;
+}
+
+/* ---- Facts (premium data grid) ---- */
+.facts {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 11rem), 1fr));
+  gap: var(--space-4);
+  margin: var(--space-4) 0 var(--space-6);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
+}
+
+.facts > div {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.facts dt {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+
+.facts dd {
+  margin: 0;
+  font-weight: var(--weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- Content blocks & panels ---- */
+.block {
+  margin-block: var(--space-6);
+}
+
+.block > h2 {
+  margin-block-end: var(--space-3);
+}
+
+.rules {
+  white-space: pre-wrap;
+  max-inline-size: 70ch;
+}
+
+.register {
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-sm);
+}
+
+.report-form {
+  margin-block: var(--space-4);
+  padding: var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
 }
 
 .report-form .row {
@@ -717,42 +841,11 @@ function confirmPaid(): void {
   inline-size: 100%;
   max-inline-size: 28rem;
   min-block-size: 4rem;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
-}
-
-.facts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin: var(--space-4) 0;
-}
-
-.facts dt {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
-}
-
-.facts dd {
-  margin: 0;
-  font-weight: 600;
-}
-
-.block {
-  margin-block: var(--space-5);
-}
-
-.rules {
-  white-space: pre-wrap;
-}
-
-.register {
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
 }
 
 .checkout {
@@ -767,8 +860,34 @@ function confirmPaid(): void {
   gap: var(--space-3);
 }
 
+/* Registration / standings status rendered as a status pill (non-colour label). */
 .status {
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-block: 0.25em;
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-sunken);
+  font-weight: var(--weight-semibold);
+}
+.status::before {
+  content: '';
+  inline-size: 0.5em;
+  block-size: 0.5em;
+  border-radius: var(--radius-full);
+  background-color: currentColor;
+}
+.status[data-state='approved'] {
+  background-color: var(--color-success-surface);
+  color: var(--color-success-text);
+  border-color: currentColor;
+}
+.status[data-state='waitlisted'] {
+  background-color: var(--color-warning-surface);
+  color: var(--color-warning-text);
+  border-color: currentColor;
 }
 
 .field {
@@ -778,55 +897,75 @@ function confirmPaid(): void {
 .field label {
   display: block;
   margin-block-end: var(--space-1);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .field input,
 .field select {
   inline-size: 100%;
   max-inline-size: 28rem;
-  padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
 }
 
-.summary {
-  padding: var(--space-3);
-  border: 1px solid var(--color-danger-text);
-  border-radius: var(--radius-md);
-  background-color: var(--color-danger-surface);
-  color: var(--color-danger-text);
-  font-weight: 600;
-}
-
-.primary {
-  padding-inline: var(--space-4);
-  padding-block: var(--space-2);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
-
+/* ---- Buttons (kept class names, restyled to the button system) ---- */
+.primary,
 .secondary {
-  padding-inline: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-5);
   padding-block: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.primary:active,
+.secondary:active {
+  transform: translateY(1px);
+}
+.primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  box-shadow: var(--glow-primary);
+}
+.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-strong);
+}
+.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.secondary {
   background-color: var(--color-surface);
   color: var(--color-text);
-  cursor: pointer;
+  border-color: var(--color-border-strong);
+}
+.secondary:hover {
+  background-color: var(--color-surface-raised);
+  border-color: var(--color-primary);
 }
 
+/* ---- Standings table (premium data panel) ---- */
 .standings .status {
-  font-weight: 700;
+  margin-block-end: var(--space-3);
 }
 
 .scroll {
   overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .standings table {
@@ -836,21 +975,48 @@ function confirmPaid(): void {
 
 .standings th,
 .standings td {
-  padding: var(--space-2) var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
   text-align: start;
+  font-variant-numeric: tabular-nums;
 }
 
+.standings th {
+  position: sticky;
+  inset-block-start: 0;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+[lang='fa'] .standings th {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+.standings tbody tr:hover {
+  background-color: var(--color-surface-raised);
+}
+
+/* Champion row gets restrained premium emphasis, plus weight (not colour alone). */
 .standings tr[data-placement='champion'] {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
+  background-color: var(--color-secondary-surface);
+}
+.standings tr[data-placement='champion'] td:first-child {
+  box-shadow: inset 0.2rem 0 0 var(--color-primary);
 }
 
+/* ---- Bracket ---- */
 .bracket-head {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-3);
   align-items: center;
   justify-content: space-between;
+  margin-block-start: var(--space-6);
 }
 
 .bracket-tools {
@@ -862,50 +1028,73 @@ function confirmPaid(): void {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-block: var(--space-2);
+  margin-block: var(--space-3);
 }
 
 .round-nav a {
-  padding-inline: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  padding-block: var(--space-1);
+  padding-inline: var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
   font-size: var(--text-sm);
+  text-decoration: none;
+  color: var(--color-text);
+}
+.round-nav a:hover {
+  background-color: var(--color-surface-raised);
 }
 
-/* Columns so a large bracket scrolls horizontally instead of stacking one long list. */
+/* Columns so a large bracket scrolls horizontally instead of stacking one long list.
+   The region is focusable and labelled in the template for keyboard access (22.2). */
 .bracket {
   display: flex;
-  gap: var(--space-4);
+  gap: var(--space-5);
   overflow-x: auto;
   padding-block: var(--space-2);
 }
 
 .round {
-  min-inline-size: 14rem;
+  min-inline-size: 15rem;
   flex: 0 0 auto;
 }
 
 .round h3 {
-  font-size: var(--text-sm);
+  margin-block-end: var(--space-2);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-muted);
+}
+[lang='fa'] .round h3 {
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .round ul {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
+/* Match card — participants and state read as text; border reinforces winner. */
 .round li {
-  padding: var(--space-2);
-  margin-block-end: var(--space-2);
+  padding: var(--space-3);
   border: 1px solid var(--color-border);
+  border-inline-start: 3px solid var(--color-border-strong);
   border-radius: var(--radius-md);
+  background-color: var(--color-surface);
   font-size: var(--text-sm);
+  box-shadow: var(--shadow-sm);
 }
 
 .round li[data-state='completed'] {
-  border-color: var(--color-accent);
+  border-inline-start-color: var(--color-primary);
+}
+.round li[data-state='live'] {
+  border-inline-start-color: var(--color-success-text);
 }
 
 @media print {

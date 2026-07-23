@@ -86,7 +86,11 @@ async function onSignOut(): Promise<void> {
         class="brand"
         :to="localePrefix"
       >
-        {{ t('app.name') }}
+        <span
+          class="brand-mark"
+          aria-hidden="true"
+        >◆</span>
+        <span class="brand-name">{{ t('app.name') }}</span>
       </RouterLink>
 
       <AppNav
@@ -100,6 +104,7 @@ async function onSignOut(): Promise<void> {
       <div class="controls">
         <RouterLink
           v-if="loaded && !authenticated"
+          class="btn btn-primary"
           :to="`${localePrefix}/auth/mobile`"
           data-testid="header-sign-in"
         >
@@ -108,7 +113,7 @@ async function onSignOut(): Promise<void> {
         <button
           v-else-if="loaded"
           type="button"
-          class="sign-out"
+          class="btn btn-neutral"
           data-testid="header-sign-out"
           @click="onSignOut"
         >
@@ -145,38 +150,46 @@ async function onSignOut(): Promise<void> {
 }
 
 .header {
+  position: sticky;
+  inset-block-start: 0;
+  z-index: var(--z-nav);
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3) var(--space-5);
-  padding: var(--space-3) var(--space-4);
+  padding: var(--space-4);
   border-block-end: 1px solid var(--color-border);
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-surface);
 }
 
 .brand {
-  font-size: var(--text-lg);
-  font-weight: 700;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-tight);
   color: var(--color-text);
   text-decoration: none;
+}
+
+.brand-mark {
+  display: grid;
+  place-items: center;
+  inline-size: 1.5rem;
+  block-size: 1.5rem;
+  border-radius: var(--radius-sm);
+  background: var(--color-primary);
+  color: var(--color-primary-text);
+  font-size: 0.7em;
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3);
   margin-inline-start: auto;
-}
-
-.sign-out {
-  padding-inline: var(--space-3);
-  /* Interactive control boundary meets non-text 3:1 (A11Y-008). */
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
 }
 
 .main {
@@ -194,8 +207,9 @@ async function onSignOut(): Promise<void> {
 }
 
 .footer {
-  padding: var(--space-4);
+  padding: var(--space-5) var(--space-4);
   border-block-start: 1px solid var(--color-border);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }

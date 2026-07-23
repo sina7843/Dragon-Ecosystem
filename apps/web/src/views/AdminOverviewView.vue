@@ -56,7 +56,20 @@ onMounted(refresh);
 
 <template>
   <section>
-    <h1>{{ t('admin.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('admin.heading') }}</h1>
+      </div>
+      <div
+        v-if="loaded && !forbidden && isSuperAdmin"
+        class="page-header-actions"
+      >
+        <span
+          class="status-pill status-pill-warning"
+          data-testid="super-admin-badge"
+        >{{ t('admin.superAdmin') }}</span>
+      </div>
+    </div>
 
     <StateBlock
       v-if="!loaded"
@@ -70,21 +83,15 @@ onMounted(refresh);
     />
 
     <template v-else>
-      <p
-        v-if="isSuperAdmin"
-        class="super"
-        data-testid="super-admin-badge"
-      >
-        {{ t('admin.superAdmin') }}
-      </p>
-
       <nav :aria-label="t('nav.region.admin')">
         <ul class="areas">
           <li
             v-for="area in areas"
             :key="area.to"
+            class="card card-interactive"
           >
             <RouterLink
+              class="area-link"
               :to="area.to"
               :data-testid="area.testid"
             >
@@ -106,28 +113,22 @@ onMounted(refresh);
 <style scoped>
 .areas {
   list-style: none;
+  margin: 0;
   padding: 0;
   display: grid;
   gap: var(--space-3);
   grid-template-columns: repeat(auto-fill, minmax(14rem, 1fr));
 }
 
-.areas a {
-  display: block;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  text-decoration: none;
-  font-weight: 600;
+.areas .card {
+  padding: 0;
 }
 
-.super {
-  display: inline-block;
-  padding: var(--space-1) var(--space-3);
-  border-radius: var(--radius-full);
-  background-color: var(--color-warning-surface);
-  color: var(--color-warning-text);
-  font-weight: 700;
+.area-link {
+  display: block;
+  padding: var(--space-4) var(--space-5);
+  text-decoration: none;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 </style>

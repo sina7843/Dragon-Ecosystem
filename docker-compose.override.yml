@@ -1,0 +1,14 @@
+services:
+  api:
+    environment:
+      NODE_ENV: development
+      # Dedicated development database: its name carries the dev/demo/local marker the
+      # demo seeder requires, so the production "dragon" database can never be seeded.
+      MONGODB_URI: mongodb://mongo:27017/dragon_dev?replicaSet=rs0
+      AUTH_SECRET: local-development-auth-secret-1234567890-abcdef
+      PAYMENTS_CALLBACK_SECRET: local-development-payment-secret-1234567890-abcdef
+      ANALYTICS_PSEUDONYM_SALT: local-development-analytics-salt-1234567890-abcdef
+      PUBLIC_ORIGIN: ""
+      ENABLE_DEV_ROUTES: "false"
+      # Deterministic mock payment provider (never a live provider) so demo purchases work.
+      PAYMENTS_MOCK_ENABLED: "true"

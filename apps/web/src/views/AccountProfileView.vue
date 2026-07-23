@@ -80,8 +80,14 @@ async function onSubmit(): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('profile.heading') }}</h1>
-    <p>{{ t('profile.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('profile.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('profile.intro') }}
+        </p>
+      </div>
+    </div>
 
     <StateBlock
       v-if="loading"
@@ -162,7 +168,7 @@ async function onSubmit(): Promise<void> {
 
       <button
         type="submit"
-        class="primary"
+        class="btn btn-primary"
         data-testid="profile-submit"
         :disabled="submitting"
       >
@@ -202,21 +208,5 @@ form {
   margin-block: 0 var(--space-2);
   font-size: var(--text-sm);
   color: var(--color-text-muted);
-}
-
-.primary {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
-
-.primary:disabled {
-  background-color: var(--color-surface-sunken);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
 }
 </style>

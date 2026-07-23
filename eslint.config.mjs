@@ -80,7 +80,8 @@ export default tseslint.config(
       'scripts/**/*.mjs',
       '**/*.config.{ts,mjs}',
       'apps/api/src/migrate.ts',
-      'apps/api/src/bootstrap-superadmin.ts'
+      'apps/api/src/bootstrap-superadmin.ts',
+      'apps/api/src/seed-demo.ts'
     ],
     languageOptions: {
       globals: { process: 'readonly', console: 'readonly' }

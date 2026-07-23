@@ -8,11 +8,14 @@ const { t } = useI18n();
 </script>
 
 <template>
-  <section>
+  <section class="gated">
     <h1>{{ t('state.forbidden.heading') }}</h1>
     <StateBlock variant="forbidden" />
     <p class="back">
-      <RouterLink to="/">
+      <RouterLink
+        class="btn btn-primary"
+        to="/"
+      >
         {{ t('state.notFound.action') }}
       </RouterLink>
     </p>
@@ -20,7 +23,15 @@ const { t } = useI18n();
 </template>
 
 <style scoped>
+.gated {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-5);
+  padding-block: var(--space-8);
+}
+
 .back {
-  margin-block-start: var(--space-4);
+  margin: 0;
 }
 </style>

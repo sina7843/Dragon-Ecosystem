@@ -45,6 +45,18 @@ onMounted(async () => {
   await load();
 });
 
+// Registration state pill tone — text label always carries the meaning (section 23.2).
+const STATE_TONE: Record<string, string> = {
+  pending: 'warning',
+  approved: 'success',
+  waitlisted: 'info',
+  rejected: 'danger',
+  cancelled: 'neutral'
+};
+function tone(state: string): string {
+  return STATE_TONE[state] ?? 'neutral';
+}
+
 async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'waitlist' | 'promote' | 'cancel'): Promise<void> {
   let reason: string | undefined;
   if (verb === 'reject' || verb === 'cancel') {
@@ -65,11 +77,18 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
 <template>
   <section>
     <p>
-      <RouterLink :to="`${prefix}/admin/tournaments`">
+      <RouterLink
+        class="btn btn-ghost back-link"
+        :to="`${prefix}/admin/tournaments`"
+      >
         {{ t('adminRegistrations.back') }}
       </RouterLink>
     </p>
-    <h1>{{ t('adminRegistrations.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('adminRegistrations.heading') }}</h1>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -78,16 +97,21 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
     />
 
     <template v-else>
-      <p
-        class="seats"
+      <div
+        class="stat-card seats"
         data-testid="seat-summary"
       >
-        {{ t('adminRegistrations.seats', { main: seats.mainCount, waitlist: seats.waitlistCount }) }}
-      </p>
+        <span class="stat-value">{{ seats.mainCount }} / {{ seats.waitlistCount }}</span>
+        <span class="stat-label">{{ t('adminRegistrations.seats', { main: seats.mainCount, waitlist: seats.waitlistCount }) }}</span>
+      </div>
 
-      <label class="filter">
-        {{ t('adminRegistrations.filter') }}
+      <div class="toolbar">
+        <label
+          class="filter-label"
+          for="registrations-state-filter"
+        >{{ t('adminRegistrations.filter') }}</label>
         <select
+          id="registrations-state-filter"
           v-model="stateFilter"
           data-testid="state-filter"
           @change="load"
@@ -103,7 +127,7 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
             {{ t(`registration.state.${s}`) }}
           </option>
         </select>
-      </label>
+      </div>
 
       <StateBlock
         v-if="loading"
@@ -120,98 +144,135 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
         :message="t('adminRegistrations.empty')"
       />
 
-      <table
+      <div
         v-else
-        data-testid="registration-queue"
+        class="scroll"
+        role="region"
+        tabindex="0"
+        :aria-label="t('adminRegistrations.heading')"
       >
-        <caption class="sr-only">
-          {{ t('adminRegistrations.heading') }}
-        </caption>
-        <thead>
-          <tr>
-            <th>{{ t('adminRegistrations.participant') }}</th>
-            <th>{{ t('adminRegistrations.state') }}</th>
-            <th>{{ t('adminRegistrations.actions') }}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr
-            v-for="reg in rows"
-            :key="reg.id"
-            :data-testid="`registration-${reg.id}`"
-          >
-            <td>{{ reg.participantType === 'team' ? reg.teamId : reg.accountId }}</td>
-            <td :data-state="reg.state">
-              {{ t(`registration.state.${reg.state}`) }}
-              <span v-if="reg.waitlistSeq !== null">(#{{ reg.waitlistSeq }})</span>
-            </td>
-            <td class="actions">
-              <button
-                v-if="reg.state === 'pending'"
-                type="button"
-                data-testid="approve"
-                @click="decide(reg, 'approve')"
-              >
-                {{ t('adminRegistrations.approve') }}
-              </button>
-              <button
-                v-if="reg.state === 'pending'"
-                type="button"
-                data-testid="waitlist"
-                @click="decide(reg, 'waitlist')"
-              >
-                {{ t('adminRegistrations.waitlist') }}
-              </button>
-              <button
-                v-if="reg.state === 'waitlisted'"
-                type="button"
-                data-testid="promote"
-                @click="decide(reg, 'promote')"
-              >
-                {{ t('adminRegistrations.promote') }}
-              </button>
-              <button
-                v-if="reg.state === 'pending' || reg.state === 'waitlisted'"
-                type="button"
-                data-testid="reject"
-                @click="decide(reg, 'reject')"
-              >
-                {{ t('adminRegistrations.reject') }}
-              </button>
-              <button
-                v-if="reg.state === 'approved'"
-                type="button"
-                data-testid="cancel"
-                @click="decide(reg, 'cancel')"
-              >
-                {{ t('adminRegistrations.cancel') }}
-              </button>
-            </td>
-          </tr>
-        </tbody>
-      </table>
+        <table
+          class="dense"
+          data-testid="registration-queue"
+        >
+          <caption class="sr-only">
+            {{ t('adminRegistrations.heading') }}
+          </caption>
+          <thead>
+            <tr>
+              <th scope="col">
+                {{ t('adminRegistrations.participant') }}
+              </th>
+              <th scope="col">
+                {{ t('adminRegistrations.state') }}
+              </th>
+              <th scope="col">
+                {{ t('adminRegistrations.actions') }}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr
+              v-for="reg in rows"
+              :key="reg.id"
+              :data-testid="`registration-${reg.id}`"
+            >
+              <td>
+                <bdi class="latin-value">{{ reg.participantType === 'team' ? reg.teamId : reg.accountId }}</bdi>
+              </td>
+              <td :data-state="reg.state">
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${tone(reg.state)}`"
+                >
+                  {{ t(`registration.state.${reg.state}`) }}
+                  <span v-if="reg.waitlistSeq !== null">(#{{ reg.waitlistSeq }})</span>
+                </span>
+              </td>
+              <td class="actions">
+                <button
+                  v-if="reg.state === 'pending'"
+                  type="button"
+                  class="btn btn-primary"
+                  data-testid="approve"
+                  @click="decide(reg, 'approve')"
+                >
+                  {{ t('adminRegistrations.approve') }}
+                </button>
+                <button
+                  v-if="reg.state === 'pending'"
+                  type="button"
+                  class="btn btn-neutral"
+                  data-testid="waitlist"
+                  @click="decide(reg, 'waitlist')"
+                >
+                  {{ t('adminRegistrations.waitlist') }}
+                </button>
+                <button
+                  v-if="reg.state === 'waitlisted'"
+                  type="button"
+                  class="btn btn-secondary"
+                  data-testid="promote"
+                  @click="decide(reg, 'promote')"
+                >
+                  {{ t('adminRegistrations.promote') }}
+                </button>
+                <button
+                  v-if="reg.state === 'pending' || reg.state === 'waitlisted'"
+                  type="button"
+                  class="btn btn-danger"
+                  data-testid="reject"
+                  @click="decide(reg, 'reject')"
+                >
+                  {{ t('adminRegistrations.reject') }}
+                </button>
+                <button
+                  v-if="reg.state === 'approved'"
+                  type="button"
+                  class="btn btn-danger"
+                  data-testid="cancel"
+                  @click="decide(reg, 'cancel')"
+                >
+                  {{ t('adminRegistrations.cancel') }}
+                </button>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
     </template>
   </section>
 </template>
 
 <style scoped>
+.back-link {
+  padding-inline: 0;
+}
+
 .seats {
-  font-weight: 600;
+  inline-size: fit-content;
+  margin-block-end: var(--space-4);
 }
 
-.filter {
-  display: inline-flex;
-  gap: var(--space-2);
-  align-items: center;
-  margin-block: var(--space-3);
+.filter-label {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
 }
 
-.filter select {
+select {
   padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
+}
+
+.scroll {
+  overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 table {
@@ -221,24 +282,41 @@ table {
 
 th,
 td {
-  padding: var(--space-2) var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
   text-align: start;
+}
+
+th {
+  position: sticky;
+  inset-block-start: 0;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+[lang='fa'] th {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+table.dense th,
+table.dense td {
+  padding-block: var(--space-2);
+  font-size: var(--text-sm);
+}
+
+tbody tr:hover {
+  background-color: var(--color-surface-raised);
 }
 
 .actions {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-}
-
-.actions button {
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
+  align-items: center;
 }
 
 .sr-only {

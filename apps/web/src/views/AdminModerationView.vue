@@ -74,7 +74,11 @@ function onStateChange(): void {
 
 <template>
   <section>
-    <h1>{{ t('admin.moderation.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('admin.moderation.heading') }}</h1>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -82,8 +86,11 @@ function onStateChange(): void {
       data-testid="moderation-forbidden"
     />
     <template v-else>
-      <div class="controls">
-        <label for="moderation-state-filter">{{ t('admin.moderation.stateFilter') }}</label>
+      <div class="toolbar">
+        <label
+          class="filter-label"
+          for="moderation-state-filter"
+        >{{ t('admin.moderation.stateFilter') }}</label>
         <select
           id="moderation-state-filter"
           v-model="state"
@@ -120,7 +127,7 @@ function onStateChange(): void {
         <button
           v-if="nextCursor"
           type="button"
-          class="more"
+          class="btn btn-secondary more"
           data-testid="load-more"
           @click="load(nextCursor ?? undefined)"
         >
@@ -132,17 +139,14 @@ function onStateChange(): void {
 </template>
 
 <style scoped>
-.controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-block-end: var(--space-4);
+.filter-label {
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
 }
 
 select {
   padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
@@ -150,11 +154,5 @@ select {
 
 .more {
   margin-block-start: var(--space-4);
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
 }
 </style>

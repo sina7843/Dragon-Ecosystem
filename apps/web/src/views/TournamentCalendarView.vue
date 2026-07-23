@@ -51,12 +51,19 @@ onMounted(async () => {
 
 <template>
   <section>
-    <h1>{{ t('tournaments.calendar.heading') }}</h1>
-    <p>
-      <RouterLink :to="`${prefix}/tournaments`">
-        {{ t('tournaments.calendar.listLink') }}
-      </RouterLink>
-    </p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('tournaments.calendar.heading') }}</h1>
+      </div>
+      <div class="page-header-actions">
+        <RouterLink
+          class="btn btn-ghost"
+          :to="`${prefix}/tournaments`"
+        >
+          {{ t('tournaments.calendar.listLink') }}
+        </RouterLink>
+      </div>
+    </div>
 
     <StateBlock
       v-if="loading"
@@ -82,16 +89,22 @@ onMounted(async () => {
         :key="group.day"
         class="day"
       >
-        <h2>{{ group.label }}</h2>
-        <ul>
+        <h2 class="day-heading">
+          {{ group.label }}
+        </h2>
+        <ul class="reset-list">
           <li
             v-for="entry in group.entries"
             :key="entry.id"
+            class="entry"
           >
-            <RouterLink :to="`${prefix}/tournaments/${entry.slug}`">
+            <RouterLink
+              class="entry-link"
+              :to="`${prefix}/tournaments/${entry.slug}`"
+            >
               {{ entry.name }}
             </RouterLink>
-            <span class="time">{{ entry.startAt ? formatDateTime(entry.startAt, activeLocale(), viewerTimeZone()) : '' }}</span>
+            <span class="time numeric">{{ entry.startAt ? formatDateTime(entry.startAt, activeLocale(), viewerTimeZone()) : '' }}</span>
           </li>
         </ul>
       </section>
@@ -102,21 +115,42 @@ onMounted(async () => {
 <style scoped>
 .day {
   margin-block: var(--space-4);
-  padding-block-end: var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
-.day ul {
+.day-heading {
+  margin-block: 0 var(--space-2);
+  font-size: var(--text-lg);
+}
+
+.reset-list {
   list-style: none;
   padding: 0;
   margin: 0;
 }
 
-.day li {
+.entry {
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   gap: var(--space-3);
   padding-block: var(--space-2);
+  border-block-start: 1px solid var(--color-border);
+}
+.entry:first-child {
+  border-block-start: none;
+}
+
+.entry-link {
+  color: inherit;
+  text-decoration: none;
+}
+.entry-link:hover {
+  color: var(--color-accent);
 }
 
 .time {

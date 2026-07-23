@@ -85,8 +85,14 @@ function detailPath(card: ContentCard): string {
 
 <template>
   <section>
-    <h1>{{ t('content.hub.heading') }}</h1>
-    <p>{{ t('content.hub.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('content.hub.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('content.hub.intro') }}
+        </p>
+      </div>
+    </div>
 
     <nav
       class="filters"
@@ -94,6 +100,7 @@ function detailPath(card: ContentCard): string {
     >
       <button
         type="button"
+        class="chip"
         :aria-current="activeType === '' ? 'true' : undefined"
         data-testid="filter-all"
         @click="selectType('')"
@@ -104,6 +111,7 @@ function detailPath(card: ContentCard): string {
         v-for="type in CONTENT_TYPES"
         :key="type"
         type="button"
+        class="chip"
         :aria-current="activeType === type ? 'true' : undefined"
         :data-testid="`filter-${type}`"
         @click="selectType(type)"
@@ -113,20 +121,26 @@ function detailPath(card: ContentCard): string {
     </nav>
 
     <form
-      class="search"
+      class="search toolbar"
       role="search"
       @submit.prevent="submitSearch"
     >
-      <label for="content-search">{{ t('search.label') }}</label>
-      <input
-        id="content-search"
-        v-model="searchInput"
-        type="search"
-        data-testid="search-input"
-        :placeholder="t('search.placeholder')"
+      <label
+        class="search-field"
+        for="content-search"
       >
+        <span class="visually-hidden">{{ t('search.label') }}</span>
+        <input
+          id="content-search"
+          v-model="searchInput"
+          type="search"
+          data-testid="search-input"
+          :placeholder="t('search.placeholder')"
+        >
+      </label>
       <button
         type="submit"
+        class="btn btn-primary"
         data-testid="search-submit"
       >
         {{ t('search.submit') }}
@@ -150,34 +164,46 @@ function detailPath(card: ContentCard): string {
 
     <ul
       v-else
-      class="cards"
+      class="card-grid cards"
     >
       <li
         v-for="card in items"
         :key="card.id"
-        class="card"
+        class="card card-interactive"
       >
         <RouterLink
+          class="card-link"
           :to="detailPath(card)"
           :data-testid="`content-card-${card.slug}`"
         >
-          <span class="type">{{ t(`content.type.${card.type}`) }}</span>
-          <h2>{{ card.title }}</h2>
-          <p>{{ card.summary }}</p>
-          <time :datetime="card.publishedAt">{{ formatDate(card.publishedAt, activeLocale) }}</time>
+          <span class="badge badge-accent type">{{ t(`content.type.${card.type}`) }}</span>
+          <h2 class="card-title">
+            {{ card.title }}
+          </h2>
+          <p class="card-meta">
+            {{ card.summary }}
+          </p>
+          <time
+            class="date"
+            :datetime="card.publishedAt"
+          >{{ formatDate(card.publishedAt, activeLocale) }}</time>
         </RouterLink>
       </li>
     </ul>
 
-    <button
+    <div
       v-if="nextCursor"
-      type="button"
-      class="more"
-      data-testid="load-more"
-      @click="load(nextCursor ?? undefined)"
+      class="more-row"
     >
-      {{ t('content.hub.loadMore') }}
-    </button>
+      <button
+        type="button"
+        class="btn btn-neutral"
+        data-testid="load-more"
+        @click="load(nextCursor ?? undefined)"
+      >
+        {{ t('content.hub.loadMore') }}
+      </button>
+    </div>
   </section>
 </template>
 
@@ -186,66 +212,69 @@ function detailPath(card: ContentCard): string {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
-  margin-block: var(--space-4);
+  margin-block-end: var(--space-5);
 }
 
-.filters button {
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
+.chip {
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-full);
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
 }
+.chip:hover {
+  background-color: var(--color-surface-raised);
+}
+/* Selected filter carries fill, border, and weight — not colour alone (23.2). */
+.chip[aria-current='true'] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
 
-.filters button[aria-current='true'] {
-  border-color: var(--color-accent);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
+.search-field {
+  flex: 1;
+  min-inline-size: 12rem;
+}
+.search-field input {
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
 }
 
 .cards {
   list-style: none;
+  margin: 0;
   padding: 0;
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fill, minmax(18rem, 1fr));
 }
 
-.card a {
-  display: block;
+.card-link {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
   block-size: 100%;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  text-decoration: none;
   color: inherit;
+  text-decoration: none;
 }
 
 .type {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  color: var(--color-accent);
+  align-self: flex-start;
 }
 
-.card h2 {
-  font-size: var(--text-lg);
-  margin-block: var(--space-2);
-}
-
-time {
+.date {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  margin-block-start: auto;
 }
 
-.more {
-  margin-block-start: var(--space-5);
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
+.more-row {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--space-6);
 }
 </style>

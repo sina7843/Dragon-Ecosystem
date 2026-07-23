@@ -111,19 +111,19 @@ watch(activeLocale, () => {
     v-else-if="item"
     class="detail"
   >
-    <p class="type">
-      {{ t(`content.type.${item.type}`) }}
-    </p>
-    <h1>{{ item.title }}</h1>
-    <p class="summary">
-      {{ item.summary }}
-    </p>
-    <p
-      v-if="item.publishedAt"
-      class="meta"
-    >
-      <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt, activeLocale) }}</time>
-    </p>
+    <header class="hero">
+      <span class="badge badge-accent type">{{ t(`content.type.${item.type}`) }}</span>
+      <h1>{{ item.title }}</h1>
+      <p class="summary">
+        {{ item.summary }}
+      </p>
+      <p
+        v-if="item.publishedAt"
+        class="meta"
+      >
+        <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt, activeLocale) }}</time>
+      </p>
+    </header>
     <img
       v-if="item.coverImageUrl"
       :src="item.coverImageUrl"
@@ -143,25 +143,37 @@ watch(activeLocale, () => {
 
 <style scoped>
 .detail {
-  max-inline-size: 48rem;
+  max-inline-size: 70ch;
   margin-block: var(--space-5);
 }
 
+.hero {
+  padding: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+  background-image: var(--gradient-hero);
+  margin-block-end: var(--space-5);
+}
+
+.hero h1 {
+  margin-block: var(--space-3) var(--space-2);
+}
+
 .type {
-  font-size: var(--text-xs);
-  text-transform: uppercase;
-  color: var(--color-accent);
   margin-block: 0;
 }
 
 .summary {
   font-size: var(--text-lg);
   color: var(--color-text-muted);
+  margin-block-end: 0;
 }
 
 .meta {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  margin-block-start: var(--space-2);
 }
 
 .cover {

@@ -92,33 +92,59 @@ function submitSearch(): void {
 function selectParticipant(participantType: string): void {
   pushQuery({ participantType });
 }
+
+// Time-based status derived from the card's own dates — no invented backend state.
+function timeStatus(card: TournamentCard): { key: string; tone: string } {
+  const now = Date.now();
+  const start = card.startAt ? Date.parse(card.startAt) : null;
+  const end = card.endAt ? Date.parse(card.endAt) : null;
+  if (start === null) return { key: 'home.statusUnscheduled', tone: 'neutral' };
+  if (end !== null && now > end) return { key: 'home.statusFinished', tone: 'neutral' };
+  if (now >= start && (end === null || now <= end)) return { key: 'home.statusLive', tone: 'success' };
+  return { key: 'home.statusUpcoming', tone: 'accent' };
+}
 </script>
 
 <template>
   <section>
-    <h1>{{ t('tournaments.hub.heading') }}</h1>
-    <p>{{ t('tournaments.hub.intro') }}</p>
-    <p>
-      <RouterLink :to="`${prefix}/tournaments-calendar`">
-        {{ t('tournaments.hub.calendarLink') }}
-      </RouterLink>
-    </p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('tournaments.hub.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('tournaments.hub.intro') }}
+        </p>
+      </div>
+      <div class="page-header-actions">
+        <RouterLink
+          class="btn btn-ghost"
+          :to="`${prefix}/tournaments-calendar`"
+        >
+          {{ t('tournaments.hub.calendarLink') }}
+        </RouterLink>
+      </div>
+    </div>
 
     <form
-      class="search"
+      class="search toolbar"
       role="search"
       @submit.prevent="submitSearch"
     >
-      <label for="tournaments-search">{{ t('search.label') }}</label>
-      <input
-        id="tournaments-search"
-        v-model="searchInput"
-        type="search"
-        data-testid="search-input"
-        :placeholder="t('search.placeholder')"
+      <label
+        class="search-field"
+        for="tournaments-search"
       >
+        <span class="visually-hidden">{{ t('search.label') }}</span>
+        <input
+          id="tournaments-search"
+          v-model="searchInput"
+          type="search"
+          data-testid="search-input"
+          :placeholder="t('search.placeholder')"
+        >
+      </label>
       <button
         type="submit"
+        class="btn btn-primary"
         data-testid="search-submit"
       >
         {{ t('search.submit') }}
@@ -131,6 +157,7 @@ function selectParticipant(participantType: string): void {
     >
       <button
         type="button"
+        class="chip"
         :aria-current="activeParticipant === '' ? 'true' : undefined"
         data-testid="participant-all"
         @click="selectParticipant('')"
@@ -141,6 +168,7 @@ function selectParticipant(participantType: string): void {
         v-for="p in PARTICIPANT_TYPES"
         :key="p"
         type="button"
+        class="chip"
         :aria-current="activeParticipant === p ? 'true' : undefined"
         :data-testid="`participant-${p}`"
         @click="selectParticipant(p)"
@@ -166,15 +194,28 @@ function selectParticipant(participantType: string): void {
 
     <ul
       v-else
-      class="cards"
+      class="card-grid cards"
     >
       <li
         v-for="tour in tournaments"
         :key="tour.id"
+        class="card card-interactive t-card"
         :data-testid="`tournament-card-${tour.id}`"
       >
-        <RouterLink :to="`${prefix}/tournaments/${tour.slug}`">
-          <h2>{{ tour.name }}</h2>
+        <div class="t-top">
+          <span
+            class="status-pill"
+            :class="`status-pill-${timeStatus(tour).tone}`"
+          >{{ t(timeStatus(tour).key) }}</span>
+          <span class="badge badge-accent">{{ t(`tournaments.feeKind.${tour.feeKind}`) }}</span>
+        </div>
+        <RouterLink
+          class="t-link"
+          :to="`${prefix}/tournaments/${tour.slug}`"
+        >
+          <h2 class="card-title">
+            {{ tour.name }}
+          </h2>
         </RouterLink>
         <p class="summary">
           {{ tour.summary }}
@@ -193,8 +234,10 @@ function selectParticipant(participantType: string): void {
             <dd>{{ formatDateTime(tour.startAt, activeLocale(), viewerTimeZone()) }}</dd>
           </div>
           <div>
-            <dt>{{ t('tournaments.field.fee') }}</dt>
-            <dd>{{ t(`tournaments.feeKind.${tour.feeKind}`) }}</dd>
+            <dt>{{ t('tournaments.field.capacity') }}</dt>
+            <dd class="numeric">
+              {{ tour.capacity }}
+            </dd>
           </div>
         </dl>
       </li>
@@ -203,33 +246,82 @@ function selectParticipant(participantType: string): void {
 </template>
 
 <style scoped>
+.search-field {
+  flex: 1;
+  min-inline-size: 12rem;
+}
+.search-field input {
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-block-end: var(--space-5);
+}
+.chip {
+  padding-inline: var(--space-4);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+  cursor: pointer;
+}
+.chip:hover {
+  background-color: var(--color-surface-raised);
+}
+/* Selected filter carries fill, border, and weight — not colour alone (23.2). */
+.chip[aria-current='true'] {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary);
+  font-weight: var(--weight-semibold);
+}
+
 .cards {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: var(--space-4);
 }
 
-.cards li {
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+.t-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
 }
-
-.cards h2 {
-  margin: 0 0 var(--space-2);
+.t-top {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.t-link {
+  color: inherit;
+  text-decoration: none;
+}
+.t-link:hover .card-title {
+  color: var(--color-accent);
 }
 
 .summary {
   color: var(--color-text-muted);
+  margin: 0;
 }
 
 .meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-4);
-  margin: var(--space-3) 0 0;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3) var(--space-4);
+  margin: var(--space-2) 0 0;
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
 }
 
 .meta dt {
@@ -239,6 +331,6 @@ function selectParticipant(participantType: string): void {
 
 .meta dd {
   margin: 0;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 </style>

@@ -80,7 +80,9 @@ const props = defineProps<{
 .scroll {
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 table {
@@ -89,19 +91,41 @@ table {
 }
 
 caption {
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   text-align: start;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 
 th,
 td {
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   text-align: start;
   border-block-start: 1px solid var(--color-border);
 }
 
 th {
+  position: sticky;
+  inset-block-start: 0;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+/* Letter-spacing breaks Persian connected script — reset it there (17.5). */
+[lang='fa'] th {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+tbody tr {
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+tbody tr:hover {
   background-color: var(--color-surface-raised);
 }
 

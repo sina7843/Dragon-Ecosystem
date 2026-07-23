@@ -95,8 +95,14 @@ async function revokeOthers(): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('security.heading') }}</h1>
-    <p>{{ t('security.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('security.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('security.intro') }}
+        </p>
+      </div>
+    </div>
 
     <StateBlock
       v-if="loading"
@@ -109,7 +115,9 @@ async function revokeOthers(): Promise<void> {
     />
 
     <template v-else>
-      <h2>{{ t('security.sessions.heading') }}</h2>
+      <div class="section-header">
+        <h2>{{ t('security.sessions.heading') }}</h2>
+      </div>
       <AppTable
         :caption="t('security.sessions.caption')"
         :columns="sessionColumns"
@@ -118,14 +126,16 @@ async function revokeOthers(): Promise<void> {
       />
       <button
         type="button"
-        class="revoke"
+        class="btn btn-danger revoke"
         data-testid="revoke-others"
         @click="revokeOthers"
       >
         {{ t('security.sessions.revokeOthers') }}
       </button>
 
-      <h2>{{ t('security.events.heading') }}</h2>
+      <div class="section-header">
+        <h2>{{ t('security.events.heading') }}</h2>
+      </div>
       <AppTable
         :caption="t('security.events.caption')"
         :columns="eventColumns"
@@ -140,11 +150,5 @@ async function revokeOthers(): Promise<void> {
 <style scoped>
 .revoke {
   margin-block: var(--space-4) var(--space-6);
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
 }
 </style>

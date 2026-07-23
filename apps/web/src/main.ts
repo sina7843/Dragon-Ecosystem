@@ -6,6 +6,7 @@ import { initTheme } from './composables/useTheme.ts';
 import { router } from './router.ts';
 import './styles/tokens.css';
 import './styles/base.css';
+import './styles/components.css';
 
 const startupLocale = i18n.global.locale.value;
 applyDocumentLocale(isLocale(startupLocale) ? startupLocale : 'fa');

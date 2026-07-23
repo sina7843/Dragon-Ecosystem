@@ -19,6 +19,8 @@
     "test:budget": "npm run test:budget --workspace apps/web",
     "closure:check": "node --test scripts/closure-check.test.mjs",
     "decision:check": "node --test scripts/release-decision.test.mjs",
+    "seed:demo": "npm run seed:demo --workspace @dragon/api",
+    "seed:demo:reset": "npm run seed:demo:reset --workspace @dragon/api",
     "build": "npm run build --workspaces --if-present",
     "e2e": "node scripts/wait-for-test-db.mjs && npm run build && npm run e2e --workspace apps/web",
     "migrate": "npm run migrate --workspace @dragon/api",

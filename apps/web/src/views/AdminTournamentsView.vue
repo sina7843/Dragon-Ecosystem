@@ -193,6 +193,18 @@ async function save(): Promise<void> {
   }
 }
 
+// Tournament state pill tone — text label always carries the meaning (section 23.2).
+const STATE_TONE: Record<string, string> = {
+  draft: 'neutral',
+  published: 'success',
+  cancelled: 'danger',
+  completed: 'info',
+  archived: 'neutral'
+};
+function tone(s: string): string {
+  return STATE_TONE[s] ?? 'neutral';
+}
+
 async function transition(to: string): Promise<void> {
   if (editing.value === null) return;
   const reason = globalThis.prompt(t('adminTournaments.reasonPrompt')) ?? '';
@@ -224,7 +236,11 @@ async function clone(): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('adminTournaments.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('adminTournaments.heading') }}</h1>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -234,10 +250,10 @@ async function clone(): Promise<void> {
 
     <template v-else>
       <div class="layout">
-        <div>
+        <div class="data-panel list-panel">
           <button
             type="button"
-            class="new"
+            class="btn btn-primary new"
             data-testid="new-tournament"
             @click="resetForm"
           >
@@ -262,11 +278,15 @@ async function clone(): Promise<void> {
             >
               <button
                 type="button"
+                :class="{ active: editing?.id === tour.id }"
                 :data-testid="`edit-${tour.id}`"
                 @click="edit(tour)"
               >
                 <span>{{ tour.translations.en.name || tour.translations.fa.name || '—' }}</span>
-                <span class="state">{{ t(`tournaments.state.${tour.state}`) }}</span>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${tone(tour.state)}`"
+                >{{ t(`tournaments.state.${tour.state}`) }}</span>
               </button>
             </li>
             <li
@@ -279,7 +299,7 @@ async function clone(): Promise<void> {
         </div>
 
         <form
-          class="editor"
+          class="editor data-panel"
           novalidate
           data-testid="tournament-form"
           @submit.prevent="save"
@@ -288,9 +308,12 @@ async function clone(): Promise<void> {
           <p
             v-if="editing"
             class="state-line"
-            data-testid="tournament-state"
           >
-            {{ t(`tournaments.state.${editing.state}`) }}
+            <span
+              class="status-pill"
+              :class="`status-pill-${tone(editing.state)}`"
+              data-testid="tournament-state"
+            >{{ t(`tournaments.state.${editing.state}`) }}</span>
           </p>
           <p
             v-if="formError"
@@ -484,7 +507,7 @@ async function clone(): Promise<void> {
           <div class="actions">
             <button
               type="submit"
-              class="primary"
+              class="btn btn-primary"
               data-testid="save-tournament"
               :disabled="saving || (editing !== null && editing.state !== 'draft')"
             >
@@ -492,6 +515,7 @@ async function clone(): Promise<void> {
             </button>
             <template v-if="editing">
               <RouterLink
+                class="btn btn-ghost"
                 :to="`${prefix}/tournaments/${editing.slug}`"
                 target="_blank"
                 data-testid="preview-tournament"
@@ -499,12 +523,14 @@ async function clone(): Promise<void> {
                 {{ t('adminTournaments.preview') }}
               </RouterLink>
               <RouterLink
+                class="btn btn-neutral"
                 :to="`${prefix}/admin/tournaments/${editing.id}/registrations`"
                 data-testid="manage-registrations"
               >
                 {{ t('adminTournaments.registrations') }}
               </RouterLink>
               <RouterLink
+                class="btn btn-neutral"
                 :to="`${prefix}/admin/tournaments/${editing.id}/competition`"
                 data-testid="manage-competition"
               >
@@ -513,6 +539,7 @@ async function clone(): Promise<void> {
               <button
                 v-if="editing.state === 'draft'"
                 type="button"
+                class="btn btn-secondary"
                 data-testid="publish-tournament"
                 @click="transition('published')"
               >
@@ -521,6 +548,7 @@ async function clone(): Promise<void> {
               <button
                 v-if="editing.state === 'published'"
                 type="button"
+                class="btn btn-danger"
                 data-testid="cancel-tournament"
                 @click="transition('cancelled')"
               >
@@ -529,6 +557,7 @@ async function clone(): Promise<void> {
               <button
                 v-if="editing.state === 'cancelled' || editing.state === 'draft'"
                 type="button"
+                class="btn btn-neutral"
                 data-testid="archive-tournament"
                 @click="transition('archived')"
               >
@@ -536,6 +565,7 @@ async function clone(): Promise<void> {
               </button>
               <button
                 type="button"
+                class="btn btn-neutral"
                 data-testid="clone-tournament"
                 @click="clone"
               >
@@ -552,6 +582,7 @@ async function clone(): Promise<void> {
 <style scoped>
 .layout {
   display: grid;
+  align-items: start;
   gap: var(--space-5);
   grid-template-columns: minmax(0, 1fr);
 }
@@ -562,20 +593,20 @@ async function clone(): Promise<void> {
   }
 }
 
+.list-panel {
+  display: flex;
+  flex-direction: column;
+}
+
 .new {
   inline-size: 100%;
   margin-block-end: var(--space-3);
-  padding: var(--space-3);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
 }
 
 .items {
   list-style: none;
   padding: 0;
+  margin: 0;
   display: grid;
   gap: var(--space-2);
 }
@@ -584,23 +615,31 @@ async function clone(): Promise<void> {
   inline-size: 100%;
   display: flex;
   justify-content: space-between;
+  align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;
   text-align: start;
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease);
 }
 
-.state {
-  font-size: var(--text-xs);
-  color: var(--color-text-muted);
+.items button:hover {
+  background-color: var(--color-surface-raised);
+}
+
+.items button.active {
+  border-color: var(--color-primary);
+  background-color: var(--color-secondary-surface);
 }
 
 .state-line {
-  color: var(--color-text-muted);
+  margin-block-end: var(--space-3);
 }
 
 .locale {
@@ -621,13 +660,13 @@ async function clone(): Promise<void> {
 .field label {
   display: block;
   margin-block-end: var(--space-1);
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
 }
 
 .field select {
   inline-size: 100%;
   padding: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
   color: var(--color-text);
@@ -652,23 +691,7 @@ async function clone(): Promise<void> {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
-}
-
-.actions button,
-.actions a {
-  padding-inline: var(--space-4);
-  padding-block: var(--space-2);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
-  text-decoration: none;
-}
-
-.actions .primary {
-  border-color: var(--color-accent);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
+  padding-block-start: var(--space-3);
+  border-block-start: 1px solid var(--color-border);
 }
 </style>

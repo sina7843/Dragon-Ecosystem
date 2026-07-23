@@ -57,6 +57,10 @@ const TEXT_PAIRS: ReadonlyArray<readonly [string, string]> = [
   ['--color-text-muted', '--color-surface-raised'],
   ['--color-accent', '--color-surface'],
   ['--color-accent-text', '--color-accent'],
+  // Filled action buttons carry their own label contrast, independent of the
+  // text-on-surface accent role (section 23.2, A11Y-008).
+  ['--color-primary-text', '--color-primary'],
+  ['--color-danger-text-on', '--color-danger'],
   ['--color-success-text', '--color-success-surface'],
   ['--color-warning-text', '--color-warning-surface'],
   ['--color-danger-text', '--color-danger-surface'],

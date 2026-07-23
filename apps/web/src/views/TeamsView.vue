@@ -101,8 +101,14 @@ async function onDecline(id: string): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('teams.heading') }}</h1>
-    <p>{{ t('teams.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('teams.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('teams.intro') }}
+        </p>
+      </div>
+    </div>
 
     <StateBlock
       v-if="loading"
@@ -112,21 +118,29 @@ async function onDecline(id: string): Promise<void> {
     <template v-else>
       <section
         v-if="invitations.length > 0"
-        class="panel"
+        class="card panel"
         data-testid="invitations"
       >
-        <h2>{{ t('teams.invitations.heading') }}</h2>
+        <div class="section-header">
+          <h2>{{ t('teams.invitations.heading') }}</h2>
+        </div>
         <ul class="list">
           <li
             v-for="invite in invitations"
             :key="invite.id"
             :data-testid="`invitation-${invite.id}`"
           >
-            <span>{{ invite.teamName }}</span>
+            <span class="invite-name">
+              <span
+                class="avatar"
+                aria-hidden="true"
+              >{{ invite.teamName.slice(0, 2).toUpperCase() }}</span>
+              {{ invite.teamName }}
+            </span>
             <span class="actions">
               <button
                 type="button"
-                class="primary"
+                class="btn btn-primary"
                 data-testid="accept-invitation"
                 @click="onAccept(invite.id)"
               >
@@ -134,6 +148,7 @@ async function onDecline(id: string): Promise<void> {
               </button>
               <button
                 type="button"
+                class="btn btn-neutral"
                 data-testid="decline-invitation"
                 @click="onDecline(invite.id)"
               >
@@ -144,8 +159,10 @@ async function onDecline(id: string): Promise<void> {
         </ul>
       </section>
 
-      <section class="panel">
-        <h2>{{ t('teams.mine.heading') }}</h2>
+      <section class="card panel">
+        <div class="section-header">
+          <h2>{{ t('teams.mine.heading') }}</h2>
+        </div>
         <StateBlock
           v-if="teams.length === 0"
           variant="empty"
@@ -153,23 +170,36 @@ async function onDecline(id: string): Promise<void> {
         />
         <ul
           v-else
-          class="list"
+          class="card-grid teams-grid"
         >
           <li
             v-for="team in teams"
             :key="team.id"
             :data-testid="`team-card-${team.id}`"
           >
-            <RouterLink :to="`${prefix}/account/teams/${team.id}`">
-              {{ team.name }}
+            <RouterLink
+              class="card card-interactive team-card"
+              :to="`${prefix}/account/teams/${team.id}`"
+            >
+              <span
+                class="avatar"
+                aria-hidden="true"
+              >{{ team.name.slice(0, 2).toUpperCase() }}</span>
+              <span class="team-card-body">
+                <span class="card-title">{{ team.name }}</span>
+                <span
+                  class="badge badge-accent"
+                >{{ t(`teams.role.${team.role}`) }}</span>
+              </span>
             </RouterLink>
-            <span class="role">{{ t(`teams.role.${team.role}`) }}</span>
           </li>
         </ul>
       </section>
 
-      <section class="panel">
-        <h2>{{ t('teams.create.heading') }}</h2>
+      <section class="card panel">
+        <div class="section-header">
+          <h2>{{ t('teams.create.heading') }}</h2>
+        </div>
         <form
           novalidate
           data-testid="team-form"
@@ -245,7 +275,7 @@ async function onDecline(id: string): Promise<void> {
 
           <button
             type="submit"
-            class="primary"
+            class="btn btn-primary"
             data-testid="create-team"
             :disabled="submitting"
           >
@@ -260,9 +290,6 @@ async function onDecline(id: string): Promise<void> {
 <style scoped>
 .panel {
   margin-block: var(--space-5);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
 }
 
 .list {
@@ -276,8 +303,32 @@ async function onDecline(id: string): Promise<void> {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding-block: var(--space-2);
+  padding-block: var(--space-3);
   border-block-end: 1px solid var(--color-border);
+}
+
+.list li:last-child {
+  border-block-end: none;
+}
+
+.invite-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: var(--weight-semibold);
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  flex: none;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-brand);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
 }
 
 .actions {
@@ -285,9 +336,25 @@ async function onDecline(id: string): Promise<void> {
   gap: var(--space-2);
 }
 
-.role {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+.teams-grid {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.team-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: inherit;
+  text-decoration: none;
+}
+
+.team-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-inline-size: 0;
 }
 
 .field {
@@ -337,19 +404,4 @@ async function onDecline(id: string): Promise<void> {
   font-weight: 600;
 }
 
-.primary {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
-
-.primary:disabled {
-  background-color: var(--color-surface-sunken);
-  border-color: var(--color-border);
-  color: var(--color-text-muted);
-  cursor: not-allowed;
-}
 </style>

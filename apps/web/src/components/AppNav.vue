@@ -105,12 +105,12 @@ function onKeydown(event: KeyboardEvent): void {
   inset-block-start: calc(100% + var(--space-2));
   inset-inline-start: 0;
   z-index: var(--z-drawer);
-  min-inline-size: 12rem;
+  min-inline-size: 13rem;
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-overlay);
+  box-shadow: var(--shadow-lg);
 }
 
 .list a {
@@ -118,8 +118,14 @@ function onKeydown(event: KeyboardEvent): void {
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
   text-decoration: none;
+  /* Nav links are text-coloured; the accent is reserved for the active item. */
+  color: var(--color-text-muted);
   /* Keeps the touch target adequate on mobile (A11Y-012). */
   min-block-size: var(--target-min);
+}
+
+.list a:hover {
+  color: var(--color-text);
 }
 
 .list a:hover {
@@ -127,8 +133,11 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 .list a.router-link-active {
-  font-weight: 700;
-  background-color: var(--color-surface-sunken);
+  font-weight: var(--weight-semibold);
+  color: var(--color-accent);
+  background-color: var(--color-secondary-surface);
+  /* Non-colour cue: an inset marker on the leading edge (section 23.2). */
+  box-shadow: inset 0.2rem 0 0 var(--color-primary);
 }
 
 /* Tablet and wider: the disclosure disappears and the links sit inline. */
@@ -147,6 +156,12 @@ function onKeydown(event: KeyboardEvent): void {
     box-shadow: none;
     background-color: transparent;
     min-inline-size: 0;
+  }
+
+  .list a.router-link-active {
+    background-color: transparent;
+    box-shadow: inset 0 -2px 0 var(--color-primary);
+    border-radius: 0;
   }
 
   .app-nav.dense .list a {

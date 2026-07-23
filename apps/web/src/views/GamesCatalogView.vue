@@ -60,24 +60,36 @@ function submitSearch(): void {
 
 <template>
   <section>
-    <h1>{{ t('games.catalog.heading') }}</h1>
-    <p>{{ t('games.catalog.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('games.catalog.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('games.catalog.intro') }}
+        </p>
+      </div>
+    </div>
 
     <form
-      class="search"
+      class="search toolbar"
       role="search"
       @submit.prevent="submitSearch"
     >
-      <label for="games-search">{{ t('search.label') }}</label>
-      <input
-        id="games-search"
-        v-model="searchInput"
-        type="search"
-        data-testid="search-input"
-        :placeholder="t('search.placeholder')"
+      <label
+        class="search-field"
+        for="games-search"
       >
+        <span class="visually-hidden">{{ t('search.label') }}</span>
+        <input
+          id="games-search"
+          v-model="searchInput"
+          type="search"
+          data-testid="search-input"
+          :placeholder="t('search.placeholder')"
+        >
+      </label>
       <button
         type="submit"
+        class="btn btn-primary"
         data-testid="search-submit"
       >
         {{ t('search.submit') }}
@@ -101,67 +113,75 @@ function submitSearch(): void {
 
     <ul
       v-else
-      class="cards"
+      class="card-grid cards"
     >
       <li
         v-for="game in games"
         :key="game.id"
-        class="card"
+        class="card card-interactive"
       >
         <RouterLink
+          class="card-link"
           :to="`${prefix}/games/${encodeURIComponent(game.slug)}`"
           :data-testid="`game-card-${game.slug}`"
         >
-          <h2>{{ game.name }}</h2>
-          <p>{{ game.description }}</p>
+          <h2 class="card-title">
+            {{ game.name }}
+          </h2>
+          <p class="card-meta">
+            {{ game.description }}
+          </p>
         </RouterLink>
       </li>
     </ul>
 
-    <button
+    <div
       v-if="nextCursor"
-      type="button"
-      class="more"
-      data-testid="load-more"
-      @click="load(nextCursor ?? undefined)"
+      class="more-row"
     >
-      {{ t('games.catalog.loadMore') }}
-    </button>
+      <button
+        type="button"
+        class="btn btn-neutral"
+        data-testid="load-more"
+        @click="load(nextCursor ?? undefined)"
+      >
+        {{ t('games.catalog.loadMore') }}
+      </button>
+    </div>
   </section>
 </template>
 
 <style scoped>
 .cards {
   list-style: none;
+  margin: 0;
   padding: 0;
-  display: grid;
-  gap: var(--space-4);
-  grid-template-columns: repeat(auto-fill, minmax(16rem, 1fr));
 }
 
-.card a {
+.search-field {
+  flex: 1;
+  min-inline-size: 12rem;
+}
+
+.search-field input {
+  inline-size: 100%;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: var(--color-text);
+}
+
+.card-link {
   display: block;
   block-size: 100%;
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  text-decoration: none;
   color: inherit;
+  text-decoration: none;
 }
 
-.card h2 {
-  font-size: var(--text-lg);
-  margin-block: 0 var(--space-2);
-}
-
-.more {
-  margin-block-start: var(--space-5);
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
+.more-row {
+  display: flex;
+  justify-content: center;
+  margin-block-start: var(--space-6);
 }
 </style>

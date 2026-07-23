@@ -61,13 +61,18 @@ function onClose(): void {
       <slot />
     </div>
 
-    <form method="dialog">
+    <form
+      method="dialog"
+      class="actions"
+    >
       <button
         type="submit"
+        class="btn btn-neutral"
         data-testid="dialog-close"
       >
         {{ props.closeLabel }}
       </button>
+      <slot name="actions" />
     </form>
   </dialog>
 </template>
@@ -78,12 +83,24 @@ function onClose(): void {
   /* Long content must never exceed the viewport without a scroll path (320px). */
   max-block-size: calc(100dvh - 2rem);
   overflow: auto;
-  padding: var(--space-5);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface);
+  padding: var(--space-6);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface-overlay);
   color: var(--color-text);
   box-shadow: var(--shadow-lg);
+}
+
+/* Entrance is gated on motion preference via the reduced-motion token (A11Y-010). */
+.dialog[open] {
+  animation: dialog-in var(--motion-base) var(--motion-ease);
+}
+
+@keyframes dialog-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.5rem);
+  }
 }
 
 .description {
@@ -92,7 +109,13 @@ function onClose(): void {
 }
 
 .dialog::backdrop {
-  background-color: rgb(0 0 0 / 55%);
+  background-color: var(--color-overlay);
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .dialog::backdrop {
+    backdrop-filter: blur(3px);
+  }
 }
 
 .title {
@@ -100,16 +123,13 @@ function onClose(): void {
 }
 
 .body {
-  margin-block-end: var(--space-4);
+  margin-block-end: var(--space-5);
 }
 
-button {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
 }
 
 /* Modals become full-height sheets on small screens (section 22.2). */

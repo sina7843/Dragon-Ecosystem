@@ -25,6 +25,14 @@ const { t } = useI18n();
 const heading = computed(() => props.heading ?? t(`state.${props.variant}.heading`));
 const message = computed(() => props.message ?? t(`state.${props.variant}.message`));
 const isLoading = computed(() => props.variant === 'loading');
+// A distinct glyph per state so the states differ by shape, not colour alone.
+const GLYPHS: Record<Exclude<StateVariant, 'loading'>, string> = {
+  empty: '◇',
+  error: '!',
+  forbidden: '⦸',
+  notFound: '?'
+};
+const glyph = computed(() => (isLoading.value ? null : GLYPHS[props.variant as Exclude<StateVariant, 'loading'>]));
 const headingTag = computed(() => `h${props.headingLevel ?? 2}`);
 // error / forbidden / not-found appear in response to a failure; announce them assertively
 // so a keyboard/screen-reader user learns of the problem even without a focus move. Loading
@@ -48,6 +56,11 @@ const role = computed(() => {
       class="spinner"
       aria-hidden="true"
     />
+    <span
+      v-else
+      class="glyph"
+      aria-hidden="true"
+    >{{ glyph }}</span>
     <component
       :is="headingTag"
       class="heading"
@@ -67,11 +80,32 @@ const role = computed(() => {
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-6) var(--space-4);
+  padding: var(--space-7) var(--space-4);
   border: 1px solid var(--color-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface-raised);
+  background-image: var(--gradient-hero);
   text-align: center;
+}
+
+.glyph {
+  display: grid;
+  place-items: center;
+  inline-size: 3rem;
+  block-size: 3rem;
+  margin-block-end: var(--space-1);
+  border-radius: var(--radius-full);
+  background-color: var(--color-surface-sunken);
+  border: 1px solid var(--color-border);
+  color: var(--color-text-muted);
+  font-size: var(--text-xl);
+  line-height: 1;
+}
+
+.error .glyph,
+.forbidden .glyph {
+  color: var(--color-danger-text);
+  border-color: var(--color-danger-text);
 }
 
 .heading {

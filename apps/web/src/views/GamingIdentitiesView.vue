@@ -66,8 +66,14 @@ async function onSave(): Promise<void> {
 
 <template>
   <section>
-    <h1>{{ t('gamingIdentities.heading') }}</h1>
-    <p>{{ t('gamingIdentities.intro') }}</p>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('gamingIdentities.heading') }}</h1>
+        <p class="page-lead">
+          {{ t('gamingIdentities.intro') }}
+        </p>
+      </div>
+    </div>
 
     <StateBlock
       v-if="loading"
@@ -77,21 +83,26 @@ async function onSave(): Promise<void> {
     <template v-else>
       <ul
         v-if="identities.length > 0"
-        class="list"
+        class="card-grid list"
         data-testid="gaming-identities"
       >
         <li
           v-for="identity in identities"
           :key="identity.gameId"
+          class="card identity-card"
         >
-          <span>{{ gameName.get(identity.gameId) ?? identity.gameId }}</span>
-          <span>{{ identity.inGameName }}</span>
-          <span class="role">{{ t(`teams.visibility.${identity.visibility}`) }}</span>
+          <span class="identity-game">{{ gameName.get(identity.gameId) ?? identity.gameId }}</span>
+          <bdi class="latin-value identity-name">{{ identity.inGameName }}</bdi>
+          <span
+            class="status-pill"
+            :class="identity.visibility === 'public' ? 'status-pill-info' : 'status-pill-neutral'"
+          >{{ t(`teams.visibility.${identity.visibility}`) }}</span>
         </li>
       </ul>
 
       <form
         novalidate
+        class="card form-panel"
         data-testid="gaming-identity-form"
         @submit.prevent="onSave"
       >
@@ -156,7 +167,7 @@ async function onSave(): Promise<void> {
 
         <button
           type="submit"
-          class="primary"
+          class="btn btn-primary"
           data-testid="save-gaming-identity"
           :disabled="submitting"
         >
@@ -170,20 +181,29 @@ async function onSave(): Promise<void> {
 <style scoped>
 .list {
   list-style: none;
-  margin: 0 0 var(--space-5);
+  margin: 0 0 var(--space-6);
   padding: 0;
 }
 
-.list li {
+.identity-card {
   display: flex;
-  gap: var(--space-4);
-  padding-block: var(--space-2);
-  border-block-end: 1px solid var(--color-border);
+  flex-direction: column;
+  gap: var(--space-2);
+  align-items: flex-start;
 }
 
-.role {
-  color: var(--color-text-muted);
+.identity-game {
   font-size: var(--text-sm);
+  color: var(--color-text-muted);
+}
+
+.identity-name {
+  font-size: var(--text-lg);
+  font-weight: var(--weight-semibold);
+}
+
+.form-panel {
+  max-inline-size: 32rem;
 }
 
 .field {
@@ -224,12 +244,4 @@ async function onSave(): Promise<void> {
   padding-block: var(--space-1);
 }
 
-.primary {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
 </style>

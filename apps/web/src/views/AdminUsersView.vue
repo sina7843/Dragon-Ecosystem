@@ -39,6 +39,13 @@ const nextCursor = ref<string | null>(null);
 const activeLocale = computed<Locale>(() => (isLocale(locale.value) ? locale.value : 'fa'));
 const canSuspend = computed(() => has('users.suspend'));
 
+// Presentation-only mapping to a status-pill tone; the text label always carries the state.
+function accountTone(state: string): string {
+  if (state === 'suspended') return 'danger';
+  if (state === 'active') return 'success';
+  return 'neutral';
+}
+
 const rows = computed(() =>
   accounts.value.map((account) => ({
     accountId: account.accountId,
@@ -88,7 +95,11 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
 
 <template>
   <section>
-    <h1>{{ t('admin.users.heading') }}</h1>
+    <div class="page-header">
+      <div>
+        <h1>{{ t('admin.users.heading') }}</h1>
+      </div>
+    </div>
 
     <StateBlock
       v-if="forbidden"
@@ -140,15 +151,24 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
             <tr
               v-for="row in rows"
               :key="row.accountId"
+              :data-state="row.state"
             >
               <td>{{ row.username }}</td>
               <td><bdi class="latin-value">{{ row.mobileMasked }}</bdi></td>
-              <td>{{ row.stateLabel }}</td>
-              <td>{{ row.created }}</td>
+              <td>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${accountTone(row.state)}`"
+                >{{ row.stateLabel }}</span>
+              </td>
+              <td class="numeric">
+                {{ row.created }}
+              </td>
               <td v-if="canSuspend">
                 <button
                   v-if="row.state === 'active'"
                   type="button"
+                  class="btn btn-danger"
                   :data-testid="`suspend-${row.accountId}`"
                   @click="setState(row.accountId, 'suspend')"
                 >
@@ -157,6 +177,7 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
                 <button
                   v-else-if="row.state === 'suspended'"
                   type="button"
+                  class="btn btn-secondary"
                   :data-testid="`reactivate-${row.accountId}`"
                   @click="setState(row.accountId, 'reactivate')"
                 >
@@ -180,7 +201,7 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
       <button
         v-if="nextCursor"
         type="button"
-        class="more"
+        class="btn btn-neutral more"
         data-testid="load-more"
         @click="load(nextCursor ?? undefined)"
       >
@@ -194,7 +215,9 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
 .scroll {
   overflow-x: auto;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 table {
@@ -203,9 +226,11 @@ table {
 }
 
 caption {
-  padding: var(--space-3);
+  padding: var(--space-3) var(--space-4);
   text-align: start;
-  font-weight: 600;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
 }
 
 th,
@@ -217,21 +242,31 @@ td {
 }
 
 th {
+  position: sticky;
+  inset-block-start: 0;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+
+/* Letter-spacing breaks Persian connected script — reset it there (17.5). */
+[lang='fa'] th {
+  letter-spacing: normal;
+  text-transform: none;
+}
+
+tbody tr {
+  transition: background-color var(--motion-fast) var(--motion-ease);
+}
+tbody tr:hover {
   background-color: var(--color-surface-raised);
 }
 
 .empty {
   color: var(--color-text-muted);
   text-align: center;
-}
-
-button {
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
-  color: var(--color-text);
-  cursor: pointer;
 }
 
 .more {

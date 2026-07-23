@@ -43,6 +43,15 @@ const busy = ref(false);
 
 const pendingActive = computed(() => active.value !== null && active.value.state === 'payment_pending');
 
+// Maps a domain state string to a status-pill tone. Colour reinforces the always-present
+// text label; it is never the sole signal (section 23.2).
+function toneFor(state: string): string {
+  if (/succeed|active|credited|paid|released|granted/i.test(state)) return 'success';
+  if (/pending|processing|await|hold|reserved/i.test(state)) return 'warning';
+  if (/fail|cancel|expire|refund|correct|void|declin/i.test(state)) return 'danger';
+  return 'neutral';
+}
+
 async function refresh(): Promise<void> {
   summary.value = await getWalletSummary();
   holds.value = (await listHolds()).items;
@@ -111,22 +120,25 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
         class="balances"
         data-testid="wallet-balances"
       >
-        <div>
+        <div class="balance">
           <dt>{{ t('wallet.total') }}</dt>
           <dd data-testid="balance-total">
-            {{ formatNumber(summary.ledgerBalance, activeLocale()) }} {{ t('wallet.coinUnit') }}
+            <span class="amount numeric">{{ formatNumber(summary.ledgerBalance, activeLocale()) }}</span>
+            <span class="unit">{{ t('wallet.coinUnit') }}</span>
           </dd>
         </div>
-        <div>
+        <div class="balance">
           <dt>{{ t('wallet.held') }}</dt>
           <dd data-testid="balance-held">
-            {{ formatNumber(summary.heldAmount, activeLocale()) }} {{ t('wallet.coinUnit') }}
+            <span class="amount numeric">{{ formatNumber(summary.heldAmount, activeLocale()) }}</span>
+            <span class="unit">{{ t('wallet.coinUnit') }}</span>
           </dd>
         </div>
-        <div>
+        <div class="balance balance-available">
           <dt>{{ t('wallet.available') }}</dt>
           <dd data-testid="balance-available">
-            <strong>{{ formatNumber(summary.availableBalance, activeLocale()) }}</strong> {{ t('wallet.coinUnit') }}
+            <span class="amount numeric">{{ formatNumber(summary.availableBalance, activeLocale()) }}</span>
+            <span class="unit">{{ t('wallet.coinUnit') }}</span>
           </dd>
         </div>
       </dl>
@@ -165,14 +177,18 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
       >
         <h2>{{ t('wallet.currentPurchase') }}</h2>
         <p
-          class="status"
+          class="status-pill"
+          :class="`status-pill-${toneFor(active.state)}`"
           data-testid="active-state"
           :data-state="active.state"
         >
           {{ t(`wallet.state.${active.state}`) }}
         </p>
         <template v-if="pendingActive">
-          <p>{{ t('wallet.simulateHint') }}</p>
+          <p class="mock-note">
+            <span class="badge badge-warning">{{ t('wallet.mockLabel') }}</span>
+            {{ t('wallet.simulateHint') }}
+          </p>
           <div class="row">
             <button
               type="button"
@@ -232,8 +248,15 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
               :data-state="hold.state"
             >
               <td>{{ t(`wallet.holdPurposeLabel.${hold.purpose}`) }}</td>
-              <td>{{ formatNumber(hold.remainingAmount, activeLocale()) }}</td>
-              <td>{{ t(`wallet.holdState.${hold.state}`) }}</td>
+              <td class="numeric">
+                {{ formatNumber(hold.remainingAmount, activeLocale()) }}
+              </td>
+              <td>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${toneFor(hold.state)}`"
+                >{{ t(`wallet.holdState.${hold.state}`) }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -274,9 +297,18 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
               :data-testid="`entitlement-${entitlement.id}`"
               :data-state="entitlement.state"
             >
-              <td>{{ formatNumber(entitlement.rank, activeLocale()) }}</td>
-              <td>{{ formatNumber(entitlement.tomanAmount, activeLocale()) }} {{ t('wallet.tomanUnit') }}</td>
-              <td>{{ t(`wallet.entitlementState.${entitlement.state}`) }}</td>
+              <td class="numeric">
+                {{ formatNumber(entitlement.rank, activeLocale()) }}
+              </td>
+              <td class="numeric">
+                {{ formatNumber(entitlement.tomanAmount, activeLocale()) }} {{ t('wallet.tomanUnit') }}
+              </td>
+              <td>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${toneFor(entitlement.state)}`"
+                >{{ t(`wallet.entitlementState.${entitlement.state}`) }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -319,10 +351,19 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
               :data-testid="`purchase-${purchase.id}`"
               :data-state="purchase.state"
             >
-              <td>{{ purchase.packageCode }}</td>
-              <td>{{ formatNumber(purchase.dragonCoin, activeLocale()) }}</td>
-              <td>{{ formatNumber(purchase.tomanAmount, activeLocale()) }} {{ t('wallet.tomanUnit') }}</td>
-              <td>{{ t(`wallet.state.${purchase.state}`) }}</td>
+              <td><span class="latin-value">{{ purchase.packageCode }}</span></td>
+              <td class="numeric">
+                {{ formatNumber(purchase.dragonCoin, activeLocale()) }}
+              </td>
+              <td class="numeric">
+                {{ formatNumber(purchase.tomanAmount, activeLocale()) }} {{ t('wallet.tomanUnit') }}
+              </td>
+              <td>
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${toneFor(purchase.state)}`"
+                >{{ t(`wallet.state.${purchase.state}`) }}</span>
+              </td>
             </tr>
           </tbody>
         </table>
@@ -332,21 +373,51 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
 </template>
 
 <style scoped>
+/* Total / held / available as distinct stat cards so they cannot be confused (23.2). */
 .balances {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 12rem), 1fr));
   gap: var(--space-4);
-  margin-block: var(--space-3);
+  margin-block: var(--space-3) var(--space-6);
+}
+
+.balance {
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background: var(--gradient-surface);
+}
+
+/* Available is the number the user acts on — restrained accent emphasis. */
+.balance-available {
+  border-color: var(--color-primary);
+  box-shadow: var(--glow-primary);
 }
 
 .balances dt {
-  font-size: var(--text-xs);
+  font-size: var(--text-sm);
   color: var(--color-text-muted);
 }
 
 .balances dd {
-  margin: 0;
-  font-size: var(--text-lg);
+  margin: var(--space-1) 0 0;
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.amount {
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--weight-bold);
+  line-height: 1.1;
+}
+.balance-available .amount {
+  color: var(--color-accent);
+}
+.unit {
+  font-size: var(--text-sm);
+  color: var(--color-text-muted);
 }
 
 .packages {
@@ -362,9 +433,11 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
-  padding: var(--space-3);
+  padding: var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .pkg-info {
@@ -373,23 +446,30 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
 }
 
 .coins {
-  font-weight: 700;
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
 }
 
 .price {
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
 }
 
 .active-purchase {
-  margin-block: var(--space-4);
-  padding: var(--space-4);
+  margin-block: var(--space-5);
+  padding: var(--space-5);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface-raised);
 }
 
-.status {
-  font-weight: 700;
+.mock-note {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
 }
 
 .row {
@@ -400,6 +480,11 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
 
 .scroll {
   overflow-x: auto;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+  margin-block-end: var(--space-5);
 }
 
 table {
@@ -409,34 +494,67 @@ table {
 
 th,
 td {
-  padding: var(--space-2) var(--space-3);
-  border-block-end: 1px solid var(--color-border);
+  padding: var(--space-3) var(--space-4);
+  border-block-start: 1px solid var(--color-border);
   text-align: start;
 }
 
-.primary {
-  padding-inline: var(--space-4);
-  padding-block: var(--space-2);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
+th {
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+[lang='fa'] th {
+  letter-spacing: normal;
+  text-transform: none;
 }
 
-.primary:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
+tbody tr:hover {
+  background-color: var(--color-surface-raised);
 }
 
+.primary,
 .secondary {
-  padding-inline: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding-inline: var(--space-5);
   padding-block: var(--space-2);
-  border: 1px solid var(--color-border);
+  border: 1px solid transparent;
   border-radius: var(--radius-md);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.primary:active,
+.secondary:active {
+  transform: translateY(1px);
+}
+.primary {
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  box-shadow: var(--glow-primary);
+}
+.primary:hover:not(:disabled) {
+  background-color: var(--color-primary-strong);
+}
+.primary:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  box-shadow: none;
+}
+.secondary {
   background-color: var(--color-surface);
   color: var(--color-text);
-  cursor: pointer;
+  border-color: var(--color-border-strong);
+}
+.secondary:hover {
+  background-color: var(--color-surface-raised);
 }
 
 .sr-only {

@@ -144,64 +144,96 @@ async function onToggleVisibility(): Promise<void> {
     />
 
     <template v-else-if="team">
-      <p>
+      <p class="back-link">
         <RouterLink :to="`${prefix}/account/teams`">
           {{ t('teams.detail.back') }}
         </RouterLink>
       </p>
-      <h1 data-testid="team-title">
-        {{ team.name }}
-      </h1>
-      <p class="meta">
-        {{ t(`teams.role.${team.viewerRole}`) }} ·
-        {{ t(`teams.visibility.${team.visibility}`) }}
-      </p>
-      <p
-        v-if="team.description"
-        data-testid="team-description"
-      >
-        {{ team.description }}
-      </p>
 
-      <h2>{{ t('teams.detail.roster') }}</h2>
-      <ul
-        class="roster"
-        data-testid="roster"
-      >
-        <li
-          v-for="member in team.members"
-          :key="member.accountId"
-          :data-testid="`member-${member.accountId}`"
-        >
-          <span>{{ member.displayName ?? member.username ?? member.accountId }}</span>
-          <span class="role">{{ t(`teams.role.${member.role}`) }}</span>
+      <div class="hero">
+        <div class="hero-top">
           <span
-            v-if="isOwner && member.role === 'member'"
-            class="actions"
+            class="avatar"
+            aria-hidden="true"
+          >{{ team.name.slice(0, 2).toUpperCase() }}</span>
+          <div class="hero-title">
+            <h1 data-testid="team-title">
+              {{ team.name }}
+            </h1>
+            <div class="hero-meta">
+              <span class="badge badge-accent">{{ t(`teams.role.${team.viewerRole}`) }}</span>
+              <span
+                class="status-pill"
+                :class="team.visibility === 'public' ? 'status-pill-info' : 'status-pill-neutral'"
+              >{{ t(`teams.visibility.${team.visibility}`) }}</span>
+            </div>
+          </div>
+        </div>
+        <p
+          v-if="team.description"
+          class="description"
+          data-testid="team-description"
+        >
+          {{ team.description }}
+        </p>
+      </div>
+
+      <section class="block">
+        <div class="section-header">
+          <h2>{{ t('teams.detail.roster') }}</h2>
+        </div>
+        <ul
+          class="roster"
+          data-testid="roster"
+        >
+          <li
+            v-for="member in team.members"
+            :key="member.accountId"
+            :data-testid="`member-${member.accountId}`"
           >
-            <button
-              type="button"
-              data-testid="transfer-member"
-              @click="onTransfer(member.accountId)"
+            <span class="member-name">
+              <span
+                class="avatar avatar-sm"
+                aria-hidden="true"
+              >{{ (member.displayName ?? member.username ?? member.accountId).slice(0, 2).toUpperCase() }}</span>
+              <bdi class="latin-value">{{ member.displayName ?? member.username ?? member.accountId }}</bdi>
+            </span>
+            <span
+              class="badge"
+              :class="member.role === 'owner' ? 'badge-accent' : 'badge-neutral'"
+            >{{ t(`teams.role.${member.role}`) }}</span>
+            <span
+              v-if="isOwner && member.role === 'member'"
+              class="actions"
             >
-              {{ t('teams.detail.makeOwner') }}
-            </button>
-            <button
-              type="button"
-              data-testid="remove-member"
-              @click="onRemove(member.accountId)"
-            >
-              {{ t('teams.detail.remove') }}
-            </button>
-          </span>
-        </li>
-      </ul>
+              <button
+                type="button"
+                class="btn btn-secondary"
+                data-testid="transfer-member"
+                @click="onTransfer(member.accountId)"
+              >
+                {{ t('teams.detail.makeOwner') }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-danger"
+                data-testid="remove-member"
+                @click="onRemove(member.accountId)"
+              >
+                {{ t('teams.detail.remove') }}
+              </button>
+            </span>
+          </li>
+        </ul>
+      </section>
 
       <section
         v-if="isOwner"
-        class="panel"
+        class="card panel"
       >
-        <h2>{{ t('teams.detail.invite') }}</h2>
+        <div class="section-header">
+          <h2>{{ t('teams.detail.invite') }}</h2>
+        </div>
         <form
           novalidate
           @submit.prevent="onInvite"
@@ -216,7 +248,7 @@ async function onToggleVisibility(): Promise<void> {
           />
           <button
             type="submit"
-            class="primary"
+            class="btn btn-primary"
             data-testid="send-invite"
           >
             {{ t('teams.detail.sendInvite') }}
@@ -228,6 +260,7 @@ async function onToggleVisibility(): Promise<void> {
         <button
           v-if="isOwner"
           type="button"
+          class="btn btn-secondary"
           data-testid="toggle-visibility"
           @click="onToggleVisibility"
         >
@@ -236,6 +269,7 @@ async function onToggleVisibility(): Promise<void> {
         <button
           v-if="isOwner"
           type="button"
+          class="btn btn-secondary"
           data-testid="capture-snapshot"
           @click="onSnapshot"
         >
@@ -244,7 +278,7 @@ async function onToggleVisibility(): Promise<void> {
         <button
           v-if="isOwner"
           type="button"
-          class="danger"
+          class="btn btn-danger"
           data-testid="disband-team"
           @click="onDisband"
         >
@@ -253,7 +287,7 @@ async function onToggleVisibility(): Promise<void> {
         <button
           v-else
           type="button"
-          class="danger"
+          class="btn btn-danger"
           data-testid="leave-team"
           @click="onLeave"
         >
@@ -265,28 +299,93 @@ async function onToggleVisibility(): Promise<void> {
 </template>
 
 <style scoped>
-.meta {
+.back-link {
+  margin-block-end: var(--space-3);
+}
+
+.hero {
+  padding: var(--space-6);
+  margin-block-end: var(--space-6);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+  background-image: var(--gradient-hero);
+}
+
+.hero-top {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.hero-title h1 {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-3xl);
+}
+
+.hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.description {
+  margin-block: var(--space-4) 0;
   color: var(--color-text-muted);
+  max-inline-size: 70ch;
+}
+
+.avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 4rem;
+  block-size: 4rem;
+  flex: none;
+  border-radius: var(--radius-lg);
+  background: var(--gradient-brand);
+  color: var(--color-primary-text);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+}
+
+.avatar-sm {
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
   font-size: var(--text-sm);
+}
+
+.block {
+  margin-block: var(--space-6);
 }
 
 .roster {
   list-style: none;
-  margin: 0 0 var(--space-5);
+  margin: 0;
   padding: 0;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-lg);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
 }
 
 .roster li {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding-block: var(--space-2);
+  padding: var(--space-3) var(--space-4);
   border-block-end: 1px solid var(--color-border);
 }
 
-.role {
-  font-size: var(--text-sm);
-  color: var(--color-text-muted);
+.roster li:last-child {
+  border-block-end: none;
+}
+
+.member-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-weight: var(--weight-semibold);
+  min-inline-size: 0;
 }
 
 .actions {
@@ -297,9 +396,6 @@ async function onToggleVisibility(): Promise<void> {
 
 .panel {
   margin-block: var(--space-5);
-  padding: var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
 }
 
 .owner-actions {
@@ -307,29 +403,5 @@ async function onToggleVisibility(): Promise<void> {
   flex-wrap: wrap;
   gap: var(--space-3);
   margin-block-start: var(--space-5);
-}
-
-.owner-actions button,
-.actions button {
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
-  color: var(--color-text);
-  cursor: pointer;
-}
-
-.primary {
-  padding-inline: var(--space-4);
-  border: 1px solid var(--color-accent);
-  border-radius: var(--radius-md);
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  cursor: pointer;
-}
-
-.danger {
-  border-color: var(--color-danger-text) !important;
-  color: var(--color-danger-text) !important;
 }
 </style>

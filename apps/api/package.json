@@ -11,6 +11,8 @@
     "build": "tsc -p tsconfig.build.json",
     "start": "node dist/server.js",
     "migrate": "node src/migrate.ts",
+    "seed:demo": "node src/seed-demo.ts",
+    "seed:demo:reset": "node src/seed-demo.ts --reset --confirm",
     "bootstrap:superadmin": "node src/bootstrap-superadmin.ts",
     "dev": "node --watch src/server.ts"
   },

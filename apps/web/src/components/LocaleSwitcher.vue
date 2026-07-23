@@ -38,10 +38,15 @@ function isActive(candidate: Locale): boolean {
 a {
   padding-inline: var(--space-2);
   text-decoration: none;
+  color: var(--color-text-muted);
+}
+
+a:hover {
+  color: var(--color-text);
 }
 
 a[aria-current='true'] {
-  font-weight: 700;
-  text-decoration: underline;
+  font-weight: var(--weight-semibold);
+  color: var(--color-text);
 }
 </style>
