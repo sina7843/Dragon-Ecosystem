@@ -1,0 +1,6 @@
+# Phase 1 coverage-gap fixture (DRAGON-17a). MUST be empty for closure: every Phase 1
+# requirement has a canonical row in REQUIREMENTS_TRACEABILITY.md. This lists Phase 1
+# requirement IDs (derived from Requirements.md inline tags + untagged foundational
+# sections I18N/A11Y/SEC/DOC/SMS/INT) that currently LACK a canonical row. The closure
+# check FAILS if any ID appears below. Regenerate with scripts/closure-check tooling.
+# unresolved: 0
