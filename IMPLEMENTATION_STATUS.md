@@ -25,9 +25,48 @@
 - Accessibility + bilingual UX hardening (shared primitives, keyboard/focus, contrast, RTL/LTR, live states): complete (DRAGON-16a) — implemented and verified, not yet committed
 - Security hardening (CSRF origin guard, CSP/HSTS/Permissions-Policy, no-store, pseudonym-salt secret): complete (DRAGON-16b) — implemented and verified, not yet committed
 - Performance + delivery hardening (media 304, public-directory + job-status indexes, content-list projection, frontend fetch-once/stale-guard, bundle budget): complete (DRAGON-16c) — implemented and verified, not yet committed. **Parent DRAGON-16 is now complete** (16a + 16b + 16c all done)
-- Requirement/decision closure (traceability reconciliation, deterministic integrity + full Phase-1 coverage): DRAGON-17a **meets every acceptance criterion, left unmarked pending confirmation** (not marked complete this turn per instruction) — reconciled and verified, not yet committed
-- Active prompt: DRAGON-17a (requirement/decision closure) — acceptance criteria met, awaiting confirmation to mark complete; **parent DRAGON-17 remains open** (17b release-candidate verification + 17c acceptance not started)
-- Latest verified checkpoint: DRAGON-17a requirement and decision closure, 2026-07-23
+- Requirement/decision closure (traceability reconciliation, deterministic integrity + full Phase-1 coverage): complete (DRAGON-17a) — reconciled, verified, and committed (`09b1af5`)
+- Phase 1 release-candidate verification and release evidence: DRAGON-17b **verification cycle run; technically credible RC with documented non-blocking flake** — evidence recorded below, not yet marked complete, not committed
+- Active prompt: DRAGON-17b (release evidence and broad verification); **parent DRAGON-17 remains open** (17c final acceptance not started)
+- Latest verified checkpoint: DRAGON-17b Phase 1 broad verification, 2026-07-23
+
+## DRAGON-17b — Phase 1 release evidence
+
+Local/test-environment verification only. Not production capacity, deployment, provider-integration, backup/restore, or manual assistive-technology certification.
+
+- **Commit tested:** `09b1af5` (branch `main`), working tree clean at start.
+- **Environment:** Windows 11; Node `>=22.12.0`; test MongoDB `mongo:8.0` (compose test service, `127.0.0.1:27018`, single-node replica set `rs-test`); Playwright Chromium engine, 3 viewport projects; mock SMS/email/payments adapters only; `NODE_ENV=test` for the e2e API; unit/integration run per-workspace, e2e `fullyParallel`.
+- **Commands run (in order):** `npm run closure:check`; `npm run lint`; api + web `typecheck`; api + web `test`; `npm run test:integration`; clean `migrate` ×2 on a throwaway DB + index enumeration; api + web `build`; `npm run test:budget`; focused security/config + perf/determinism node:test subsets; `npm run e2e`; `npm audit`.
+- **Closure/guardrails:** `closure:check` 14/14 (596/596 Phase-1 rowed once; 0 missing/dup/unknown; TOURN-024 route assertion holds).
+- **Static:** lint clean; api `tsc --noEmit` clean; web `vue-tsc --noEmit` clean.
+- **Unit/property:** api **266/266**, web **39/39** (0 fail, 0 skip).
+- **Integration/concurrency:** **295/295** (0 fail, 0 skip) — OTP/session, deny-by-default authz, superadmin singleton, atomic seat/final-seat concurrency, waitlist order, immutable rosters, deterministic brackets, versioning/rollback, standings locking, double-entry ledger, exactly-once purchase credit, hold reserve/capture/release/expiry + underflow guard, paid-checkout gate/fees, prize double-credit guard, outbox idempotency + claim/retry/dead-letter, moderation optimistic locking, triage-only recovery, consent-aware analytics, bounded jobs, media publication/deletion protection, perf indexes.
+- **Migration:** 22 migrations (`001-foundation`…`022-perf-indexes`) apply clean from empty schema; second run = "No new migrations" (idempotent). Enumerated **60 collections / 184 indexes** (47 unique, 12 partial, 5 TTL) incl. notifications/moderation/operations/media/checkout/prizes + perf indexes. Throwaway `dragon_e2e`/`dragon_migcheck` test DBs remain as harmless local artifacts (destructive-drop guardrail not bypassed). No backup/restore claim.
+- **Build/bundle:** api `tsc` build ok; web `vite build` ok; bundle-budget test **pass** — entry `index` ≈272 kB raw / **gzip 89.80 kB**, admin/account views all lazy code-split.
+- **Security (focused, maintained tests):** 55/55 across config, proxy-trust, server headers/no-store, payments callback (forged-signature/field-substitution/replay/fee-integrity). Production fail-closed secrets, dev-only routes absent in prod, secure cookie attrs — all asserted green.
+- **Performance/load (focused, DRAGON-16c):** perf-index itest + capacity/round-robin/standings-determinism unit + standings-concurrency itest all green (37/37 unit, 35/35 itest incl. perf-indexes). Local regression evidence only, not production capacity.
+- **Browser matrix:** 3 viewports (small-mobile 320, mobile 375, desktop 1440) × fa/en journeys (public shell, auth/OTP, account/profile/security, content/games, teams/identities, tournament discovery/detail, registration/waitlist, brackets/standings, wallet/purchase, paid-checkout mock, notifications, moderation, media/SEO, accessibility, forbidden/not-found, logout). One broad run: **258 passed, 1 skipped (intentional — mobile-disclosure case skipped on desktop), 2 failed → both intermittent, root cause unconfirmed** (`teams.spec.ts:58` invitee "invitations" panel) — pass on desktop and pass 4/4 on an isolated `--workers=1` rerun; see "Known flake" below. Not re-run broad again (result assessed).
+- **Dependency audit:** `npm audit` **0 vulnerabilities** (full and `--omit=dev`).
+- **Evidence mappings changed:** none — broad pass corroborates existing `Verified` dispositions; no new precise per-requirement mapping established; 362 `Evidence pending` rows unchanged (owned by DRAGON-17c). No bulk upgrade.
+
+### Known flake (unconfirmed root cause)
+- `teams.spec.ts:58` "owner invites a player, player joins" times out on `getByTestId('invitations')` under the 3-project `fullyParallel` browser run (2/261 executions, narrow viewports only; 0 on desktop; 0 on an isolated `--workers=1` rerun). **Classification: unconfirmed intermittent timing failure — not a settled root cause.** The invitee reaches the page via `inviteePage.goto('/en/account/teams')` (`teams.spec.ts:89`), a full navigation that remounts the SPA and re-fires `TeamsView` `onMounted` → a *same-session stale-cache / fetch-once mechanism is ruled out*. Remaining candidates, not yet distinguished: (a) Playwright's default 5 s expect timeout under `fullyParallel` CPU/DB contention; (b) a write-then-read gap between `POST /teams/:id/invitations` and the invitee's `GET /invitations/mine` (no explicit read-your-writes guarantee observed in `apps/api/src/modules/teams/routes.ts`). The feature itself works (desktop + isolated both green). **Not masked with retries; no test weakened; broad suite not re-run again.** Re-diagnose (raise the assertion timeout or serialize e2e workers to isolate infra-timing vs. API consistency) before final acceptance — not a Phase-1 release-candidate blocker.
+
+### Release-candidate assessment
+Technically credible Phase 1 release candidate: all deterministic suites green; the single browser failure is a non-blocking intermittent timing failure (isolated + desktop green), with its root cause left honestly unconfirmed rather than overclaimed. **No unexplained Critical/High defect.** Parent DRAGON-17 stays open; final acceptance disposition and the 362 `Evidence pending` rows remain DRAGON-17c work.
+
+### Risk notes (release-candidate)
+| Risk | Evidence | Impact | Mitigation | Owner | Blocks RC? | Blocks final acceptance? |
+|---|---|---|---|---|---|---|
+| Browser-suite intermittent failure (teams invitations under parallel load; root cause unconfirmed) | 2/261 exec, isolated + desktop green | Intermittent CI red | Re-diagnose: raise assert timeout or serialize e2e workers; check `GET /invitations/mine` read-your-writes | 17c/maintenance | No | No |
+| Screen-reader manual certification not performed | Only automated a11y tokens/journeys run | Unverified AT parity | Manual audit in acceptance | 17c | No | Yes |
+| SSR/prerender + real wire-status SPA 404 not delivered | SPA-only routes | SEO/soft-404 nuance | Accepted Phase-1 scope | 17c | No | Deferred (accepted) |
+| Real SMS/email/payment/analytics providers not integrated | Mock adapters only | No live delivery | Fail-closed gates (OD-007/026/029) | Post-Phase-1 | No | Accepted fail-closed |
+| Refund/cash-out/external payout disabled | Feature gates off | No outbound money | Zero prohibited effects proven in itests | Post-Phase-1 | No | Accepted fail-closed |
+| Background jobs not always-on scheduled | Bounded runner only | Manual/triggered ops jobs | Bounded batch caps enforced | Post-Phase-1 | No | Accepted |
+| Local load ≠ production capacity | Deterministic 16c limits only | No prod latency/capacity guarantee | Documented as local regression evidence | 17c | No | Yes (needs prod rehearsal) |
+| Deploy/TLS/backup-restore/observability unverified locally | Out of local scope | Production readiness gap | Deployment rehearsal outside slice | Post-Phase-1 | No | Yes |
+| 362 neutral `Evidence pending` mappings | Traceability | Coverage complete, evidence pending | Per-requirement disposition | 17c | No | Yes |
 
 ## Delivered by DRAGON-00
 - npm workspace with `apps/web` (Vue 3 + Vite + TypeScript) and `apps/api` (Node.js + Fastify + TypeScript), one root lockfile, and root scripts for typecheck, lint, test, build, and E2E.

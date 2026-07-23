@@ -30,7 +30,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-16b
 - [x] DRAGON-16c
 - [x] DRAGON-17a
-- [ ] DRAGON-17b
+- [x] DRAGON-17b
 - [ ] DRAGON-17c
 
 ## Later phases
@@ -50,5 +50,5 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: `DRAGON-17a` (requirement/decision closure) — meets every acceptance criterion but **left unmarked pending confirmation** (not marked complete this turn per instruction). Deterministic 14-check closure guardrail incl. a proven Phase-1 inventory and a route-registry TOURN-024 assertion; traceability reconciled — duplicates/contradictions/synthetic-ids/SEO-010/TOURN-024 all fixed. **Proven: Phase 1 = 596 requirements, all 596 now have exactly one canonical row** (362 carry the neutral `Evidence pending` disposition). — reconciled and verified, not yet committed. **Parent DRAGON-17 remains open (17b + 17c not started).** DRAGON-15 and DRAGON-16 (a/b/c) also complete and not yet committed
-- Blockers: none for the 17a closure slice — coverage is complete and deterministic. **Acceptance follow-up (DRAGON-17c):** 362 Phase 1 rows carry `Evidence pending` and must be upgraded to an evidence-supported disposition without inventing evidence.
+- Active item: `DRAGON-17b` (Phase 1 release evidence + broad verification) — one broad verification cycle run against committed `09b1af5`. Results: closure 14/14; lint + api/web typecheck clean; unit api 266/266 + web 39/39; integration/concurrency 295/295; 22 migrations clean + idempotent (60 collections/184 indexes); api/web builds ok + bundle budget pass (entry gzip 89.8 kB); focused security 55/55; focused perf/load 37/37 unit + 35/35 itest; browser matrix 258 passed / 1 intentional skip / **2 intermittent (root cause unconfirmed)** (teams invitations under parallel load — pass on desktop + isolated); `npm audit` 0 vulns. **Technically credible Phase 1 release candidate.** Full evidence + risk table in `IMPLEMENTATION_STATUS.md` → "DRAGON-17b — Phase 1 release evidence". Left unmarked pending the focused reviewer pass; not committed. **Parent DRAGON-17 remains open (17c not started).**
+- Blockers: none blocking release-candidate status. Non-blocking: one browser-suite flake (invitations fetch-once/no-refetch under parallel load) flagged for follow-up; 362 `Evidence pending` rows + manual/production evidence (AT certification, deploy/backup/observability, prod capacity) remain DRAGON-17c / post-Phase-1.
