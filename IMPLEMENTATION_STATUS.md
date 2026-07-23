@@ -26,9 +26,10 @@
 - Security hardening (CSRF origin guard, CSP/HSTS/Permissions-Policy, no-store, pseudonym-salt secret): complete (DRAGON-16b) — implemented and verified, not yet committed
 - Performance + delivery hardening (media 304, public-directory + job-status indexes, content-list projection, frontend fetch-once/stale-guard, bundle budget): complete (DRAGON-16c) — implemented and verified, not yet committed. **Parent DRAGON-16 is now complete** (16a + 16b + 16c all done)
 - Requirement/decision closure (traceability reconciliation, deterministic integrity + full Phase-1 coverage): complete (DRAGON-17a) — reconciled, verified, and committed (`09b1af5`)
-- Phase 1 release-candidate verification and release evidence: DRAGON-17b **verification cycle run; technically credible RC with documented non-blocking flake** — evidence recorded below, not yet marked complete, not committed
-- Active prompt: DRAGON-17b (release evidence and broad verification); **parent DRAGON-17 remains open** (17c final acceptance not started)
-- Latest verified checkpoint: DRAGON-17b Phase 1 broad verification, 2026-07-23
+- Phase 1 release-candidate verification and release evidence: complete (DRAGON-17b) — committed (`45272f1`, doc-only on top of `09b1af5`)
+- Phase 1 release decision and acceptance closure: DRAGON-17c **implementation complete — decision recorded in `RELEASE_DECISION.md`: GO WITH CONDITIONS for the local/test RC at `09b1af5`; production NOT authorized; final Phase 1 acceptance withheld; awaiting authorized human sign-off** — not committed
+- Active prompt: DRAGON-17c (release decision and acceptance closure); **parent DRAGON-17 remains open pending authorized human sign-off**
+- Latest verified checkpoint: DRAGON-17c Phase 1 release decision, 2026-07-23
 
 ## DRAGON-17b — Phase 1 release evidence
 

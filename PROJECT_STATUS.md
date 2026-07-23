@@ -31,7 +31,7 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 - [x] DRAGON-16c
 - [x] DRAGON-17a
 - [x] DRAGON-17b
-- [ ] DRAGON-17c
+- [x] DRAGON-17c
 
 ## Later phases
 
@@ -50,5 +50,5 @@ Sliced parents (`09`, `11`, `16`, `17`, `27`) are never executed as separate imp
 
 ## Current work
 
-- Active item: `DRAGON-17b` (Phase 1 release evidence + broad verification) — one broad verification cycle run against committed `09b1af5`. Results: closure 14/14; lint + api/web typecheck clean; unit api 266/266 + web 39/39; integration/concurrency 295/295; 22 migrations clean + idempotent (60 collections/184 indexes); api/web builds ok + bundle budget pass (entry gzip 89.8 kB); focused security 55/55; focused perf/load 37/37 unit + 35/35 itest; browser matrix 258 passed / 1 intentional skip / **2 intermittent (root cause unconfirmed)** (teams invitations under parallel load — pass on desktop + isolated); `npm audit` 0 vulns. **Technically credible Phase 1 release candidate.** Full evidence + risk table in `IMPLEMENTATION_STATUS.md` → "DRAGON-17b — Phase 1 release evidence". Left unmarked pending the focused reviewer pass; not committed. **Parent DRAGON-17 remains open (17c not started).**
-- Blockers: none blocking release-candidate status. Non-blocking: one browser-suite flake (invitations fetch-once/no-refetch under parallel load) flagged for follow-up; 362 `Evidence pending` rows + manual/production evidence (AT certification, deploy/backup/observability, prod capacity) remain DRAGON-17c / post-Phase-1.
+- Active item: `DRAGON-17c` (Phase 1 release decision + acceptance closure) — decision recorded in `RELEASE_DECISION.md`, validated by `npm run decision:check` (12/12). **Decision: GO WITH CONDITIONS** for the local/test release candidate at `09b1af5` (mock-provider, in-app notifications, free + gated-paid flows, fa/en, 3 viewports, ≤1,000 capacity). **Production deployment NOT authorized. Final Phase 1 acceptance withheld** — 362 `Evidence pending` rows undispositioned (no repository-authorized waiver exists), manual AT + production deploy/backup/observability/load evidence absent. **Awaiting authorized human sign-off.** DRAGON-17b complete + committed (`45272f1`). Left unmarked pending the focused reviewer pass; not committed.
+- Blockers: **local/test RC = none.** Staging/production/final-acceptance blocked by conditions C1–C5 in `RELEASE_DECISION.md` (disposition 362 rows; AT certification; deploy/backup/observability rehearsal; production load; human sign-off). Non-blocking tracked: intermittent `teams.spec.ts:58` (C6/R-FLAKE).
