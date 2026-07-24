@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Base layer. Logical properties throughout so a single stylesheet serves both
  * RTL and LTR without mirrored overrides (Requirements section 17.5).
  */
@@ -21,8 +21,58 @@ body {
   margin: 0;
   min-block-size: 100vh;
   background-color: var(--color-canvas);
+  /* Ambient violet field so glass panels have depth to blur through. */
+  background-image: var(--bg-ambient);
+  background-attachment: fixed;
+  background-repeat: no-repeat;
   color: var(--color-text);
   font-size: var(--text-md);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/**
+ * Faint technical grid behind everything, fading out below the fold exactly as
+ * the design does. A fixed decorative layer rather than a body background so the
+ * radial mask applies to the grid alone.
+ */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background-image:
+    linear-gradient(var(--color-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
+  background-size: var(--grid-size) var(--grid-size);
+  -webkit-mask-image: radial-gradient(circle at 50% -10%, #000000, transparent 60%);
+  mask-image: radial-gradient(circle at 50% -10%, #000000, transparent 60%);
+}
+
+/**
+ * Frosted-glass material (iOS-style). Translucent fill + blur + edge highlight.
+ * Solid, accessible fallbacks when blur or reduced-transparency apply.
+ */
+.glass-panel {
+  background-color: var(--color-surface-raised);
+  border: 1px solid var(--color-border);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass-panel {
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-highlight), var(--shadow-md);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .glass-panel {
+    background-color: var(--color-surface-raised);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* Persian content gets a taller line so ascenders/descenders never clip (17.5). */
@@ -40,7 +90,7 @@ h4 {
   text-wrap: balance;
   font-family: var(--font-display);
   letter-spacing: var(--tracking-tight);
-  font-weight: var(--weight-bold);
+  font-weight: var(--weight-black);
 }
 
 /* Persian headings must not sit too tight vertically (17.5). */
@@ -52,11 +102,12 @@ h4 {
   letter-spacing: normal;
 }
 
+/* Fluid display sizes, matching the design's clamp ramp. */
 h1 {
-  font-size: var(--text-2xl);
+  font-size: clamp(1.625rem, 3vw, 2.25rem);
 }
 h2 {
-  font-size: var(--text-xl);
+  font-size: clamp(1.25rem, 2.2vw, 1.625rem);
 }
 h3 {
   font-size: var(--text-lg);
@@ -109,18 +160,20 @@ select {
 /**
  * Shared button system (section 23.2). Native <button>/<a> semantics preserved;
  * variants add hover, active, focus-visible, disabled, and loading states.
- * Primary uses purple; destructive is visually distinct from primary.
+ * Primary uses violet; destructive is visually distinct from primary.
+ *
+ * Shape follows the design: 10px corners on actions, never a full pill.
  */
 .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: var(--space-2);
-  padding-block: var(--space-2);
+  padding-block: var(--space-3);
   padding-inline: var(--space-5);
   border: 1px solid transparent;
   border-radius: var(--radius-md);
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-bold);
   line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
@@ -132,8 +185,9 @@ select {
     transform var(--motion-fast) var(--motion-ease);
 }
 
+/* iOS press feedback: instant physical push-in on pointer-down. */
 .btn:active {
-  transform: translateY(1px);
+  transform: scale(0.97);
 }
 
 .btn:disabled,
@@ -167,38 +221,48 @@ select {
 }
 
 .btn-primary {
-  background-color: var(--color-primary);
+  background-color: var(--color-primary-strong);
   color: var(--color-primary-text);
-  box-shadow: var(--glow-primary);
+  box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover {
-  background-color: var(--color-primary-strong);
+  background-color: var(--color-primary);
+  box-shadow: var(--glow-primary);
 }
 
 .btn-secondary {
-  background-color: var(--color-secondary-surface);
-  color: var(--color-secondary-text);
+  background-color: var(--color-primary-soft);
+  color: var(--color-accent);
   border-color: var(--color-border-strong);
 }
 .btn-secondary:hover {
   border-color: var(--color-primary);
 }
 
+/* Neutral is the design's "glass" action: solid panel with a hairline edge. */
 .btn-neutral {
   background-color: var(--color-surface);
   color: var(--color-text);
-  border-color: var(--color-border-strong);
+  border-color: var(--color-border);
+  font-weight: var(--weight-semibold);
 }
 .btn-neutral:hover {
-  background-color: var(--color-surface-raised);
+  border-color: var(--color-border-strong);
 }
 
+/* Ghost is the quiet tertiary action (design `btnGhost`): outlined, smaller. */
 .btn-ghost {
+  padding-block: var(--space-2);
+  padding-inline: var(--space-4);
   background-color: transparent;
-  color: var(--color-accent);
+  color: var(--color-text-soft);
+  border-color: var(--color-border);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 .btn-ghost:hover {
-  background-color: var(--color-secondary-surface);
+  color: var(--color-accent);
+  border-color: var(--color-border-strong);
 }
 
 .btn-danger {

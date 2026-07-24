@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { computed, onMounted, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import AppNav, { type NavItem } from './AppNav.vue';
@@ -8,6 +8,7 @@ import SkipLink from './SkipLink.vue';
 import ThemeToggle from './ThemeToggle.vue';
 import ToastRegion from './ToastRegion.vue';
 import { useAuth } from '../composables/useAuth.ts';
+import { useAdmin } from '../composables/useAdmin.ts';
 import { useToasts } from '../composables/useToasts.ts';
 import { isLocale } from '../i18n/locale.ts';
 
@@ -51,23 +52,63 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
   ]
 };
 
-const navItems = computed<NavItem[]>(() =>
-  NAV_KEYS[props.variant].map((item) => ({
+// An admin link appears in the public/account chrome once the caller is confirmed to
+// hold at least one administrative capability. This is convenience only — the server
+// enforces access on every /admin route and API regardless of what the menu shows.
+const canAdmin = computed(
+  () =>
+    authenticated.value &&
+    !adminForbidden.value &&
+    (isSuperAdmin.value ||
+      canReadUsers.value ||
+      canReadAudit.value ||
+      canReadConfig.value ||
+      canWriteContent.value ||
+      canManageGames.value ||
+      canManageTournaments.value ||
+      canManageModeration.value)
+);
+
+const navItems = computed<NavItem[]>(() => {
+  const items = NAV_KEYS[props.variant].map((item) => ({
     to: `${localePrefix.value}${item.path}`,
     label: t(item.key)
-  }))
-);
+  }));
+  if (props.variant !== 'admin' && canAdmin.value) {
+    items.push({ to: `${localePrefix.value}/admin`, label: t('nav.adminOverview') });
+  }
+  return items;
+});
 
 const navLabel = computed(() => t(`nav.region.${props.variant}`));
 const isAdmin = computed(() => props.variant === 'admin');
 
 const router = useRouter();
 const { authenticated, loaded, refresh, signOut } = useAuth();
+const {
+  refresh: refreshAdmin,
+  forbidden: adminForbidden,
+  isSuperAdmin,
+  canReadUsers,
+  canReadAudit,
+  canReadConfig,
+  canWriteContent,
+  canManageGames,
+  canManageTournaments,
+  canManageModeration
+} = useAdmin();
 const { push } = useToasts();
 
-// The shell learns the session state once; views reuse the same store.
+// The shell learns the session state once; views reuse the same store. Admin
+// capabilities are probed only for a signed-in caller.
 onMounted(async () => {
   if (!loaded.value) await refresh();
+  if (authenticated.value) await refreshAdmin();
+});
+
+// A later sign-in (without a full reload) still reveals the admin entry.
+watch(authenticated, (isAuth) => {
+  if (isAuth) void refreshAdmin();
 });
 
 async function onSignOut(): Promise<void> {
@@ -82,46 +123,62 @@ async function onSignOut(): Promise<void> {
     <SkipLink />
 
     <header class="header">
-      <RouterLink
-        class="brand"
-        :to="localePrefix"
-      >
-        <span
-          class="brand-mark"
-          aria-hidden="true"
-        >◆</span>
-        <span class="brand-name">{{ t('app.name') }}</span>
-      </RouterLink>
-
-      <AppNav
-        :items="navItems"
-        :region-label="navLabel"
-        :open-label="t('nav.openMenu')"
-        :close-label="t('nav.closeMenu')"
-        :dense="isAdmin"
-      />
-
-      <div class="controls">
+      <div class="header-bar">
         <RouterLink
-          v-if="loaded && !authenticated"
-          class="btn btn-primary"
-          :to="`${localePrefix}/auth/mobile`"
-          data-testid="header-sign-in"
+          class="brand"
+          :to="localePrefix"
         >
-          {{ t('nav.signIn') }}
+          <span
+            class="brand-mark"
+            aria-hidden="true"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+            >
+              <path d="M12 2l2.6 5.5L21 8.3l-4.5 4.2 1.2 6.1L12 15.8 6.3 18.6l1.2-6.1L3 8.3l6.4-.8z" />
+            </svg>
+          </span>
+          <span class="brand-text">
+            <span class="brand-name">{{ t('app.name') }}</span>
+            <span class="brand-tagline">{{ t('app.tagline') }}</span>
+          </span>
         </RouterLink>
-        <button
-          v-else-if="loaded"
-          type="button"
-          class="btn btn-neutral"
-          data-testid="header-sign-out"
-          @click="onSignOut"
-        >
-          {{ t('nav.signOut') }}
-        </button>
 
-        <LocaleSwitcher />
-        <ThemeToggle />
+        <AppNav
+          :items="navItems"
+          :region-label="navLabel"
+          :open-label="t('nav.openMenu')"
+          :close-label="t('nav.closeMenu')"
+          :dense="isAdmin"
+        />
+
+        <div class="controls">
+          <RouterLink
+            v-if="loaded && !authenticated"
+            class="btn btn-primary"
+            :to="`${localePrefix}/auth/mobile`"
+            data-testid="header-sign-in"
+          >
+            {{ t('nav.signIn') }}
+          </RouterLink>
+          <button
+            v-else-if="loaded"
+            type="button"
+            class="btn btn-neutral"
+            data-testid="header-sign-out"
+            @click="onSignOut"
+          >
+            {{ t('nav.signOut') }}
+          </button>
+
+          <LocaleSwitcher />
+          <ThemeToggle />
+        </div>
       </div>
     </header>
 
@@ -149,26 +206,51 @@ async function onSignOut(): Promise<void> {
   min-block-size: 100vh;
 }
 
+/* The design floats the chrome as a rounded glass bar over the ambient field,
+   rather than pinning a full-bleed band to the viewport edge. */
 .header {
   position: sticky;
   inset-block-start: 0;
   z-index: var(--z-nav);
+  padding: var(--space-3) clamp(var(--space-4), 4vw, var(--space-6));
+}
+
+.header-bar {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3) var(--space-5);
-  padding: var(--space-4);
-  border-block-end: 1px solid var(--color-border);
+  inline-size: 100%;
+  max-inline-size: var(--shell-max);
+  margin-inline: auto;
+  padding: var(--space-2) var(--space-4);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
   background-color: var(--color-surface);
+  box-shadow: var(--shadow-md);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .header-bar {
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .header-bar {
+    background-color: var(--color-surface);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-2);
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-tight);
+  gap: var(--space-3);
   color: var(--color-text);
   text-decoration: none;
 }
@@ -176,45 +258,79 @@ async function onSignOut(): Promise<void> {
 .brand-mark {
   display: grid;
   place-items: center;
-  inline-size: 1.5rem;
-  block-size: 1.5rem;
-  border-radius: var(--radius-sm);
-  background: var(--color-primary);
+  flex: none;
+  inline-size: 2.5rem;
+  block-size: 2.5rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary-strong);
   color: var(--color-primary-text);
-  font-size: 0.7em;
+  box-shadow: var(--glow-primary);
+}
+
+.brand-mark svg {
+  inline-size: 1.375rem;
+  block-size: 1.375rem;
+}
+
+.brand-text {
+  display: flex;
+  flex-direction: column;
+  line-height: 1.15;
+  text-align: start;
+}
+
+.brand-name {
+  font-size: var(--text-md);
+  font-weight: var(--weight-black);
+  letter-spacing: var(--tracking-tight);
+}
+
+.brand-tagline {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-muted);
+}
+
+/* One line of chrome is enough; the tagline is decorative on narrow screens. */
+@media (max-width: 480px) {
+  .brand-tagline {
+    display: none;
+  }
 }
 
 .controls {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
   margin-inline-start: auto;
 }
 
 .main {
   flex: 1;
   inline-size: 100%;
-  max-inline-size: 72rem;
+  max-inline-size: var(--shell-max);
   margin-inline: auto;
-  padding: var(--space-6) var(--space-4);
+  padding: clamp(var(--space-5), 4vw, var(--space-7)) clamp(var(--space-4), 4vw, var(--space-6))
+    var(--space-8);
 }
 
 /* Administration is a denser, wider working surface (section 23.2). */
 .admin .main {
-  max-inline-size: 90rem;
+  max-inline-size: 96rem;
   padding-block: var(--space-5);
 }
 
 .footer {
-  padding: var(--space-5) var(--space-4);
+  margin-block-start: var(--space-6);
+  padding: var(--space-5) clamp(var(--space-4), 4vw, var(--space-6));
   border-block-start: 1px solid var(--color-border);
-  background-color: var(--color-surface-sunken);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
 .footer p {
-  margin: 0;
+  max-inline-size: var(--shell-max);
+  margin: 0 auto;
 }
 </style>

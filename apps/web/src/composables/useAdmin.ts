@@ -49,8 +49,10 @@ export function useAdmin(): {
     }
   }
 
+  // A super admin holds every capability implicitly — the server grants it access
+  // without listing each granular permission, so the UI must mirror that.
   function has(permission: string): boolean {
-    return permissions.value.has(permission);
+    return isSuperAdmin.value || permissions.value.has(permission);
   }
 
   return {

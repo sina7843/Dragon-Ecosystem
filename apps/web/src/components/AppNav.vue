@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, watch } from 'vue';
 import { useRoute } from 'vue-router';
 
@@ -85,8 +85,9 @@ function onKeydown(event: KeyboardEvent): void {
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-surface-overlay);
   color: var(--color-text);
+  font-weight: var(--weight-semibold);
   cursor: pointer;
 }
 
@@ -107,35 +108,51 @@ function onKeydown(event: KeyboardEvent): void {
   z-index: var(--z-drawer);
   min-inline-size: 13rem;
   padding: var(--space-3);
-  border: 1px solid var(--color-border-strong);
+  border: 1px solid var(--glass-border);
   border-radius: var(--radius-lg);
   background-color: var(--color-surface-overlay);
   box-shadow: var(--shadow-lg);
 }
 
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .list[data-expanded='true'] {
+    background-color: var(--glass-bg);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
+  }
+}
+
 .list a {
-  display: block;
+  display: flex;
+  align-items: center;
   padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-sm);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   text-decoration: none;
   /* Nav links are text-coloured; the accent is reserved for the active item. */
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
   /* Keeps the touch target adequate on mobile (A11Y-012). */
   min-block-size: var(--target-min);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
 }
 
 .list a:hover {
   color: var(--color-text);
-}
-
-.list a:hover {
   background-color: var(--color-surface-sunken);
 }
 
+/* The design marks the current item with a soft violet fill and a lit edge. */
 .list a.router-link-active {
-  font-weight: var(--weight-semibold);
+  font-weight: var(--weight-black);
   color: var(--color-accent);
-  background-color: var(--color-secondary-surface);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-border-strong);
   /* Non-colour cue: an inset marker on the leading edge (section 23.2). */
   box-shadow: inset 0.2rem 0 0 var(--color-primary);
 }
@@ -158,10 +175,9 @@ function onKeydown(event: KeyboardEvent): void {
     min-inline-size: 0;
   }
 
+  /* Inline pills keep the soft fill; the non-colour cue moves to an underline. */
   .list a.router-link-active {
-    background-color: transparent;
     box-shadow: inset 0 -2px 0 var(--color-primary);
-    border-radius: 0;
   }
 
   .app-nav.dense .list a {

@@ -38,3 +38,6 @@ pnpm-debug.log*
 
 # local recovery artifacts
 .dragon-backups/
+
+# imported Claude Design reference (read-only source for the redesign)
+.design-ref/

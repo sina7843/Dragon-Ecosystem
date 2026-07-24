@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { ref, useId, watch } from 'vue';
 
 /**
@@ -89,6 +89,23 @@ function onClose(): void {
   background-color: var(--color-surface-overlay);
   color: var(--color-text);
   box-shadow: var(--shadow-lg);
+}
+
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .dialog {
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-highlight), var(--shadow-lg);
+  }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dialog {
+    background-color: var(--color-surface-overlay);
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
 }
 
 /* Entrance is gated on motion preference via the reduced-motion token (A11Y-010). */

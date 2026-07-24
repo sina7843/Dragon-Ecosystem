@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
+import AppThumb from '../components/AppThumb.vue';
 import { listGames, type GameCard } from '../composables/useContentApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -125,6 +126,12 @@ function submitSearch(): void {
           :to="`${prefix}/games/${encodeURIComponent(game.slug)}`"
           :data-testid="`game-card-${game.slug}`"
         >
+          <AppThumb
+            class="card-thumb"
+            :src="game.coverImageUrl"
+            :label="game.name"
+            :ratio="4 / 3"
+          />
           <h2 class="card-title">
             {{ game.name }}
           </h2>
@@ -177,6 +184,14 @@ function submitSearch(): void {
   block-size: 100%;
   color: inherit;
   text-decoration: none;
+}
+
+.card-thumb {
+  margin-block-end: var(--space-3);
+}
+
+.card-link:hover .card-title {
+  color: var(--color-accent);
 }
 
 .more-row {

@@ -47,10 +47,12 @@ function onChange(event: Event): void {
 }
 
 select {
-  padding-inline: var(--space-2);
+  padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
   border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-overlay);
   color: var(--color-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
 }
 </style>

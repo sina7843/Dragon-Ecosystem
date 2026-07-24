@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
+import AppThumb from '../components/AppThumb.vue';
 import { listContent, type ContentCard } from '../composables/useContentApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { formatDate } from '../i18n/format.ts';
@@ -176,6 +177,11 @@ function detailPath(card: ContentCard): string {
           :to="detailPath(card)"
           :data-testid="`content-card-${card.slug}`"
         >
+          <AppThumb
+            class="card-thumb"
+            :src="card.coverImageUrl"
+            :label="card.title"
+          />
           <span class="badge badge-accent type">{{ t(`content.type.${card.type}`) }}</span>
           <h2 class="card-title">
             {{ card.title }}
@@ -260,6 +266,14 @@ function detailPath(card: ContentCard): string {
   block-size: 100%;
   color: inherit;
   text-decoration: none;
+}
+
+.card-link:hover .card-title {
+  color: var(--color-accent);
+}
+
+.card-thumb {
+  margin-block-end: var(--space-1);
 }
 
 .type {

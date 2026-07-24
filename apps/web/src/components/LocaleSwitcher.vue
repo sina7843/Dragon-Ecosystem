@@ -32,21 +32,32 @@ function isActive(candidate: Locale): boolean {
 <style scoped>
 .locale-switcher {
   display: flex;
-  gap: var(--space-3);
+  gap: var(--space-1);
 }
 
+/* Matches the design's compact header controls: bordered chips, violet when current. */
 a {
-  padding-inline: var(--space-2);
+  display: inline-flex;
+  align-items: center;
+  padding-inline: var(--space-3);
+  min-block-size: var(--target-min);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
   text-decoration: none;
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
   color: var(--color-text-muted);
 }
 
 a:hover {
   color: var(--color-text);
+  background-color: var(--color-surface-sunken);
 }
 
 a[aria-current='true'] {
-  font-weight: var(--weight-semibold);
-  color: var(--color-text);
+  font-weight: var(--weight-black);
+  color: var(--color-accent);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-border-strong);
 }
 </style>
