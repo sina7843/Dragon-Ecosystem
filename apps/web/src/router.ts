@@ -100,6 +100,12 @@ export const router = createRouter({
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
     },
     {
+      path: '/:locale(fa|en)/players/:username',
+      name: 'public-player',
+      component: () => import('./views/PublicPlayerView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.player' }
+    },
+    {
       path: '/:locale(fa|en)/auth/mobile',
       name: 'auth-mobile',
       component: AuthMobileView,

@@ -60,6 +60,7 @@ export interface IdentityLookup {
 export interface CreateTeamInput {
   name: string;
   description?: string;
+  avatarUrl?: string | null;
   gameId: string;
   slug?: string;
   visibility?: TeamVisibility;
@@ -68,10 +69,22 @@ export interface CreateTeamInput {
 export interface UpdateTeamInput {
   name?: string;
   description?: string;
+  avatarUrl?: string | null;
   gameId?: string;
   slug?: string;
   visibility?: TeamVisibility;
   expectedVersion?: number;
+}
+
+/** Team logo reference: a site media path or an https URL (mirrors games/content, MEDIA-006). */
+function validAvatar(url: string | null | undefined, fallback: string | null): string | null {
+  if (url === undefined) return fallback;
+  if (url === null || url === '') return null;
+  const value = url.trim();
+  if (value.startsWith('/') || value.startsWith('https://')) return value;
+  throw new ValidationError('The team logo reference is not allowed.', [
+    { field: 'avatarUrl', code: 'INVALID_MEDIA_REF', message: 'Use a site path or an https URL.' }
+  ]);
 }
 
 export interface MemberView {
@@ -87,6 +100,7 @@ export interface TeamView {
   slug: string;
   name: string;
   description: string;
+  avatarUrl: string | null;
   gameId: EntityId;
   visibility: TeamVisibility;
   status: string;
@@ -181,6 +195,7 @@ export class TeamsService {
       slug,
       name,
       description,
+      avatarUrl: validAvatar(input.avatarUrl, null),
       gameId: input.gameId,
       visibility: input.visibility ?? 'private',
       status: 'active',
@@ -238,6 +253,7 @@ export class TeamsService {
           ...current,
           name,
           description: input.description === undefined ? current.description : validDescription(input.description),
+          avatarUrl: validAvatar(input.avatarUrl, current.avatarUrl ?? null),
           gameId: input.gameId ?? current.gameId,
           visibility: input.visibility ?? current.visibility,
           // The slug is the public URL, so a rename never silently changes it; the
@@ -549,6 +565,15 @@ export class TeamsService {
     return this.#snapshots().findOne({ _id: id });
   }
 
+  /** Batch team summary resolver for cross-module display (e.g. a public participant list). */
+  async getTeamSummaries(teamIds: readonly EntityId[]): Promise<Map<EntityId, { name: string; slug: string; avatarUrl: string | null }>> {
+    if (teamIds.length === 0) return new Map();
+    const rows = await this.#teams()
+      .find({ _id: { $in: [...new Set(teamIds)] } }, { projection: { name: 1, slug: 1, avatarUrl: 1 } })
+      .toArray();
+    return new Map(rows.map((r) => [r._id, { name: r.name, slug: r.slug, avatarUrl: r.avatarUrl ?? null }]));
+  }
+
   /**
    * Reproduces the roster active at a given instant from membership effective dates
    * (TEAM-010): joined on or before the instant and not yet left at that instant.
@@ -589,6 +614,7 @@ export class TeamsService {
       slug: team.slug,
       name: team.name,
       description: team.description,
+      avatarUrl: team.avatarUrl ?? null,
       gameId: team.gameId,
       visibility: team.visibility,
       status: team.status,
@@ -640,7 +666,7 @@ export class TeamsService {
    * or disbanded team is never returned. Optional free-text matches the team name.
    * Paginated by slug.
    */
-  async searchPublicTeams(query: { q?: string; gameId?: string; cursor?: string; limit?: number } = {}): Promise<Page<{ slug: string; name: string; gameId: string }>> {
+  async searchPublicTeams(query: { q?: string; gameId?: string; cursor?: string; limit?: number } = {}): Promise<Page<{ slug: string; name: string; gameId: string; avatarUrl: string | null }>> {
     const limit = clampLimit(query.limit);
     const filter: Record<string, unknown> = { visibility: 'public', status: 'active' };
     if (query.gameId !== undefined) filter['gameId'] = query.gameId;
@@ -650,10 +676,10 @@ export class TeamsService {
     if (search !== null) applyTextSearch(filter, search, ['name']);
     const rows = await this.#teams().find(filter).sort({ slug: 1, _id: 1 }).limit(limit + 1).toArray();
     const page = toPage(rows.map((r) => ({ ...r, sortValue: r.slug, id: r._id })), limit);
-    return { items: page.items.map((r) => ({ slug: r.slug, name: r.name, gameId: r.gameId })), nextCursor: page.nextCursor };
+    return { items: page.items.map((r) => ({ slug: r.slug, name: r.name, gameId: r.gameId, avatarUrl: r.avatarUrl ?? null })), nextCursor: page.nextCursor };
   }
 
-  async getPublicTeam(slug: string): Promise<{ slug: string; name: string; description: string; gameId: string; members: MemberView[] } | null> {
+  async getPublicTeam(slug: string): Promise<{ slug: string; name: string; description: string; avatarUrl: string | null; gameId: string; members: MemberView[] } | null> {
     const team = await this.#teams().findOne({ slug, visibility: 'public', status: 'active' });
     if (team === null) return null;
     const members = await this.#members().find({ teamId: team._id, status: 'active' }).sort({ joinedAt: 1 }).toArray();
@@ -664,6 +690,7 @@ export class TeamsService {
       slug: team.slug,
       name: team.name,
       description: team.description,
+      avatarUrl: team.avatarUrl ?? null,
       gameId: team.gameId,
       members: await this.#memberViews(visible, identities)
     };

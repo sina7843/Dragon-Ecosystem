@@ -29,6 +29,7 @@ export interface TeamDetail {
   slug: string;
   name: string;
   description: string;
+  avatarUrl: string | null;
   gameId: string;
   visibility: Visibility;
   status: string;
@@ -48,6 +49,7 @@ export interface PublicTeam {
   slug: string;
   name: string;
   description: string;
+  avatarUrl: string | null;
   gameId: string;
   members: TeamMember[];
 }
@@ -66,11 +68,11 @@ export function getTeam(id: string): Promise<TeamDetail> {
   return apiFetch(`/teams/${encodeURIComponent(id)}`);
 }
 
-export function createTeam(input: { name: string; gameId: string; description?: string; visibility?: Visibility }): Promise<TeamDetail & { id: string }> {
+export function createTeam(input: { name: string; gameId: string; description?: string; avatarUrl?: string | null; visibility?: Visibility }): Promise<TeamDetail & { id: string }> {
   return apiFetch('/teams', { method: 'POST', body: JSON.stringify(input) });
 }
 
-export function updateTeam(id: string, input: { name?: string; visibility?: Visibility; description?: string; expectedVersion?: number }): Promise<TeamDetail> {
+export function updateTeam(id: string, input: { name?: string; visibility?: Visibility; description?: string; avatarUrl?: string | null; expectedVersion?: number }): Promise<TeamDetail> {
   return apiFetch(`/teams/${encodeURIComponent(id)}`, { method: 'PUT', body: JSON.stringify(input) });
 }
 

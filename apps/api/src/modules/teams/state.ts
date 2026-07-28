@@ -23,6 +23,8 @@ export interface TeamRecord {
   slug: string;
   name: string;
   description: string;
+  /** Team logo/avatar: a site media path (`/media/<id>`) or an https URL; null when unset. */
+  avatarUrl: string | null;
   gameId: EntityId;
   /** Privacy by default (DEC-043): a new team is private until made public. */
   visibility: TeamVisibility;

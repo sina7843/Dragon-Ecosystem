@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRouter } from 'vue-router';
 import AppField from '../components/AppField.vue';
+import ImagePicker from '../components/ImagePicker.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -38,7 +39,7 @@ const games = ref<GameCard[]>([]);
 const submitting = ref(false);
 const formError = ref<string | undefined>(undefined);
 const errors = ref<Record<string, string | undefined>>({});
-const form = ref<{ name: string; gameId: string; visibility: 'private' | 'public' }>({ name: '', gameId: '', visibility: 'private' });
+const form = ref<{ name: string; gameId: string; avatarUrl: string | null; visibility: 'private' | 'public' }>({ name: '', gameId: '', avatarUrl: null, visibility: 'private' });
 
 async function loadAll(): Promise<void> {
   const [mine, invites, gameList] = await Promise.all([
@@ -67,7 +68,7 @@ async function onCreate(): Promise<void> {
   errors.value = {};
   submitting.value = true;
   try {
-    const team = await createTeam({ name: form.value.name, gameId: form.value.gameId, visibility: form.value.visibility });
+    const team = await createTeam({ name: form.value.name, gameId: form.value.gameId, avatarUrl: form.value.avatarUrl, visibility: form.value.visibility });
     push('success', t('teams.created'));
     await router.push(`${prefix.value}/account/teams/${team.id}`);
   } catch (error) {
@@ -213,6 +214,14 @@ async function onDecline(id: string): Promise<void> {
           >
             {{ formError }}
           </p>
+
+          <ImagePicker
+            v-model="form.avatarUrl"
+            :label="t('teams.field.logo')"
+            :hint="t('teams.field.logoHint')"
+            shape="square"
+            :disabled="submitting"
+          />
 
           <AppField
             id="team-name"

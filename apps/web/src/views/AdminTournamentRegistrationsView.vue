@@ -2,12 +2,14 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import AppSearch from '../components/AppSearch.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { isLocale } from '../i18n/locale.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useToasts } from '../composables/useToasts.ts';
 import { decideRegistration, listRegistrations, type AdminRegistration } from '../composables/useRegistrationsApi.ts';
+import { getAdminTournament, setParticipantsVisibility } from '../composables/useTournamentsApi.ts';
 
 /** Registration queue for one tournament (TOURN-006/014). Gated on tournament.manage scoped to the tournament. */
 
@@ -17,6 +19,13 @@ const { messageFor } = useApiErrors();
 const { push } = useToasts();
 const route = useRoute();
 
+// Public-visibility toggle for the participant list. The optimistic write needs the
+// tournament's current version, read from the admin tournament record.
+const participantsPublic = ref(false);
+const visibilityVersion = ref(0);
+const visibilityBusy = ref(false);
+const visibilityKnown = ref(false);
+
 const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
 const tournamentId = computed(() => String(route.params['id']));
 
@@ -25,6 +34,16 @@ const listError = ref<string | undefined>(undefined);
 const rows = ref<AdminRegistration[]>([]);
 const seats = ref<{ mainCount: number; waitlistCount: number }>({ mainCount: 0, waitlistCount: 0 });
 const stateFilter = ref('');
+const search = ref('');
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return rows.value;
+  return rows.value.filter((r) =>
+    `${r.participantName ?? ''} ${r.username ?? ''} ${r.accountId} ${r.teamId ?? ''} ${t(`registration.state.${r.state}`)}`
+      .toLowerCase()
+      .includes(q)
+  );
+});
 
 async function load(): Promise<void> {
   loading.value = true;
@@ -40,9 +59,37 @@ async function load(): Promise<void> {
   }
 }
 
+async function loadVisibility(): Promise<void> {
+  try {
+    const record = await getAdminTournament(tournamentId.value);
+    participantsPublic.value = record.participantsPublic;
+    visibilityVersion.value = record.version;
+    visibilityKnown.value = true;
+  } catch {
+    visibilityKnown.value = false; // toggle stays hidden if the record can't be read
+  }
+}
+
+async function toggleVisibility(): Promise<void> {
+  if (visibilityBusy.value) return;
+  visibilityBusy.value = true;
+  try {
+    const next = !participantsPublic.value;
+    const updated = await setParticipantsVisibility(tournamentId.value, next, visibilityVersion.value);
+    participantsPublic.value = updated.participantsPublic;
+    visibilityVersion.value = updated.version;
+    push('success', t(next ? 'adminRegistrations.visibility.nowPublic' : 'adminRegistrations.visibility.nowPrivate'));
+  } catch (caught) {
+    push('danger', messageFor(caught));
+    await loadVisibility(); // resync the version after a stale-write conflict
+  } finally {
+    visibilityBusy.value = false;
+  }
+}
+
 onMounted(async () => {
   await refreshCaps();
-  await load();
+  await Promise.all([load(), loadVisibility()]);
 });
 
 // Registration state pill tone — text label always carries the meaning (section 23.2).
@@ -97,12 +144,33 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
     />
 
     <template v-else>
-      <div
-        class="stat-card seats"
-        data-testid="seat-summary"
-      >
-        <span class="stat-value">{{ seats.mainCount }} / {{ seats.waitlistCount }}</span>
-        <span class="stat-label">{{ t('adminRegistrations.seats', { main: seats.mainCount, waitlist: seats.waitlistCount }) }}</span>
+      <div class="summary-row">
+        <div
+          class="stat-card seats"
+          data-testid="seat-summary"
+        >
+          <span class="stat-value">{{ seats.mainCount }} / {{ seats.waitlistCount }}</span>
+          <span class="stat-label">{{ t('adminRegistrations.seats', { main: seats.mainCount, waitlist: seats.waitlistCount }) }}</span>
+        </div>
+
+        <div
+          v-if="visibilityKnown"
+          class="stat-card visibility"
+          data-testid="visibility-card"
+        >
+          <span class="stat-label">{{ t('adminRegistrations.visibility.label') }}</span>
+          <label class="switch">
+            <input
+              type="checkbox"
+              data-testid="visibility-toggle"
+              :checked="participantsPublic"
+              :disabled="visibilityBusy"
+              @change="toggleVisibility"
+            >
+            <span>{{ participantsPublic ? t('adminRegistrations.visibility.public') : t('adminRegistrations.visibility.private') }}</span>
+          </label>
+          <span class="visibility-hint">{{ t('adminRegistrations.visibility.hint') }}</span>
+        </div>
       </div>
 
       <div class="toolbar">
@@ -129,6 +197,11 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
         </select>
       </div>
 
+      <AppSearch
+        v-model="search"
+        input-id="admin-registrations-search"
+      />
+
       <StateBlock
         v-if="loading"
         variant="loading"
@@ -139,9 +212,9 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
         :message="listError"
       />
       <StateBlock
-        v-else-if="rows.length === 0"
+        v-else-if="filteredRows.length === 0"
         variant="empty"
-        :message="t('adminRegistrations.empty')"
+        :message="search.trim() === '' ? t('adminRegistrations.empty') : t('search.noResults')"
       />
 
       <div
@@ -173,12 +246,23 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
           </thead>
           <tbody>
             <tr
-              v-for="reg in rows"
+              v-for="reg in filteredRows"
               :key="reg.id"
               :data-testid="`registration-${reg.id}`"
             >
               <td>
-                <bdi class="latin-value">{{ reg.participantType === 'team' ? reg.teamId : reg.accountId }}</bdi>
+                <span
+                  v-if="reg.participantName"
+                  class="participant-name"
+                >{{ reg.participantName }}</span>
+                <span
+                  v-else
+                  class="participant-unknown"
+                >{{ t('adminRegistrations.unknownParticipant') }}</span>
+                <bdi
+                  v-if="reg.participantType === 'individual' && reg.username"
+                  class="latin-value participant-handle"
+                >@{{ reg.username }}</bdi>
               </td>
               <td :data-state="reg.state">
                 <span
@@ -249,9 +333,45 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
   padding-inline: 0;
 }
 
+.summary-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-block-end: var(--space-4);
+}
 .seats {
   inline-size: fit-content;
-  margin-block-end: var(--space-4);
+}
+.visibility {
+  gap: var(--space-2);
+}
+.switch {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: var(--weight-semibold);
+  cursor: pointer;
+}
+.switch input {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+  accent-color: var(--color-primary);
+  cursor: pointer;
+}
+.visibility-hint {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.participant-name {
+  font-weight: var(--weight-semibold);
+}
+.participant-unknown {
+  color: var(--color-text-muted);
+}
+.participant-handle {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 .filter-label {

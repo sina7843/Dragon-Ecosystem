@@ -203,10 +203,12 @@ for (const testCase of LOCALE_CASES) {
     test('the theme can be switched and is applied to the document', async ({ page }) => {
       await page.goto(`/${testCase.locale}/`);
 
-      await page.getByTestId('theme-select').selectOption('dark');
+      // The icon button toggles between light and dark. The test runner emulates the
+      // light color scheme, so the first click flips the (system-resolved light) theme to dark.
+      await page.getByTestId('theme-toggle').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'dark');
 
-      await page.getByTestId('theme-select').selectOption('light');
+      await page.getByTestId('theme-toggle').click();
       await expect(page.locator('html')).toHaveAttribute('data-theme', 'light');
 
       // The preference survives a reload (PAGE-015).

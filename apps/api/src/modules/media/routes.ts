@@ -40,6 +40,32 @@ export function registerMediaRoutes(app: FastifyInstance, deps: MediaAdminDeps):
   // configured MEDIA_MAX_BYTES is actually reachable; the service still enforces the real cap.
   const uploadBodyLimit = Math.ceil(deps.maxUploadBytes * 1.4) + 4096;
 
+  // Self-service upload for any signed-in user (avatars, and any picker in the app). It
+  // uploads and publishes in one step so the caller gets an immediately usable /media URL,
+  // without needing the content.publish capability the admin media surface requires. Bytes
+  // are still validated by signature and capped, and content-addressing dedups uploads.
+  app.post(
+    '/media',
+    {
+      preHandler: [guards.requireSession],
+      bodyLimit: uploadBodyLimit,
+      schema: {
+        tags: ['media'],
+        summary: 'Upload and publish an image for the signed-in user (base64).',
+        body: { type: 'object', required: ['data'], additionalProperties: false, properties: { data: { type: 'string', minLength: 1 }, alt: altSchema } },
+        response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request, reply) => {
+      const body = request.body as { data: string; alt?: { fa?: string; en?: string } };
+      const staged = await deps.media.upload(request.requestContext, actor(request), { data: body.data, ...(body.alt === undefined ? {} : { alt: body.alt }) });
+      // A fresh upload is `staged`; dedup can return an already-published asset.
+      const record = staged.state === 'published' ? staged : await deps.media.publish(request.requestContext, staged._id, staged.version);
+      reply.status(201);
+      return view(record);
+    }
+  );
+
   app.post('/admin/media', { ...gate(), bodyLimit: uploadBodyLimit, schema: { tags: ['media'], summary: 'Upload media (base64); validated by content, stored nonpublic (staged).', body: { type: 'object', required: ['data'], additionalProperties: false, properties: { data: { type: 'string', minLength: 1 }, alt: altSchema } }, response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request, reply) => {
     const body = request.body as { data: string; alt?: { fa?: string; en?: string } };
     const record = await deps.media.upload(request.requestContext, actor(request), { data: body.data, ...(body.alt === undefined ? {} : { alt: body.alt }) });

@@ -2,6 +2,7 @@
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import AppThumb from '../components/AppThumb.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { ApiRequestError } from '../api.ts';
 import { getContent, type ContentDetail } from '../composables/useContentApi.ts';
@@ -111,25 +112,30 @@ watch(activeLocale, () => {
     v-else-if="item"
     class="detail"
   >
+    <!-- Image-forward hero: cover banner with the title/type over a scrim. -->
     <header class="hero">
-      <span class="badge badge-accent type">{{ t(`content.type.${item.type}`) }}</span>
-      <h1>{{ item.title }}</h1>
-      <p class="summary">
-        {{ item.summary }}
-      </p>
-      <p
-        v-if="item.publishedAt"
-        class="meta"
-      >
-        <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt, activeLocale) }}</time>
-      </p>
+      <AppThumb
+        class="hero-thumb"
+        :src="item.coverImageUrl"
+        :label="item.title"
+        :ratio="21 / 9"
+      />
+      <div class="hero-scrim">
+        <span class="badge badge-accent type">{{ t(`content.type.${item.type}`) }}</span>
+        <h1>{{ item.title }}</h1>
+        <p
+          v-if="item.publishedAt"
+          class="meta"
+        >
+          <time :datetime="item.publishedAt">{{ formatDate(item.publishedAt, activeLocale) }}</time>
+        </p>
+      </div>
     </header>
-    <img
-      v-if="item.coverImageUrl"
-      :src="item.coverImageUrl"
-      :alt="item.title"
-      class="cover"
-    >
+
+    <p class="summary">
+      {{ item.summary }}
+    </p>
+
     <!-- Body is sanitised at write time on the server (CONTENT-005), so it is safe to render. -->
     <!-- eslint-disable vue/no-v-html -->
     <div
@@ -143,21 +149,35 @@ watch(activeLocale, () => {
 
 <style scoped>
 .detail {
-  max-inline-size: 70ch;
+  max-inline-size: 46rem;
+  margin-inline: auto;
   margin-block: var(--space-5);
 }
 
 .hero {
-  padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface);
-  background-image: var(--gradient-hero);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-md);
   margin-block-end: var(--space-5);
 }
-
-.hero h1 {
+.hero-thumb {
+  border-radius: 0;
+}
+.hero-scrim {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  padding: clamp(var(--space-4), 4vw, var(--space-6));
+  background: var(--gradient-hero);
+}
+.hero-scrim h1 {
   margin-block: var(--space-3) var(--space-2);
+  color: #ffffff;
+}
+[lang='fa'] .hero-scrim h1 {
+  line-height: 1.4;
 }
 
 .type {
@@ -166,20 +186,15 @@ watch(activeLocale, () => {
 
 .summary {
   font-size: var(--text-lg);
-  color: var(--color-text-muted);
-  margin-block-end: 0;
+  color: var(--color-text-soft);
+  margin-block-end: var(--space-5);
 }
 
 .meta {
-  color: var(--color-text-muted);
+  color: rgb(255 255 255 / 82%);
   font-size: var(--text-sm);
   margin-block-start: var(--space-2);
-}
-
-.cover {
-  inline-size: 100%;
-  border-radius: var(--radius-md);
-  margin-block: var(--space-4);
+  margin-block-end: 0;
 }
 
 .body :deep(h2) {

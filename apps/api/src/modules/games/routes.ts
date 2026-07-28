@@ -97,6 +97,8 @@ export function registerGamesRoutes(app: FastifyInstance, deps: GamesDeps): void
         locale,
         name: t.name,
         description: t.description,
+        // Already sanitised on write, so the client can render it directly.
+        body: t.body ?? '',
         seoTitle: t.seoTitle,
         seoDescription: t.seoDescription,
         coverImageUrl: game.coverImageUrl,

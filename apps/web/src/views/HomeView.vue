@@ -2,6 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppThumb from '../components/AppThumb.vue';
+import PartnersStrip from '../components/PartnersStrip.vue';
 import { listGames, listContent, type GameCard, type ContentCard } from '../composables/useContentApi.ts';
 import { listTournaments, type TournamentCard } from '../composables/useTournamentsApi.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -19,6 +20,16 @@ const content = ref<ContentCard[]>([]);
 
 const featured = computed(() => tournaments.value[0] ?? null);
 const rail = computed(() => tournaments.value.slice(featured.value ? 1 : 0, 7));
+
+// Auto-scrolling marquee needs enough cards to fill and loop seamlessly; below that
+// it stays a plain scroll rail. The list is doubled so a -50% translate loops with
+// no seam; the second copy is decorative (aria-hidden, not focusable).
+const useMarquee = computed(() => rail.value.length >= 3);
+const railEntries = computed(() => {
+  const base = rail.value.map((item) => ({ item, clone: false, key: item.id }));
+  if (!useMarquee.value) return base;
+  return [...base, ...rail.value.map((item) => ({ item, clone: true, key: `${item.id}-c` }))];
+});
 
 function tStatus(card: TournamentCard): { key: string; tone: string } {
   const now = Date.now();
@@ -85,7 +96,7 @@ onMounted(async () => {
       >
         <AppThumb
           class="feature-thumb"
-          :src="null"
+          :src="featured.coverImageUrl"
           :label="featured.name"
           :ratio="21 / 9"
         />
@@ -132,9 +143,10 @@ onMounted(async () => {
       </div>
     </section>
 
-    <!-- Upcoming tournaments rail -->
+    <!-- Featured tournaments: an auto-scrolling marquee (pauses on hover / focus). -->
     <section
       v-if="rail.length"
+      v-reveal
       class="rail-section"
     >
       <div class="section-header">
@@ -144,39 +156,48 @@ onMounted(async () => {
           :to="`${prefix}/tournaments`"
         >{{ t('home.viewAll') }}</RouterLink>
       </div>
-      <ul class="rail reset-list">
-        <li
-          v-for="item in rail"
-          :key="item.id"
-          class="rail-card"
-        >
-          <RouterLink
-            class="tile"
-            :to="`${prefix}/tournaments/${encodeURIComponent(item.slug)}`"
+      <div
+        :class="['rail-wrap', { marquee: useMarquee }]"
+        role="group"
+        :aria-label="t('home.featuredTournaments')"
+      >
+        <ul :class="['reset-list', useMarquee ? 'marquee-track' : 'rail']">
+          <li
+            v-for="entry in railEntries"
+            :key="entry.key"
+            class="rail-card"
+            :aria-hidden="entry.clone || undefined"
           >
-            <div class="tile-thumb-wrap">
-              <AppThumb
-                :src="null"
-                :label="item.name"
-              />
-              <span
-                class="status-pill tile-status"
-                :class="`status-pill-${tStatus(item).tone}`"
-              >{{ t(`home.${tStatus(item).key}`) }}</span>
-            </div>
-            <h3 class="tile-title">{{ item.name }}</h3>
-            <div class="tile-meta">
-              <span class="badge badge-neutral">{{ t(`tournaments.feeKind.${item.feeKind}`) }}</span>
-              <span class="numeric tile-date">{{ fmtDate(item.startAt) }}</span>
-            </div>
-          </RouterLink>
-        </li>
-      </ul>
+            <RouterLink
+              class="tile"
+              :to="`${prefix}/tournaments/${encodeURIComponent(entry.item.slug)}`"
+              :tabindex="entry.clone ? -1 : undefined"
+            >
+              <div class="tile-thumb-wrap">
+                <AppThumb
+                  :src="entry.item.coverImageUrl"
+                  :label="entry.item.name"
+                />
+                <span
+                  class="status-pill tile-status"
+                  :class="`status-pill-${tStatus(entry.item).tone}`"
+                >{{ t(`home.${tStatus(entry.item).key}`) }}</span>
+              </div>
+              <h3 class="tile-title">{{ entry.item.name }}</h3>
+              <div class="tile-meta">
+                <span class="badge badge-neutral">{{ t(`tournaments.feeKind.${entry.item.feeKind}`) }}</span>
+                <span class="numeric tile-date">{{ fmtDate(entry.item.startAt) }}</span>
+              </div>
+            </RouterLink>
+          </li>
+        </ul>
+      </div>
     </section>
 
     <!-- Latest content feed -->
     <section
       v-if="content.length"
+      v-reveal
       class="feed-section"
     >
       <div class="section-header">
@@ -211,6 +232,7 @@ onMounted(async () => {
     <!-- Games grid -->
     <section
       v-if="games.length"
+      v-reveal
       class="games-section"
     >
       <div class="section-header">
@@ -241,8 +263,22 @@ onMounted(async () => {
       </ul>
     </section>
 
+    <!-- Partners and supporters (همراهان و حامیان) -->
+    <section
+      v-reveal
+      class="partners-section"
+    >
+      <div class="section-header">
+        <h2>{{ t('partners.heading') }}</h2>
+      </div>
+      <PartnersStrip />
+    </section>
+
     <!-- Closing CTA -->
-    <section class="cta-band">
+    <section
+      v-reveal
+      class="cta-band"
+    >
       <div class="cta-inner">
         <div>
           <h2 class="cta-heading">
@@ -449,7 +485,7 @@ onMounted(async () => {
   overflow: hidden;
 }
 
-/* ---- Tournament rail (horizontal scroll) ---- */
+/* ---- Tournament rail (horizontal scroll fallback) ---- */
 .rail {
   display: grid;
   grid-auto-flow: column;
@@ -459,8 +495,56 @@ onMounted(async () => {
   padding-block-end: var(--space-2);
   scroll-snap-type: x proximity;
 }
-.rail-card {
+.rail .rail-card {
   scroll-snap-align: start;
+}
+
+/* ---- Featured marquee (auto-scroll) ---- */
+.rail-wrap.marquee {
+  overflow: hidden;
+  /* Fade the two edges so cards enter and leave softly. */
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 5%, #000 95%, transparent);
+}
+.marquee-track {
+  display: flex;
+  inline-size: max-content;
+  gap: var(--space-4);
+  padding-block-end: var(--space-2);
+  /* Travel follows the writing direction: negative in LTR, positive in RTL, where the
+     track is laid out from the right edge. Flipping the sign keeps the loop seamless
+     in both directions instead of scrolling away from the reading flow. */
+  --marquee-end: -50%;
+  animation: rail-marquee 45s linear infinite;
+  will-change: transform;
+}
+[dir='rtl'] .marquee-track {
+  --marquee-end: 50%;
+}
+/* Pause when a viewer hovers or tabs into the strip, so they can read/click. */
+.rail-wrap.marquee:hover .marquee-track,
+.rail-wrap.marquee:focus-within .marquee-track {
+  animation-play-state: paused;
+}
+.marquee-track .rail-card {
+  flex: 0 0 16rem;
+}
+@keyframes rail-marquee {
+  to {
+    /* One full copy of the list; the doubled second copy makes it seamless. */
+    transform: translateX(var(--marquee-end));
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .marquee-track {
+    animation: none;
+  }
+  /* Fall back to a manual horizontal scroll when motion is reduced. */
+  .rail-wrap.marquee {
+    overflow-x: auto;
+    -webkit-mask-image: none;
+    mask-image: none;
+  }
 }
 .tile-thumb-wrap {
   position: relative;
@@ -513,6 +597,11 @@ onMounted(async () => {
 }
 .game-card .tile:hover .game-name {
   color: var(--color-accent);
+}
+
+/* ---- Partners section ---- */
+.partners-section {
+  margin-block-start: var(--space-2);
 }
 
 /* ---- CTA band ---- */

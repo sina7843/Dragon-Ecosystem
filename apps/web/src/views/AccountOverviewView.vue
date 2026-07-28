@@ -3,48 +3,97 @@ import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StateBlock from '../components/StateBlock.vue';
 import { useAuth } from '../composables/useAuth.ts';
+import { useAdmin } from '../composables/useAdmin.ts';
 import { isLocale } from '../i18n/locale.ts';
 
 /**
- * Account landing page. Signed-out visitors are pointed at sign-in rather than
- * shown controls that would fail server-side (section 9.4).
+ * Role-aware dashboard (replaces the separate account/admin overview landings).
+ * Everyone sees their personal account modules; a caller who holds administrative
+ * capabilities also sees an Administration section, generated from the server's
+ * effective-permission list (section 9.4). Hiding a control is never the boundary —
+ * the server enforces access on every route and API regardless of the menu.
  */
 const { t, locale } = useI18n();
-const { account, authenticated, profileComplete, loaded, refresh } = useAuth();
+const { authenticated, displayName, profileComplete, loaded, refresh } = useAuth();
+const {
+  loaded: adminLoaded,
+  isSuperAdmin,
+  canReadUsers,
+  canReadAudit,
+  canReadConfig,
+  canWriteContent,
+  canManageGames,
+  canManageTournaments,
+  canManageModeration,
+  refresh: refreshAdmin
+} = useAdmin();
 
 const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
 
+// Personal modules every signed-in user has.
 const modules = computed(() => [
   { to: `${prefix.value}/account/profile`, label: t('nav.profile') },
   { to: `${prefix.value}/account/wallet`, label: t('nav.wallet') },
   { to: `${prefix.value}/account/teams`, label: t('nav.teams') },
+  { to: `${prefix.value}/account/gaming-identities`, label: t('nav.gamingIdentities') },
   { to: `${prefix.value}/account/notifications`, label: t('nav.notifications') },
   { to: `${prefix.value}/account/security`, label: t('nav.security') }
 ]);
 
+// Administration areas, filtered to the caller's capabilities (mirrors the server).
+const adminAreas = computed(() =>
+  [
+    { to: `${prefix.value}/admin/content`, labelKey: 'admin.area.content', visible: canWriteContent.value, testid: 'area-content' },
+    { to: `${prefix.value}/admin/games`, labelKey: 'admin.area.games', visible: canManageGames.value, testid: 'area-games' },
+    { to: `${prefix.value}/admin/tournaments`, labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
+    { to: `${prefix.value}/admin/users`, labelKey: 'admin.area.users', visible: canReadUsers.value, testid: 'area-users' },
+    { to: `${prefix.value}/admin/audit`, labelKey: 'admin.area.audit', visible: canReadAudit.value, testid: 'area-audit' },
+    { to: `${prefix.value}/admin/moderation`, labelKey: 'admin.area.moderation', visible: canManageModeration.value, testid: 'area-moderation' },
+    { to: `${prefix.value}/admin/configuration`, labelKey: 'admin.area.configuration', visible: canReadConfig.value, testid: 'area-configuration' }
+  ].filter((area) => area.visible)
+);
+
+const isStaff = computed(() => adminAreas.value.length > 0 || isSuperAdmin.value);
+const roleLabel = computed(() => {
+  if (isSuperAdmin.value) return t('admin.superAdmin');
+  if (isStaff.value) return t('dashboard.role.staff');
+  return t('dashboard.role.player');
+});
+const greeting = computed(() =>
+  displayName.value ? t('dashboard.greeting', { name: displayName.value }) : t('dashboard.greetingAnonymous')
+);
+
 onMounted(async () => {
   if (!loaded.value) await refresh();
+  // Probe admin capabilities only for a signed-in caller; a non-admin resolves to zero areas.
+  if (authenticated.value) await refreshAdmin();
 });
 </script>
 
 <template>
   <section>
-    <div class="page-header">
-      <h1>{{ t('account.heading') }}</h1>
-    </div>
-
     <StateBlock
       v-if="!loaded"
       variant="loading"
     />
 
     <template v-else-if="authenticated">
-      <p
-        class="page-lead"
-        data-testid="account-signed-in"
-      >
-        {{ t('account.signedIn') }}
-      </p>
+      <div class="dash-header">
+        <div>
+          <h1>{{ greeting }}</h1>
+          <p
+            class="page-lead"
+            data-testid="account-signed-in"
+          >
+            {{ t('account.signedIn') }}
+          </p>
+        </div>
+        <span
+          class="status-pill"
+          :class="isSuperAdmin ? 'status-pill-warning' : isStaff ? 'status-pill-accent' : 'status-pill-neutral'"
+          data-testid="dashboard-role"
+        >{{ roleLabel }}</span>
+      </div>
 
       <p
         v-if="!profileComplete"
@@ -54,6 +103,9 @@ onMounted(async () => {
         {{ t('account.completeProfile') }}
       </p>
 
+      <h2 class="section-title">
+        {{ t('dashboard.personal') }}
+      </h2>
       <ul class="card-grid reset-list">
         <li
           v-for="module in modules"
@@ -71,12 +123,34 @@ onMounted(async () => {
         </li>
       </ul>
 
-      <p class="meta">
-        {{ t('account.timeZone', { timeZone: account?.timeZone ?? '' }) }}
-      </p>
+      <template v-if="adminLoaded && isStaff">
+        <h2 class="section-title">
+          {{ t('admin.heading') }}
+        </h2>
+        <ul class="card-grid reset-list">
+          <li
+            v-for="area in adminAreas"
+            :key="area.to"
+            class="card card-interactive"
+          >
+            <RouterLink
+              class="card-link"
+              :to="area.to"
+              :data-testid="area.testid"
+            >
+              <h3 class="card-title">
+                {{ t(area.labelKey) }}
+              </h3>
+            </RouterLink>
+          </li>
+        </ul>
+      </template>
     </template>
 
     <template v-else>
+      <div class="page-header">
+        <h1>{{ t('account.heading') }}</h1>
+      </div>
       <StateBlock
         variant="empty"
         :message="t('account.signedOutMessage')"
@@ -95,9 +169,33 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.dash-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-block-end: var(--space-5);
+}
+.dash-header h1 {
+  margin: 0;
+}
+.page-lead {
+  margin: var(--space-2) 0 0;
+  color: var(--color-text-muted);
+}
+
+.section-title {
+  margin-block: var(--space-6) var(--space-4);
+  font-size: var(--text-lg);
+}
+.section-title:first-of-type {
+  margin-block-start: 0;
+}
+
 .reset-list {
   list-style: none;
-  margin: var(--space-4) 0;
+  margin: 0;
   padding: 0;
 }
 
@@ -106,20 +204,18 @@ onMounted(async () => {
   color: inherit;
   text-decoration: none;
 }
-
-.links {
-  margin-block: var(--space-4);
+.card-title {
+  margin: 0;
 }
 
 .notice {
   display: block;
   width: fit-content;
-  margin-block-end: var(--space-4);
+  margin-block-end: var(--space-5);
   padding: var(--space-2) var(--space-3);
 }
 
-.meta {
-  color: var(--color-text-muted);
-  font-size: var(--text-sm);
+.links {
+  margin-block: var(--space-4);
 }
 </style>

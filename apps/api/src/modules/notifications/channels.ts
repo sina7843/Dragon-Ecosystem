@@ -1,6 +1,7 @@
 import type { Db } from 'mongodb';
 import { newId } from '../../shared/ids.ts';
 import { utcNow } from '../../shared/events.ts';
+import { kavenegarSmsSend } from '../../shared/kavenegar.ts';
 import type { Environment } from '../../config.ts';
 import { NOTIFICATIONS_COLLECTIONS } from './collections.ts';
 import type { Locale } from './state.ts';
@@ -39,6 +40,27 @@ export class MockSmsChannel implements NotificationChannelAdapter {
   readonly name = 'sms' as const;
   send(input: ChannelSend): Promise<'sent' | 'failed'> {
     return Promise.resolve(simulatedSmsStatus(input.recipient));
+  }
+}
+
+/**
+ * Kavenegar notification SMS channel (INT-001). Sends the composed notification body as a
+ * plain message on an approved sender line. Never throws for a delivery failure; a provider
+ * outage returns 'failed' so the delivery record reflects it and the retry policy applies.
+ */
+export class KavenegarSmsChannel implements NotificationChannelAdapter {
+  readonly name = 'sms' as const;
+  readonly #apiKey: string;
+  readonly #sender: string;
+
+  constructor(options: { apiKey: string; sender: string }) {
+    this.#apiKey = options.apiKey;
+    this.#sender = options.sender;
+  }
+
+  async send(input: ChannelSend): Promise<'sent' | 'failed'> {
+    const accepted = await kavenegarSmsSend({ apiKey: this.#apiKey, sender: this.#sender, receptor: input.recipient, message: input.body });
+    return accepted ? 'sent' : 'failed';
   }
 }
 

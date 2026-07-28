@@ -2,11 +2,12 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import AppThumb from '../components/AppThumb.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { ApiRequestError } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
-import { getTournament, type MoneyView, type TournamentDetail } from '../composables/useTournamentsApi.ts';
+import { getTournament, getTournamentParticipants, type MoneyView, type PublicParticipant, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { applyHead } from '../head.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
 import { fileReport } from '../composables/useModerationApi.ts';
@@ -51,18 +52,73 @@ const registerError = ref<string | undefined>(undefined);
 
 const standings = ref<StandingsView | null>(null);
 const bracketMatches = ref<BracketMatchView[]>([]);
+const participants = ref<PublicParticipant[]>([]);
+
+// A participant links to its public page: a team to its team page, an individual to
+// their public player profile. Returns null when there is no public destination.
+function participantLink(p: PublicParticipant): string | null {
+  const base = `/${activeLocale()}`;
+  if (p.participantType === 'team' && p.teamSlug) return `${base}/teams/${encodeURIComponent(p.teamSlug)}`;
+  if (p.participantType === 'individual' && p.username) return `${base}/players/${encodeURIComponent(p.username)}`;
+  return null;
+}
 
 // Group the whole bracket by round so a large field navigates as columns/sections
 // rather than one long list (responsive large-bracket navigation, DRAGON-10).
-const bracketRounds = computed(() => {
-  const byRound = new Map<number, BracketMatchView[]>();
+// Elimination formats get the left-to-right bracket graphic; Swiss and round-robin
+// lead with the standings table and show their matches as a round grid (no tree).
+const ELIM_FORMATS = ['single_elimination', 'double_elimination'];
+const isElim = computed(() => ELIM_FORMATS.includes(tour.value?.format ?? ''));
+
+// Stable display order for the bracket groups a double-elimination emits.
+const BAND_ORDER = ['winners', 'main', 'losers', 'grand_final', 'swiss', 'round_robin', 'manual'];
+const BAND_LABELLED = new Set(['winners', 'losers', 'grand_final']);
+
+interface RoundColumn {
+  round: number;
+  matches: BracketMatchView[];
+}
+interface MatchBand {
+  key: string;
+  /** Only shown when a format emits more than one band (double elimination). */
+  labelKey: string | null;
+  rounds: RoundColumn[];
+}
+
+// Group matches into bands (by bracket) then rounds, so single/double elimination and
+// the round formats all render from one structure.
+const matchBands = computed<MatchBand[]>(() => {
+  const byBand = new Map<string, BracketMatchView[]>();
   for (const m of bracketMatches.value) {
-    const list = byRound.get(m.round) ?? [];
+    const list = byBand.get(m.bracket) ?? [];
     list.push(m);
-    byRound.set(m.round, list);
+    byBand.set(m.bracket, list);
   }
-  return [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([round, matches]) => ({ round, matches }));
+  const rank = (k: string): number => {
+    const i = BAND_ORDER.indexOf(k);
+    return i === -1 ? BAND_ORDER.length : i;
+  };
+  const keys = [...byBand.keys()].sort((a, b) => rank(a) - rank(b) || a.localeCompare(b));
+  const multi = keys.length > 1;
+  return keys.map((key) => {
+    const byRound = new Map<number, BracketMatchView[]>();
+    for (const m of byBand.get(key) ?? []) {
+      const list = byRound.get(m.round) ?? [];
+      list.push(m);
+      byRound.set(m.round, list);
+    }
+    const rounds = [...byRound.entries()].sort((a, b) => a[0] - b[0]).map(([round, matches]) => ({ round, matches }));
+    return { key, labelKey: multi && BAND_LABELLED.has(key) ? `standings.bracketName.${key}` : null, rounds };
+  });
 });
+
+const hasMatches = computed(() => bracketMatches.value.length > 0);
+
+// Seeds are the competition's participant identity (names are separate polish); a null
+// slot is a not-yet-decided position.
+function seedLabel(seed: number | null): string {
+  return seed === null ? t('standings.tbd') : t('standings.seed', { n: seed });
+}
 
 function printBracket(): void {
   globalThis.print();
@@ -127,6 +183,14 @@ onMounted(async () => {
   }
   if (!loaded.value) await refresh();
   if (authenticated.value && tour.value !== null) await loadStatus(tour.value.id);
+  // Public participant list, only when the organizer has made it public.
+  if (tour.value !== null && tour.value.participantsPublic) {
+    try {
+      participants.value = (await getTournamentParticipants(tour.value.id)).items;
+    } catch {
+      participants.value = []; // 404 if visibility flipped off between reads
+    }
+  }
   if (tour.value !== null) {
     try {
       standings.value = await getStandings(tour.value.id);
@@ -271,37 +335,46 @@ function confirmPaid(): void {
     />
 
     <template v-else-if="tour">
+      <!-- Image-forward hero: banner with status/fee/type over a scrim. -->
       <div class="hero">
-        <div class="title-row">
-          <div class="title-block">
-            <div
-              v-if="heroStatus"
-              class="hero-meta"
-            >
-              <span
-                class="status-pill"
-                :class="`status-pill-${heroStatus.tone}`"
-              >{{ t(heroStatus.key) }}</span>
-              <span class="badge badge-accent">{{ t(`tournaments.feeKind.${tour.fee.kind}`) }}</span>
-              <span class="badge badge-neutral">{{ t(`tournaments.participant.${tour.participantType}`) }}</span>
+        <AppThumb
+          class="hero-thumb"
+          :src="tour.coverImageUrl"
+          :label="tour.name"
+          :ratio="21 / 9"
+        />
+        <div class="hero-scrim">
+          <div class="title-row">
+            <div class="title-block">
+              <div
+                v-if="heroStatus"
+                class="hero-meta"
+              >
+                <span
+                  class="status-pill"
+                  :class="`status-pill-${heroStatus.tone}`"
+                >{{ t(heroStatus.key) }}</span>
+                <span class="badge badge-accent">{{ t(`tournaments.feeKind.${tour.fee.kind}`) }}</span>
+                <span class="badge badge-neutral">{{ t(`tournaments.participant.${tour.participantType}`) }}</span>
+              </div>
+              <h1 data-testid="tournament-title">
+                {{ tour.name }}
+              </h1>
             </div>
-            <h1 data-testid="tournament-title">
-              {{ tour.name }}
-            </h1>
+            <button
+              v-if="authenticated && !reportOpen"
+              type="button"
+              class="btn btn-neutral report-btn"
+              data-testid="report-tournament"
+              @click="openReport"
+            >
+              {{ t('moderation.report.action') }}
+            </button>
           </div>
-          <button
-            v-if="authenticated && !reportOpen"
-            type="button"
-            class="btn btn-ghost"
-            data-testid="report-tournament"
-            @click="openReport"
-          >
-            {{ t('moderation.report.action') }}
-          </button>
+          <p class="summary">
+            {{ tour.summary }}
+          </p>
         </div>
-        <p class="summary">
-          {{ tour.summary }}
-        </p>
       </div>
 
       <form
@@ -438,6 +511,52 @@ function confirmPaid(): void {
         <p class="rules">
           {{ tour.rules }}
         </p>
+      </section>
+
+      <section
+        v-if="tour.participantsPublic"
+        class="block"
+        data-testid="participants-panel"
+      >
+        <h2>{{ t('participants.heading') }}</h2>
+        <p
+          v-if="participants.length === 0"
+          class="muted"
+        >
+          {{ t('participants.empty') }}
+        </p>
+        <ul
+          v-else
+          class="participants"
+        >
+          <li
+            v-for="p in participants"
+            :key="p.registrationId"
+          >
+            <component
+              :is="participantLink(p) ? 'RouterLink' : 'div'"
+              :to="participantLink(p) ?? undefined"
+              class="participant"
+              :class="{ 'participant-link': participantLink(p) }"
+            >
+              <span
+                class="participant-badge"
+                aria-hidden="true"
+              >{{ (p.name ?? '?').trim().charAt(0).toUpperCase() }}</span>
+              <span class="participant-body">
+                <span class="participant-name">{{ p.name ?? t('participants.unknown') }}</span>
+                <bdi
+                  v-if="p.participantType === 'individual' && p.username"
+                  class="latin-value participant-handle"
+                >@{{ p.username }}</bdi>
+                <span
+                  v-else-if="p.participantType === 'team'"
+                  class="participant-kind"
+                >{{ t('participants.team') }}</span>
+              </span>
+            </component>
+          </li>
+        </ul>
       </section>
 
       <section
@@ -648,68 +767,114 @@ function confirmPaid(): void {
           </table>
         </div>
 
-        <div class="bracket-head">
-          <h2>{{ t('standings.bracket') }}</h2>
-          <div
-            class="bracket-tools"
-            data-testid="bracket-tools"
-          >
-            <button
-              type="button"
-              class="secondary"
-              data-testid="print-bracket"
-              @click="printBracket"
+        <template v-if="hasMatches">
+          <div class="bracket-head">
+            <h2>{{ isElim ? t('standings.bracket') : t('standings.matches') }}</h2>
+            <div
+              class="bracket-tools"
+              data-testid="bracket-tools"
             >
-              {{ t('standings.print') }}
-            </button>
-            <button
-              type="button"
-              class="secondary"
-              data-testid="share-bracket"
-              @click="shareBracket"
-            >
-              {{ t('standings.share') }}
-            </button>
-          </div>
-        </div>
-
-        <!-- Round quick-navigation for large brackets. -->
-        <nav
-          v-if="bracketRounds.length > 1"
-          class="round-nav"
-          :aria-label="t('standings.bracket')"
-        >
-          <a
-            v-for="group in bracketRounds"
-            :key="group.round"
-            :href="`#round-${group.round}`"
-          >{{ t('standings.round', { n: group.round }) }}</a>
-        </nav>
-
-        <div
-          class="bracket"
-          data-testid="bracket"
-        >
-          <section
-            v-for="group in bracketRounds"
-            :id="`round-${group.round}`"
-            :key="group.round"
-            class="round"
-          >
-            <h3>{{ t('standings.round', { n: group.round }) }}</h3>
-            <ul>
-              <li
-                v-for="m in group.matches"
-                :key="m.key"
-                :data-state="m.state"
+              <button
+                type="button"
+                class="secondary"
+                data-testid="print-bracket"
+                @click="printBracket"
               >
-                {{ t('standings.matchup', { a: m.a ?? '—', b: m.b ?? '—' }) }}
-                · {{ t(`standings.matchState.${m.state}`) }}
-                <span v-if="m.winner !== null">· {{ t('standings.wonBy', { n: m.winner }) }}</span>
-              </li>
-            </ul>
-          </section>
-        </div>
+                {{ t('standings.print') }}
+              </button>
+              <button
+                type="button"
+                class="secondary"
+                data-testid="share-bracket"
+                @click="shareBracket"
+              >
+                {{ t('standings.share') }}
+              </button>
+            </div>
+          </div>
+
+          <!-- Elimination: left-to-right round columns (bracket). Swiss / round-robin:
+               a round grid, since the ranking already lives in the table above. -->
+          <div
+            class="bracket"
+            :class="{ 'as-grid': !isElim }"
+            data-testid="bracket"
+          >
+            <div
+              v-for="band in matchBands"
+              :key="band.key"
+              class="band"
+            >
+              <h3
+                v-if="band.labelKey"
+                class="band-title"
+              >
+                {{ t(band.labelKey) }}
+              </h3>
+              <div class="rounds">
+                <section
+                  v-for="col in band.rounds"
+                  :key="col.round"
+                  class="round-col"
+                >
+                  <span class="round-label">{{ t('standings.round', { n: col.round }) }}</span>
+                  <div class="match-list">
+                    <div
+                      v-for="m in col.matches"
+                      :key="m.key"
+                      class="match"
+                    >
+                      <article
+                        class="match-card"
+                        :data-state="m.state"
+                      >
+                        <div
+                          class="slot"
+                          :class="{ win: m.winner !== null && m.winner === m.a }"
+                        >
+                          <span class="seed">{{ seedLabel(m.a) }}</span>
+                          <svg
+                            v-if="m.winner !== null && m.winner === m.a"
+                            class="win-ic"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M5 12l4 4 10-10" />
+                          </svg>
+                        </div>
+                        <div
+                          class="slot"
+                          :class="{ win: m.winner !== null && m.winner === m.b }"
+                        >
+                          <span class="seed">{{ seedLabel(m.b) }}</span>
+                          <svg
+                            v-if="m.winner !== null && m.winner === m.b"
+                            class="win-ic"
+                            viewBox="0 0 24 24"
+                            fill="none"
+                            stroke="currentColor"
+                            stroke-width="3"
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            aria-hidden="true"
+                          >
+                            <path d="M5 12l4 4 10-10" />
+                          </svg>
+                        </div>
+                        <span class="mstate">{{ t(`standings.matchState.${m.state}`) }}</span>
+                      </article>
+                    </div>
+                  </div>
+                </section>
+              </div>
+            </div>
+          </div>
+        </template>
       </section>
     </template>
   </section>
@@ -718,12 +883,22 @@ function confirmPaid(): void {
 <style scoped>
 /* ---- Hero ---- */
 .hero {
-  padding: var(--space-6);
+  position: relative;
+  overflow: hidden;
   margin-block-end: var(--space-6);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface);
-  background-image: var(--gradient-hero);
+  border-radius: var(--radius-2xl);
+  box-shadow: var(--shadow-md);
+}
+.hero-thumb {
+  border-radius: 0;
+}
+.hero-scrim {
+  position: absolute;
+  inset-block-end: 0;
+  inset-inline: 0;
+  padding: clamp(var(--space-4), 4vw, var(--space-6));
+  background: var(--gradient-hero);
 }
 
 .title-row {
@@ -737,6 +912,15 @@ function confirmPaid(): void {
 .title-block h1 {
   margin: 0;
   font-size: var(--text-3xl);
+  color: #ffffff;
+}
+[lang='fa'] .title-block h1 {
+  line-height: 1.4;
+}
+
+/* Neutral report button reads clearly over the dark scrim. */
+.report-btn {
+  flex: none;
 }
 
 .hero-meta {
@@ -749,7 +933,7 @@ function confirmPaid(): void {
 
 .summary {
   margin-block: var(--space-3) 0;
-  color: var(--color-text-muted);
+  color: rgb(255 255 255 / 85%);
   font-size: var(--text-lg);
   max-inline-size: 70ch;
 }
@@ -813,6 +997,70 @@ function confirmPaid(): void {
 .rules {
   white-space: pre-wrap;
   max-inline-size: 70ch;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.participants {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 15rem), 1fr));
+}
+.participant {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface);
+  color: inherit;
+  text-decoration: none;
+}
+/* Only linked participants signal clickability. */
+.participant-link {
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    transform var(--motion-fast) var(--motion-ease);
+}
+.participant-link:hover {
+  border-color: var(--color-border-strong);
+  transform: translateY(-2px);
+}
+.participant-link:hover .participant-name {
+  color: var(--color-accent);
+}
+.participant-badge {
+  display: grid;
+  place-items: center;
+  flex: none;
+  inline-size: 2.25rem;
+  block-size: 2.25rem;
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-soft);
+  color: var(--color-accent);
+  font-weight: var(--weight-black);
+}
+.participant-body {
+  display: flex;
+  flex-direction: column;
+  min-inline-size: 0;
+}
+.participant-name {
+  font-weight: var(--weight-semibold);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.participant-handle,
+.participant-kind {
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 
 .register {
@@ -1024,87 +1272,164 @@ function confirmPaid(): void {
   gap: var(--space-2);
 }
 
-.round-nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
-  margin-block: var(--space-3);
-}
-
-.round-nav a {
-  padding-block: var(--space-1);
-  padding-inline: var(--space-3);
-  border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
-  font-size: var(--text-sm);
-  text-decoration: none;
-  color: var(--color-text);
-}
-.round-nav a:hover {
-  background-color: var(--color-surface-raised);
-}
-
-/* Columns so a large bracket scrolls horizontally instead of stacking one long list.
-   The region is focusable and labelled in the template for keyboard access (22.2). */
+/* ---- Graphic match display ---- */
 .bracket {
+  --bkt-line: var(--color-border-strong);
+  /* Width of the connector gutter between two rounds. */
+  --bkt-gap: 2.75rem;
+  --bkt-col: 14rem;
   display: flex;
-  gap: var(--space-5);
+  flex-direction: column;
+  gap: var(--space-6);
+  margin-block-start: var(--space-4);
+}
+
+.band-title {
+  margin-block: 0 var(--space-2);
+  font-size: var(--text-md);
+  color: var(--color-text-soft);
+}
+
+/* Rounds sit side by side; the field scrolls horizontally when large. Region is
+   focusable + labelled in the template for keyboard access (22.2). */
+.rounds {
+  display: flex;
   overflow-x: auto;
-  padding-block: var(--space-2);
+  padding-block: var(--space-1);
 }
 
-.round {
-  min-inline-size: 15rem;
+.round-col {
   flex: 0 0 auto;
+  inline-size: var(--bkt-col);
+  display: flex;
+  flex-direction: column;
+}
+/* Connector gutter to the next round (elimination tree only). */
+.bracket:not(.as-grid) .round-col:not(:last-child) {
+  margin-inline-end: var(--bkt-gap);
 }
 
-.round h3 {
-  margin-block-end: var(--space-2);
+.round-label {
+  align-self: start;
+  margin-block-end: var(--space-3);
   font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-wide);
   text-transform: uppercase;
   color: var(--color-text-muted);
 }
-[lang='fa'] .round h3 {
+[lang='fa'] .round-label {
   letter-spacing: normal;
   text-transform: none;
 }
 
-.round ul {
-  list-style: none;
-  padding: 0;
-  margin: 0;
+/* Elimination tree: matches spread evenly so each later-round match centres between
+   its two feeders; connectors are drawn on the slot wrappers below. */
+.bracket:not(.as-grid) .match-list {
+  flex: 1;
   display: flex;
   flex-direction: column;
+  justify-content: space-around;
+}
+.bracket:not(.as-grid) .match {
+  position: relative;
+  flex: 1 0 auto;
+  display: flex;
+  align-items: center;
+}
+
+/* Outgoing connector: a horizontal line at each card's midline reaching to a vertical
+   riser that joins the pair. Odd cards drop down to the pair midpoint, even cards rise. */
+.bracket:not(.as-grid) .round-col:not(:last-child) .match::after {
+  content: '';
+  position: absolute;
+  inset-inline-end: calc(-1 * var(--bkt-gap));
+  inline-size: var(--bkt-gap);
+  block-size: 50%;
+  border-inline-end: 2px solid var(--bkt-line);
+}
+.bracket:not(.as-grid) .round-col:not(:last-child) .match:nth-child(odd)::after {
+  inset-block-start: 50%;
+  border-block-start: 2px solid var(--bkt-line);
+}
+.bracket:not(.as-grid) .round-col:not(:last-child) .match:nth-child(even)::after {
+  inset-block-end: 50%;
+  border-block-end: 2px solid var(--bkt-line);
+}
+/* Each pair is two feeder lines meeting one vertical riser; the next-round card butts
+   directly against that riser, so no separate incoming stub is drawn (a clean "]"). */
+.bracket:not(.as-grid) .match-card {
+  inline-size: 100%;
+}
+
+/* Round-robin / Swiss: the table above is the ranking, so matches read as a plain
+   grid, not a left-to-right tree. */
+.bracket.as-grid .rounds {
+  display: block;
+  overflow: visible;
+}
+.bracket.as-grid .round-col {
+  inline-size: auto;
+  margin-block-end: var(--space-4);
+}
+.bracket.as-grid .match-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 13rem), 1fr));
   gap: var(--space-3);
 }
 
-/* Match card — participants and state read as text; border reinforces winner. */
-.round li {
-  padding: var(--space-3);
+/* Match card: two seed slots, the winner lit; a small state caption underneath. */
+.match-card {
+  overflow: hidden;
   border: 1px solid var(--color-border);
-  border-inline-start: 3px solid var(--color-border-strong);
   border-radius: var(--radius-md);
   background-color: var(--color-surface);
-  font-size: var(--text-sm);
   box-shadow: var(--shadow-sm);
 }
-
-.round li[data-state='completed'] {
-  border-inline-start-color: var(--color-primary);
+.slot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  color: var(--color-text-soft);
 }
-.round li[data-state='live'] {
-  border-inline-start-color: var(--color-success-text);
+.slot + .slot {
+  border-block-start: 1px solid var(--color-border);
+}
+.slot.win {
+  background-color: var(--color-primary-soft);
+  color: var(--color-accent);
+  font-weight: var(--weight-black);
+}
+.slot .seed {
+  font-variant-numeric: tabular-nums;
+}
+.win-ic {
+  flex: none;
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+.mstate {
+  display: block;
+  padding: var(--space-1) var(--space-3);
+  border-block-start: 1px solid var(--color-border);
+  background-color: var(--color-surface-sunken);
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
+}
+.match-card[data-state='completed'] {
+  border-color: var(--color-border-strong);
 }
 
 @media print {
   .register,
-  .bracket-tools,
-  .round-nav {
+  .bracket-tools {
     display: none;
   }
-
-  .bracket {
+  .rounds {
     flex-wrap: wrap;
     overflow: visible;
   }

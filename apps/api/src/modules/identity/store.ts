@@ -101,6 +101,8 @@ export interface UserProfileRecord {
   displayName: string;
   birthDate: string;
   bio: string;
+  /** Avatar image: a site media path (`/media/<id>`) or an https URL; null when unset. */
+  avatarUrl: string | null;
   /** Privacy by default (DEC-043): profiles start private. */
   visibility: ProfileVisibility;
   createdAt: string;

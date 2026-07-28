@@ -20,6 +20,7 @@
       "content": "Content",
       "games": "Games",
       "teams": "Teams",
+      "player": "Player",
       "gamingIdentities": "Gaming identities",
       "tournaments": "Tournaments",
       "adminContent": "Content",
@@ -28,6 +29,12 @@
       "wallet": "Wallet",
       "notifications": "Notifications"
     }
+  },
+  "player": {
+    "metaDescription": "{name} on Dragon Ecosystem."
+  },
+  "partners": {
+    "heading": "Partners and supporters"
   },
   "nav": {
     "region": {
@@ -40,6 +47,7 @@
     "account": "Account",
     "accountOverview": "Account overview",
     "adminOverview": "Administration overview",
+    "dashboard": "Dashboard",
     "profile": "Profile",
     "security": "Security",
     "signIn": "Sign in",
@@ -59,7 +67,8 @@
     "label": "Theme",
     "light": "Light",
     "dark": "Dark",
-    "system": "System"
+    "system": "System",
+    "toggle": "Toggle light or dark theme"
   },
   "locale": {
     "switcherLabel": "Language",
@@ -126,9 +135,22 @@
     "signedOutMessage": "Sign in to see your account.",
     "timeZone": "Time zone: {timeZone}"
   },
+  "dashboard": {
+    "greeting": "Welcome, {name}",
+    "greetingAnonymous": "Welcome back",
+    "personal": "Your account",
+    "role": {
+      "player": "Player",
+      "staff": "Staff"
+    }
+  },
   "profile": {
     "heading": "Profile",
     "intro": "Your public identity and account preferences.",
+    "avatar": {
+      "label": "Avatar",
+      "hint": "A square image works best; shown on your profile and in the header."
+    },
     "username": {
       "label": "Username",
       "hint": "Lowercase letters, numbers, and underscore."
@@ -482,6 +504,7 @@
     "label": "Search",
     "placeholder": "Search…",
     "submit": "Search",
+    "clear": "Clear search",
     "noResults": "No results match your search."
   },
   "content": {
@@ -508,6 +531,10 @@
       "intro": "Browse the game catalog.",
       "empty": "No games published yet.",
       "loadMore": "Load more"
+    },
+    "detail": {
+      "tournaments": "Tournaments for this game",
+      "content": "Articles and guides"
     }
   },
   "adminContent": {
@@ -529,7 +556,11 @@
       "type": "Type",
       "title": "Title",
       "summary": "Summary",
-      "body": "Body (HTML)",
+      "body": "Body",
+      "game": "Related game",
+      "gameNone": "No game",
+      "cover": "Cover image",
+      "coverHint": "Shown on cards, the article header, and social previews.",
       "slugFa": "Persian slug",
       "slugEn": "English slug"
     },
@@ -557,12 +588,51 @@
     "field": {
       "name": "Name",
       "description": "Description",
-      "slug": "Slug"
+      "body": "Game page content",
+      "slug": "Slug",
+      "cover": "Cover image",
+      "coverHint": "Used on the games catalog and the game page."
     },
     "status": {
       "draft": "Draft",
       "published": "Published",
       "archived": "Archived"
+    }
+  },
+  "upload": {
+    "choose": "Choose image",
+    "replace": "Replace",
+    "remove": "Remove",
+    "uploading": "Uploading…",
+    "accepted": "PNG, JPEG, or WEBP, up to {max}.",
+    "altLabel": "Alt text (describe the image)",
+    "altPlaceholder": "e.g. Valorant Champions Cup grand final stage",
+    "error": {
+      "UNSUPPORTED_MEDIA_TYPE": "That file type is not supported. Use PNG, JPEG, or WEBP.",
+      "MEDIA_TOO_LARGE": "That image is too large.",
+      "EMPTY_UPLOAD": "That file is empty.",
+      "FORBIDDEN": "You do not have permission to upload media.",
+      "FAILED": "The upload could not be completed. Try again."
+    }
+  },
+  "richText": {
+    "toolbar": "Formatting",
+    "placeholder": "Write the body…",
+    "linkPrompt": "Enter a link URL (https://…):",
+    "linkInvalid": "Only http and https links are allowed.",
+    "tool": {
+      "bold": "Bold",
+      "italic": "Italic",
+      "underline": "Underline",
+      "strike": "Strikethrough",
+      "h2": "Heading",
+      "h3": "Subheading",
+      "ul": "Bulleted list",
+      "ol": "Numbered list",
+      "quote": "Quote",
+      "code": "Code block",
+      "link": "Insert link",
+      "image": "Insert image"
     }
   },
   "teams": {
@@ -581,6 +651,8 @@
     },
     "field": {
       "name": "Team name",
+      "logo": "Team logo",
+      "logoHint": "Shown on your team page and in listings.",
       "game": "Game",
       "gamePlaceholder": "Select a game",
       "visibility": "Team visibility"
@@ -717,7 +789,11 @@
     "archive": "Archive",
     "clone": "Clone",
     "registrations": "Registrations",
-    "competition": "Manage competition"
+    "competition": "Manage competition",
+    "field": {
+      "cover": "Poster image",
+      "coverHint": "Shown on the tournament page hero and on cards."
+    }
   },
   "registration": {
     "heading": "Registration",
@@ -750,8 +826,15 @@
     "tied": "tied",
     "locked": "Finalized",
     "seed": "Seed {n}",
+    "tbd": "TBD",
+    "matches": "Matches",
     "matchup": "Seed {a} vs Seed {b}",
     "wonBy": "won by seed {n}",
+    "bracketName": {
+      "winners": "Winners bracket",
+      "losers": "Losers bracket",
+      "grand_final": "Grand final"
+    },
     "status": {
       "final": "Final",
       "provisional": "Provisional (in progress)",
@@ -792,7 +875,22 @@
     "reject": "Reject",
     "cancel": "Cancel",
     "reasonPrompt": "Enter a reason (required):",
-    "updated": "Registration updated."
+    "updated": "Registration updated.",
+    "unknownParticipant": "Unknown participant",
+    "visibility": {
+      "label": "Public participant list",
+      "public": "Public",
+      "private": "Private",
+      "hint": "When public, approved participants are shown by name on the tournament page.",
+      "nowPublic": "The participant list is now public.",
+      "nowPrivate": "The participant list is now private."
+    }
+  },
+  "participants": {
+    "heading": "Participants",
+    "empty": "No approved participants yet.",
+    "unknown": "Unknown participant",
+    "team": "Team"
   },
   "competitionOps": {
     "heading": "Competition control",

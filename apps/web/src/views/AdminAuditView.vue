@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppSearch from '../components/AppSearch.vue';
 import AppTable, { type TableColumn } from '../components/AppTable.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
@@ -51,6 +52,7 @@ const columns: TableColumn[] = [
   { key: 'emergency', label: t('admin.audit.emergency') }
 ];
 
+const search = ref('');
 const rows = computed(() =>
   events.value.map((event) => ({
     occurredAt: formatDateTime(event.occurredAt, activeLocale.value, 'Asia/Tehran'),
@@ -60,6 +62,11 @@ const rows = computed(() =>
     emergency: event.emergency ? t('admin.audit.yes') : t('admin.audit.no')
   }))
 );
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return rows.value;
+  return rows.value.filter((r) => `${r.action} ${r.resource} ${r.actor}`.toLowerCase().includes(q));
+});
 
 async function load(cursor?: string): Promise<void> {
   loading.value = true;
@@ -153,11 +160,15 @@ async function exportAudit(): Promise<void> {
         :message="error"
       />
       <template v-else>
+        <AppSearch
+          v-model="search"
+          input-id="admin-audit-search"
+        />
         <AppTable
           :caption="t('admin.audit.caption')"
           :columns="columns"
-          :rows="rows"
-          :empty-message="t('admin.audit.empty')"
+          :rows="filteredRows"
+          :empty-message="search.trim() === '' ? t('admin.audit.empty') : t('search.noResults')"
           dense
         />
         <button

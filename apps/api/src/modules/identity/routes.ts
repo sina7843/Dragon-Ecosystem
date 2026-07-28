@@ -51,6 +51,7 @@ const profileSchema = {
     displayName: { type: 'string' },
     birthDate: { type: 'string' },
     bio: { type: 'string' },
+    avatarUrl: { type: ['string', 'null'] },
     visibility: { type: 'string', enum: ['private', 'public'] }
   }
 } as const;
@@ -64,6 +65,7 @@ function toProfileView(profile: {
   displayName: string;
   birthDate: string;
   bio: string;
+  avatarUrl?: string | null;
   visibility: string;
 }) {
   return {
@@ -71,6 +73,7 @@ function toProfileView(profile: {
     displayName: profile.displayName,
     birthDate: profile.birthDate,
     bio: profile.bio,
+    avatarUrl: profile.avatarUrl ?? null,
     visibility: profile.visibility
   };
 }
@@ -250,6 +253,7 @@ export function registerIdentityRoutes(
             displayName: { type: 'string', minLength: 1, maxLength: 80 },
             birthDate: { type: 'string', minLength: 4, maxLength: 20 },
             bio: { type: 'string', maxLength: 500 },
+            avatarUrl: { type: ['string', 'null'], maxLength: 512 },
             visibility: { type: 'string', enum: ['private', 'public'] },
             locale: { type: 'string', enum: ['fa', 'en'] },
             timeZone: { type: 'string', maxLength: 60 }

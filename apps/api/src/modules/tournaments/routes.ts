@@ -52,7 +52,8 @@ function publicCard(t: TournamentRecord, locale: Locale) {
     feeKind: t.fee.kind,
     startAt: t.schedule.startAt,
     endAt: t.schedule.endAt,
-    capacity: t.capacity
+    capacity: t.capacity,
+    coverImageUrl: t.coverImageUrl ?? null
   };
 }
 
@@ -69,6 +70,8 @@ function publicDetail(t: TournamentRecord, locale: Locale) {
     registration: t.registration,
     approvalMode: t.approvalMode,
     waitlistMode: t.waitlistMode,
+    // Legacy records predating the field read as private.
+    participantsPublic: t.participantsPublic === true,
     eligibility: t.eligibility,
     fee: t.fee,
     prizes: t.prizes,
@@ -257,6 +260,30 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
         request.body as Parameters<TournamentsService['updateDraft']>[2]
       );
       return adminView(record);
+    }
+  );
+
+  app.post(
+    '/admin/tournaments/:id/participants-visibility',
+    {
+      ...gate(),
+      schema: {
+        tags: ['tournaments'],
+        summary: 'Show or hide the approved participant list publicly.',
+        params: idParam,
+        body: {
+          type: 'object',
+          required: ['isPublic', 'expectedVersion'],
+          additionalProperties: false,
+          properties: { isPublic: { type: 'boolean' }, expectedVersion: { type: 'integer', minimum: 1 } }
+        },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { isPublic: boolean; expectedVersion: number };
+      return adminView(await deps.tournaments.setParticipantsVisibility(request.requestContext, id, body.isPublic, body.expectedVersion));
     }
   );
 

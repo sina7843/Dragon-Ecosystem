@@ -63,6 +63,24 @@ export function registerRegistrationsRoutes(app: FastifyInstance, deps: Registra
   const reasonBody = { type: 'object', additionalProperties: false, properties: { reason: { type: 'string', maxLength: 500 } } };
   const reasonRequiredBody = { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string', minLength: 1, maxLength: 500 } } };
 
+  // --- Public participant list (only when the organizer made it public) ---
+
+  app.get(
+    '/tournaments/:id/participants',
+    {
+      schema: {
+        tags: ['registrations'],
+        summary: 'Approved participants of a tournament, shown by name. Private/unpublished → 404.',
+        params: idParam,
+        response: { 200: { type: 'object', additionalProperties: true }, 404: { $ref: 'ErrorResponse#' } }
+      }
+    },
+    async (request) => {
+      const items = await deps.registrations.listPublicParticipants((request.params as { id: string }).id);
+      return { items };
+    }
+  );
+
   // --- Participant routes ---
 
   app.post(
@@ -140,7 +158,13 @@ export function registerRegistrationsRoutes(app: FastifyInstance, deps: Registra
         deps.registrations.listForAdmin(tournamentId, q),
         deps.registrations.seatSummary(tournamentId)
       ]);
-      return { items: page.items.map(adminView), nextCursor: page.nextCursor, seats };
+      // Resolve display names so the queue shows who each entry is, not an opaque id.
+      const names = await deps.registrations.resolveNames(page.items);
+      const items = page.items.map((reg) => {
+        const resolved = names.get(reg._id);
+        return { ...adminView(reg), participantName: resolved?.name ?? null, username: resolved?.username ?? null, teamSlug: resolved?.teamSlug ?? null };
+      });
+      return { items, nextCursor: page.nextCursor, seats };
     }
   );
 

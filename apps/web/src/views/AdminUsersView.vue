@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppSearch from '../components/AppSearch.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
@@ -46,6 +47,7 @@ function accountTone(state: string): string {
   return 'neutral';
 }
 
+const search = ref('');
 const rows = computed(() =>
   accounts.value.map((account) => ({
     accountId: account.accountId,
@@ -56,6 +58,12 @@ const rows = computed(() =>
     created: formatDateTime(account.createdAt, activeLocale.value, 'Asia/Tehran')
   }))
 );
+// Client-side filter over the loaded rows (username / mobile / state).
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return rows.value;
+  return rows.value.filter((r) => `${r.username} ${r.mobileMasked} ${r.stateLabel}`.toLowerCase().includes(q));
+});
 
 async function load(cursor?: string): Promise<void> {
   loading.value = true;
@@ -117,6 +125,10 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
     />
 
     <template v-else>
+      <AppSearch
+        v-model="search"
+        input-id="admin-users-search"
+      />
       <div
         class="scroll"
         role="region"
@@ -149,7 +161,7 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
           </thead>
           <tbody>
             <tr
-              v-for="row in rows"
+              v-for="row in filteredRows"
               :key="row.accountId"
               :data-state="row.state"
             >
@@ -186,12 +198,12 @@ async function setState(accountId: string, action: 'suspend' | 'reactivate'): Pr
                 <span v-else>—</span>
               </td>
             </tr>
-            <tr v-if="rows.length === 0">
+            <tr v-if="filteredRows.length === 0">
               <td
                 :colspan="canSuspend ? 5 : 4"
                 class="empty"
               >
-                {{ t('admin.users.empty') }}
+                {{ search.trim() === '' ? t('admin.users.empty') : t('search.noResults') }}
               </td>
             </tr>
           </tbody>

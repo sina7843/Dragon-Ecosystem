@@ -20,6 +20,10 @@ export interface RegistrationStatus {
 
 export interface AdminRegistration extends RegistrationStatus {
   accountId: string;
+  /** Resolved display name (team name, or the entrant's display name); null if unresolved. */
+  participantName: string | null;
+  /** Individual entrant's username for a profile link; null for a team entry. */
+  username: string | null;
   answers: Array<{ key: string; value: string }>;
   questionVersion: number;
   rosterSnapshotId: string | null;

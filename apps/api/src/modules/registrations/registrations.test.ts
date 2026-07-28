@@ -34,7 +34,7 @@ function tournament(overrides: Partial<TournamentRecord> = {}): TournamentRecord
     gameId: 'g', participantType: 'individual', capacity: 16,
     registration: { opensAt: null, closesAt: null }, schedule: { startAt: null, endAt: null },
     format: 'single_elimination', ruleProfile: { kind: 'custom', text: { fa: '', en: '' } },
-    approvalMode: 'automatic', waitlistMode: 'disabled',
+    approvalMode: 'automatic', waitlistMode: 'disabled', participantsPublic: false, coverImageUrl: null,
     eligibility: { minAge: null, requireCompleteProfile: false, requireGameIdentity: false },
     questionSet: { version: 0, questions: [] }, fee: { kind: 'free', components: [] },
     refundPolicy: { kind: 'no_refund', text: { fa: '', en: '' } }, prizes: { version: 0, placements: [] },

@@ -2,6 +2,9 @@
 import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppField from '../components/AppField.vue';
+import AppSearch from '../components/AppSearch.vue';
+import ImagePicker from '../components/ImagePicker.vue';
+import RichTextEditor from '../components/RichTextEditor.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
@@ -21,8 +24,13 @@ interface ContentItem {
   state: string;
   version: number;
   slugs: { fa: string; en: string };
+  coverImageUrl: string | null;
+  /** Optional game this item belongs to; drives the "content for this game" list. */
+  gameId: string | null;
   translations: Record<'fa' | 'en', { title: string; summary: string; body: string }>;
 }
+
+interface GameOption { id: string; name: string }
 
 const { t } = useI18n();
 const { forbidden, has, refresh: refreshCaps } = useAdmin();
@@ -41,6 +49,14 @@ function contentTone(state: string): string {
 const loading = ref(true);
 const listError = ref<string | undefined>(undefined);
 const items = ref<ContentItem[]>([]);
+const search = ref('');
+const filteredItems = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return items.value;
+  return items.value.filter((it) =>
+    `${it.translations.en.title} ${it.translations.fa.title} ${it.slugs.en} ${it.slugs.fa}`.toLowerCase().includes(q)
+  );
+});
 const editing = ref<ContentItem | null>(null);
 const saving = ref(false);
 const formError = ref<string | undefined>(undefined);
@@ -50,9 +66,15 @@ const form = reactive({
   type: 'article',
   slugFa: '',
   slugEn: '',
+  coverImageUrl: null as string | null,
+  gameId: '',
   fa: { title: '', summary: '', body: '' },
   en: { title: '', summary: '', body: '' }
 });
+
+// Published games, offered so an item can be attached to one (drives the game page's
+// "articles and guides" list). Optional: content may stay unattached.
+const games = ref<GameOption[]>([]);
 
 async function loadList(): Promise<void> {
   loading.value = true;
@@ -70,6 +92,11 @@ async function loadList(): Promise<void> {
 onMounted(async () => {
   await refreshCaps();
   await loadList();
+  try {
+    games.value = (await apiFetch<{ items: GameOption[] }>('/games?limit=100')).items;
+  } catch {
+    games.value = []; // the selector simply stays empty; content can still be saved
+  }
 });
 
 function resetForm(): void {
@@ -78,6 +105,8 @@ function resetForm(): void {
     type: 'article',
     slugFa: '',
     slugEn: '',
+    coverImageUrl: null,
+    gameId: '',
     fa: { title: '', summary: '', body: '' },
     en: { title: '', summary: '', body: '' }
   });
@@ -90,6 +119,8 @@ function edit(item: ContentItem): void {
     type: item.type,
     slugFa: item.slugs.fa,
     slugEn: item.slugs.en,
+    coverImageUrl: item.coverImageUrl,
+    gameId: item.gameId ?? '',
     fa: { ...item.translations.fa },
     en: { ...item.translations.en }
   });
@@ -105,6 +136,9 @@ async function save(): Promise<void> {
   const payload = {
     type: form.type,
     slugs: { fa: form.slugFa, en: form.slugEn },
+    coverImageUrl: form.coverImageUrl,
+    // Empty means "not attached to a game"; the server stores null.
+    gameId: form.gameId === '' ? null : form.gameId,
     translations: { fa: form.fa, en: form.en }
   };
 
@@ -184,14 +218,16 @@ async function transition(to: string): Promise<void> {
             variant="error"
             :message="listError"
           />
-          <ul
-            v-else
-            class="items"
-          >
-            <li
-              v-for="item in items"
-              :key="item.id"
-            >
+          <template v-else>
+            <AppSearch
+              v-model="search"
+              input-id="admin-content-search"
+            />
+            <ul class="items">
+              <li
+                v-for="item in filteredItems"
+                :key="item.id"
+              >
               <button
                 type="button"
                 class="item-row"
@@ -205,14 +241,15 @@ async function transition(to: string): Promise<void> {
                   :data-state="item.state"
                 >{{ t(`adminContent.state.${item.state}`) }}</span>
               </button>
-            </li>
-            <li
-              v-if="items.length === 0"
-              class="empty"
-            >
-              {{ t('adminContent.empty') }}
-            </li>
-          </ul>
+              </li>
+              <li
+                v-if="filteredItems.length === 0"
+                class="empty"
+              >
+                {{ search.trim() === '' ? t('adminContent.empty') : t('search.noResults') }}
+              </li>
+            </ul>
+          </template>
         </div>
 
         <form
@@ -250,6 +287,32 @@ async function transition(to: string): Promise<void> {
             </select>
           </label>
 
+          <label class="type-field">
+            <span>{{ t('adminContent.field.game') }}</span>
+            <select
+              id="field-game"
+              v-model="form.gameId"
+              data-testid="field-game"
+            >
+              <option value="">
+                {{ t('adminContent.field.gameNone') }}
+              </option>
+              <option
+                v-for="g in games"
+                :key="g.id"
+                :value="g.id"
+              >
+                {{ g.name }}
+              </option>
+            </select>
+          </label>
+
+          <ImagePicker
+            v-model="form.coverImageUrl"
+            :label="t('adminContent.field.cover')"
+            :hint="t('adminContent.field.coverHint')"
+          />
+
           <fieldset
             v-for="loc in (['fa', 'en'] as const)"
             :key="loc"
@@ -266,15 +329,12 @@ async function transition(to: string): Promise<void> {
               v-model="form[loc].summary"
               :label="t('adminContent.field.summary')"
             />
-            <label class="body-field">
-              <span>{{ t('adminContent.field.body') }}</span>
-              <textarea
-                :id="`body-${loc}`"
-                v-model="form[loc].body"
-                rows="5"
-                :data-testid="`field-body-${loc}`"
-              />
-            </label>
+            <RichTextEditor
+              v-model="form[loc].body"
+              :editor-id="`body-${loc}`"
+              :label="t('adminContent.field.body')"
+              :dir="loc === 'fa' ? 'rtl' : 'ltr'"
+            />
           </fieldset>
 
           <AppField

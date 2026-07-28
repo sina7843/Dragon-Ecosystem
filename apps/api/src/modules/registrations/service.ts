@@ -57,10 +57,26 @@ export interface TournamentAccess {
 }
 export interface ProfileAccess {
   getProfile(accountId: EntityId): Promise<{ birthDate: string } | null>;
+  /** Batch display-name resolver for individual entrants (public-safe fields only). */
+  getPublicIdentities(accountIds: readonly EntityId[]): Promise<Map<EntityId, { username: string; displayName: string }>>;
 }
 export interface TeamAccess {
   captureRosterSnapshot(context: RequestContext, actorId: string, teamId: string, reason: string): Promise<{ _id: string }>;
   hasGamingIdentity(accountId: string, gameId: string): Promise<boolean>;
+  /** Batch team summary resolver for team entrants (name, slug for linking, logo). */
+  getTeamSummaries(teamIds: readonly EntityId[]): Promise<Map<EntityId, { name: string; slug: string; avatarUrl: string | null }>>;
+}
+
+/** A participant's display identity, resolved from the account (individual) or team. */
+export interface ParticipantName {
+  registrationId: EntityId;
+  participantType: 'individual' | 'team';
+  /** Team name, or an individual's display name; null when the record can no longer resolve. */
+  name: string | null;
+  /** Individual entrant's username, for a public player link; null for a team entry. */
+  username: string | null;
+  /** Team entry's slug, for a public team link; null for an individual entry. */
+  teamSlug: string | null;
 }
 
 export interface RegisterInput {
@@ -526,6 +542,49 @@ export class RegistrationsService {
       .sort({ createdAt: 1, _id: 1 })
       .toArray();
     return rows.map((r) => ({ registrationId: r._id, participantType: r.participantType, teamId: r.teamId, rosterSnapshotId: r.rosterSnapshotId }));
+  }
+
+  /**
+   * Resolves display names for a set of registrations in two batched lookups (one per
+   * participant kind), so an admin queue or a public list never issues a query per row.
+   */
+  async resolveNames(rows: readonly Pick<RegistrationRecord, '_id' | 'participantType' | 'accountId' | 'teamId'>[]): Promise<Map<EntityId, ParticipantName>> {
+    const accountIds = rows.filter((r) => r.participantType === 'individual').map((r) => r.accountId);
+    const teamIds = rows.filter((r) => r.participantType === 'team' && r.teamId !== null).map((r) => r.teamId as EntityId);
+    const [identities, teamSummaries] = await Promise.all([
+      accountIds.length > 0 ? this.#profiles.getPublicIdentities(accountIds) : Promise.resolve(new Map()),
+      teamIds.length > 0 ? this.#teams.getTeamSummaries(teamIds) : Promise.resolve(new Map())
+    ]);
+    const out = new Map<EntityId, ParticipantName>();
+    for (const r of rows) {
+      if (r.participantType === 'team') {
+        const team = r.teamId !== null ? teamSummaries.get(r.teamId) : undefined;
+        out.set(r._id, { registrationId: r._id, participantType: 'team', name: team?.name ?? null, username: null, teamSlug: team?.slug ?? null });
+      } else {
+        const id = identities.get(r.accountId);
+        out.set(r._id, { registrationId: r._id, participantType: 'individual', name: id?.displayName ?? null, username: id?.username ?? null, teamSlug: null });
+      }
+    }
+    return out;
+  }
+
+  /**
+   * Public participant list: the approved entrants of a tournament with their display
+   * names, but only when the tournament is published and the organizer has made the
+   * list public. Any other case is indistinguishable from a missing tournament (404),
+   * so a private list never leaks its existence or its members.
+   */
+  async listPublicParticipants(tournamentId: string): Promise<ParticipantName[]> {
+    const tournament = await this.#tournaments.getById(tournamentId);
+    if (tournament === null || tournament.state !== 'published' || tournament.participantsPublic !== true) {
+      throw new NotFoundError('Unknown tournament.');
+    }
+    const rows = await this.#registrations()
+      .find({ tournamentId, state: 'approved' }, { projection: { _id: 1, participantType: 1, accountId: 1, teamId: 1, createdAt: 1 } })
+      .sort({ createdAt: 1, _id: 1 })
+      .toArray();
+    const names = await this.resolveNames(rows);
+    return rows.map((r) => names.get(r._id) as ParticipantName);
   }
 
   /** Current occupancy for a tournament (admin summary; capacity comes from the tournament). */

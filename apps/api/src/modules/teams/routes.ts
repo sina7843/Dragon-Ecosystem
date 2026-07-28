@@ -110,6 +110,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
             name: { type: 'string' },
             gameId: { type: 'string' },
             description: { type: 'string' },
+            avatarUrl: { type: ['string', 'null'], maxLength: 512 },
             slug: { type: 'string' },
             visibility: { type: 'string', enum: ['private', 'public'] }
           }

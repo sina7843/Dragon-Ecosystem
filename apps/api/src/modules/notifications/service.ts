@@ -63,11 +63,13 @@ export class NotificationsService {
   readonly #sms: NotificationChannelAdapter;
   readonly #email: NotificationChannelAdapter;
 
-  constructor(database: Database, config: NotificationsConfigView, env: Environment, contacts: ContactAccess) {
+  constructor(database: Database, config: NotificationsConfigView, env: Environment, contacts: ContactAccess, smsChannel?: NotificationChannelAdapter) {
     this.#database = database;
     this.#config = config;
     this.#contacts = contacts;
-    this.#sms = new MockSmsChannel();
+    // The SMS channel is injected (Kavenegar in production); the mock is the default for
+    // automated tests and local development.
+    this.#sms = smsChannel ?? new MockSmsChannel();
     this.#email = new MockEmailChannel(database.db, env);
   }
 

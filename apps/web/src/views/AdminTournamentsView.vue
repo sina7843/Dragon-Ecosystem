@@ -1,7 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref } from 'vue';
+import AppSearch from '../components/AppSearch.vue';
 import { useI18n } from 'vue-i18n';
 import AppField from '../components/AppField.vue';
+import ImagePicker from '../components/ImagePicker.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -33,6 +35,7 @@ interface Tournament {
   schedule: { startAt: string | null; endAt: string | null };
   fee: { kind: 'free' | 'toman' | 'dragon_coin' | 'mixed'; components: Money[] };
   prizes: { version: number; placements: Array<{ rank: number; rewards: Money[] }> };
+  coverImageUrl: string | null;
 }
 
 const { t, locale } = useI18n();
@@ -46,6 +49,14 @@ const loading = ref(true);
 const listError = ref<string | undefined>(undefined);
 const list = ref<Tournament[]>([]);
 const games = ref<GameCard[]>([]);
+const search = ref('');
+const filteredList = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return list.value;
+  return list.value.filter((tour) =>
+    `${tour.translations.en.name} ${tour.translations.fa.name} ${tour.slug}`.toLowerCase().includes(q)
+  );
+});
 const editing = ref<Tournament | null>(null);
 const saving = ref(false);
 const formError = ref<string | undefined>(undefined);
@@ -69,7 +80,8 @@ function emptyForm() {
     tomanAmount: '',
     dragonCoinAmount: '',
     prizeToman: '',
-    prizeCoin: ''
+    prizeCoin: '',
+    coverImageUrl: null as string | null
   };
 }
 const form = reactive(emptyForm());
@@ -127,7 +139,8 @@ function edit(tour: Tournament): void {
     tomanAmount: toman ? String(toman.amountInteger / 10) : '',
     dragonCoinAmount: coin ? String(coin.amountInteger) : '',
     prizeToman: prize?.rewards.find((r) => r.assetCode === 'IRR') ? String((prize.rewards.find((r) => r.assetCode === 'IRR') as Money).amountInteger / 10) : '',
-    prizeCoin: prize?.rewards.find((r) => r.assetCode === 'DRC') ? String((prize.rewards.find((r) => r.assetCode === 'DRC') as Money).amountInteger) : ''
+    prizeCoin: prize?.rewards.find((r) => r.assetCode === 'DRC') ? String((prize.rewards.find((r) => r.assetCode === 'DRC') as Money).amountInteger) : '',
+    coverImageUrl: tour.coverImageUrl ?? null
   });
   formError.value = undefined;
   fieldErrors.value = {};
@@ -152,6 +165,7 @@ function buildPayload(): Record<string, unknown> {
     ruleProfile: { text: { fa: form.fa.rules, en: form.en.rules } },
     registration: { opensAt: form.opensAt || null, closesAt: form.closesAt || null },
     schedule: { startAt: form.startAt || null, endAt: form.endAt || null },
+    coverImageUrl: form.coverImageUrl,
     fee
   };
 
@@ -268,34 +282,37 @@ async function clone(): Promise<void> {
             variant="error"
             :message="listError"
           />
-          <ul
-            v-else
-            class="items"
-          >
-            <li
-              v-for="tour in list"
-              :key="tour.id"
-            >
-              <button
-                type="button"
-                :class="{ active: editing?.id === tour.id }"
-                :data-testid="`edit-${tour.id}`"
-                @click="edit(tour)"
+          <template v-else>
+            <AppSearch
+              v-model="search"
+              input-id="admin-tournaments-search"
+            />
+            <ul class="items">
+              <li
+                v-for="tour in filteredList"
+                :key="tour.id"
               >
-                <span>{{ tour.translations.en.name || tour.translations.fa.name || '—' }}</span>
-                <span
-                  class="status-pill"
-                  :class="`status-pill-${tone(tour.state)}`"
-                >{{ t(`tournaments.state.${tour.state}`) }}</span>
-              </button>
-            </li>
-            <li
-              v-if="list.length === 0"
-              class="empty"
-            >
-              {{ t('adminTournaments.empty') }}
-            </li>
-          </ul>
+                <button
+                  type="button"
+                  :class="{ active: editing?.id === tour.id }"
+                  :data-testid="`edit-${tour.id}`"
+                  @click="edit(tour)"
+                >
+                  <span>{{ tour.translations.en.name || tour.translations.fa.name || '—' }}</span>
+                  <span
+                    class="status-pill"
+                    :class="`status-pill-${tone(tour.state)}`"
+                  >{{ t(`tournaments.state.${tour.state}`) }}</span>
+                </button>
+              </li>
+              <li
+                v-if="filteredList.length === 0"
+                class="empty"
+              >
+                {{ search.trim() === '' ? t('adminTournaments.empty') : t('search.noResults') }}
+              </li>
+            </ul>
+          </template>
         </div>
 
         <form
@@ -323,6 +340,12 @@ async function clone(): Promise<void> {
           >
             {{ formError }}
           </p>
+
+          <ImagePicker
+            v-model="form.coverImageUrl"
+            :label="t('adminTournaments.field.cover')"
+            :hint="t('adminTournaments.field.coverHint')"
+          />
 
           <div class="field">
             <label for="tour-game">{{ t('tournaments.field.game') }}</label>

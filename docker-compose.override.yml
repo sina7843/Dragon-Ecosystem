@@ -12,3 +12,6 @@ services:
       ENABLE_DEV_ROUTES: "false"
       # Deterministic mock payment provider (never a live provider) so demo purchases work.
       PAYMENTS_MOCK_ENABLED: "true"
+      # Match the web client's 20 MB image cap so a large PNG isn't rejected by an opaque
+      # body-limit 413 before the service can validate it. The service still enforces this cap.
+      MEDIA_MAX_BYTES: "20000000"

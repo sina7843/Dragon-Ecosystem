@@ -1,7 +1,10 @@
 <script setup lang="ts">
-import { onMounted, reactive, ref } from 'vue';
+import { computed, onMounted, reactive, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppField from '../components/AppField.vue';
+import AppSearch from '../components/AppSearch.vue';
+import ImagePicker from '../components/ImagePicker.vue';
+import RichTextEditor from '../components/RichTextEditor.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
@@ -14,7 +17,8 @@ interface Game {
   slug: string;
   status: string;
   version: number;
-  translations: Record<'fa' | 'en', { name: string; description: string }>;
+  coverImageUrl: string | null;
+  translations: Record<'fa' | 'en', { name: string; description: string; body: string }>;
 }
 
 const { t } = useI18n();
@@ -31,6 +35,14 @@ const { push } = useToasts();
 const loading = ref(true);
 const listError = ref<string | undefined>(undefined);
 const games = ref<Game[]>([]);
+const search = ref('');
+const filteredGames = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return games.value;
+  return games.value.filter((g) =>
+    `${g.translations.en.name} ${g.translations.fa.name} ${g.slug}`.toLowerCase().includes(q)
+  );
+});
 const editing = ref<Game | null>(null);
 const saving = ref(false);
 const formError = ref<string | undefined>(undefined);
@@ -38,8 +50,9 @@ const slugError = ref<string | undefined>(undefined);
 
 const form = reactive({
   slug: '',
-  fa: { name: '', description: '' },
-  en: { name: '', description: '' }
+  coverImageUrl: null as string | null,
+  fa: { name: '', description: '', body: '' },
+  en: { name: '', description: '', body: '' }
 });
 
 async function loadList(): Promise<void> {
@@ -61,14 +74,20 @@ onMounted(async () => {
 
 function resetForm(): void {
   editing.value = null;
-  Object.assign(form, { slug: '', fa: { name: '', description: '' }, en: { name: '', description: '' } });
+  Object.assign(form, { slug: '', coverImageUrl: null, fa: { name: '', description: '', body: '' }, en: { name: '', description: '', body: '' } });
   formError.value = undefined;
   slugError.value = undefined;
 }
 
 function edit(game: Game): void {
   editing.value = game;
-  Object.assign(form, { slug: game.slug, fa: { ...game.translations.fa }, en: { ...game.translations.en } });
+  Object.assign(form, {
+    slug: game.slug,
+    coverImageUrl: game.coverImageUrl,
+    // Games created before the body field exists come back without it.
+    fa: { ...game.translations.fa, body: game.translations.fa.body ?? '' },
+    en: { ...game.translations.en, body: game.translations.en.body ?? '' }
+  });
   formError.value = undefined;
   slugError.value = undefined;
 }
@@ -78,7 +97,7 @@ async function save(): Promise<void> {
   saving.value = true;
   formError.value = undefined;
   slugError.value = undefined;
-  const payload = { slug: form.slug, translations: { fa: form.fa, en: form.en } };
+  const payload = { slug: form.slug, coverImageUrl: form.coverImageUrl, translations: { fa: form.fa, en: form.en } };
   try {
     if (editing.value === null) {
       editing.value = await apiFetch<Game>('/admin/games', { method: 'POST', body: JSON.stringify(payload) });
@@ -152,35 +171,38 @@ async function setStatus(status: string): Promise<void> {
             variant="error"
             :message="listError"
           />
-          <ul
-            v-else
-            class="items"
-          >
-            <li
-              v-for="game in games"
-              :key="game.id"
-            >
-              <button
-                type="button"
-                class="item-row"
-                :data-testid="`edit-${game.id}`"
-                @click="edit(game)"
+          <template v-else>
+            <AppSearch
+              v-model="search"
+              input-id="admin-games-search"
+            />
+            <ul class="items">
+              <li
+                v-for="game in filteredGames"
+                :key="game.id"
               >
-                <span class="title">{{ game.translations.en.name || game.translations.fa.name || '—' }}</span>
-                <span
-                  class="status-pill"
-                  :class="`status-pill-${gameTone(game.status)}`"
-                  :data-state="game.status"
-                >{{ t(`adminGames.status.${game.status}`) }}</span>
-              </button>
-            </li>
-            <li
-              v-if="games.length === 0"
-              class="empty"
-            >
-              {{ t('adminGames.empty') }}
-            </li>
-          </ul>
+                <button
+                  type="button"
+                  class="item-row"
+                  :data-testid="`edit-${game.id}`"
+                  @click="edit(game)"
+                >
+                  <span class="title">{{ game.translations.en.name || game.translations.fa.name || '—' }}</span>
+                  <span
+                    class="status-pill"
+                    :class="`status-pill-${gameTone(game.status)}`"
+                    :data-state="game.status"
+                  >{{ t(`adminGames.status.${game.status}`) }}</span>
+                </button>
+              </li>
+              <li
+                v-if="filteredGames.length === 0"
+                class="empty"
+              >
+                {{ search.trim() === '' ? t('adminGames.empty') : t('search.noResults') }}
+              </li>
+            </ul>
+          </template>
         </div>
 
         <form
@@ -215,6 +237,12 @@ async function setStatus(status: string): Promise<void> {
               v-model="form[loc].description"
               :label="t('adminGames.field.description')"
             />
+            <RichTextEditor
+              v-model="form[loc].body"
+              :editor-id="`game-body-${loc}`"
+              :label="t('adminGames.field.body')"
+              :dir="loc === 'fa' ? 'rtl' : 'ltr'"
+            />
           </fieldset>
 
           <AppField
@@ -223,6 +251,13 @@ async function setStatus(status: string): Promise<void> {
             :label="t('adminGames.field.slug')"
             :error="slugError"
             latin
+          />
+
+          <ImagePicker
+            v-model="form.coverImageUrl"
+            :label="t('adminGames.field.cover')"
+            :hint="t('adminGames.field.coverHint')"
+            shape="square"
           />
 
           <div class="actions">

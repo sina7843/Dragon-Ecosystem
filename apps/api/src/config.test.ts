@@ -130,6 +130,41 @@ test('media size cap defaults to 5 MB and honours a valid override; public origi
   assert.equal(loadConfig({ PUBLIC_ORIGIN: 'https://dragon.example//' }).publicOrigin, 'https://dragon.example');
 });
 
+test('SMS provider: mock outside production, Kavenegar in production or on explicit request', () => {
+  const creds = { KAVENEGAR_API_KEY: 'k-abc', KAVENEGAR_SENDER: '10004346', KAVENEGAR_OTP_TEMPLATE: 'dragon-otp' };
+  const productionBase = {
+    NODE_ENV: 'production',
+    MONGODB_URI: 'mongodb://mongo:27017/dragon',
+    AUTH_SECRET: 'x'.repeat(32),
+    PAYMENTS_CALLBACK_SECRET: 'x'.repeat(32),
+    ANALYTICS_PSEUDONYM_SALT: 'x'.repeat(32),
+    PUBLIC_ORIGIN: 'https://dragon.example'
+  };
+
+  // No key: the deterministic mock.
+  assert.deepEqual(loadConfig({}).sms, { provider: 'mock', kavenegar: null });
+
+  // Development/test keep the mock even with a key, so the dev OTP inbox that local
+  // sign-in, the seeder, and the browser suite depend on keeps being written.
+  assert.equal(loadConfig({ ...creds }).sms.provider, 'mock');
+  assert.equal(loadConfig({ NODE_ENV: 'test', ...creds }).sms.provider, 'mock');
+
+  // Production with a key selects the real provider and carries the credentials through.
+  const prod = loadConfig({ ...productionBase, ...creds }).sms;
+  assert.equal(prod.provider, 'kavenegar');
+  assert.deepEqual(prod.kavenegar, { apiKey: 'k-abc', sender: '10004346', otpTemplate: 'dragon-otp' });
+
+  // Explicit opt-in forces the real provider anywhere (local delivery smoke-test).
+  assert.equal(loadConfig({ SMS_PROVIDER: 'kavenegar', ...creds }).sms.provider, 'kavenegar');
+  // Explicit mock wins even in production.
+  assert.equal(loadConfig({ ...productionBase, ...creds, SMS_PROVIDER: 'mock' }).sms.provider, 'mock');
+
+  // Selecting the real provider without credentials is a hard configuration error.
+  assert.throws(() => loadConfig({ SMS_PROVIDER: 'kavenegar' }), /KAVENEGAR_API_KEY is required/);
+  assert.throws(() => loadConfig({ SMS_PROVIDER: 'kavenegar', KAVENEGAR_API_KEY: 'k-abc' }), /KAVENEGAR_OTP_TEMPLATE is required/);
+  assert.throws(() => loadConfig({ SMS_PROVIDER: 'sms.ir' }), /SMS_PROVIDER must be/);
+});
+
 test('dev routes are fail-closed: enabled only by an explicit flag, never in production', () => {
   // Default: off.
   assert.equal(loadConfig({}).devRoutesEnabled, false);

@@ -57,9 +57,21 @@ export interface ProfileInput {
   readonly displayName: string;
   readonly birthDate: string;
   readonly bio?: string;
+  readonly avatarUrl?: string | null;
   readonly visibility?: ProfileVisibility;
   readonly locale?: string;
   readonly timeZone?: string;
+}
+
+/** Avatar reference: a site media path or an https URL (mirrors games/content, MEDIA-006). */
+function validateAvatar(url: string | null | undefined, fallback: string | null): string | null {
+  if (url === undefined) return fallback;
+  if (url === null || url === '') return null;
+  const value = url.trim();
+  if (value.startsWith('/') || value.startsWith('https://')) return value;
+  throw new ValidationError('The avatar reference is not allowed.', [
+    { field: 'avatarUrl', code: 'INVALID_MEDIA_REF', message: 'Use a site path or an https URL.' }
+  ]);
 }
 
 /** Masked account summary for administration lists (ADMIN-006, ADMIN-008). */
@@ -449,6 +461,7 @@ export class IdentityService {
       displayName,
       birthDate: input.birthDate,
       bio: (input.bio ?? existing?.bio ?? '').slice(0, 500),
+      avatarUrl: validateAvatar(input.avatarUrl, existing?.avatarUrl ?? null),
       // Privacy by default: a new profile is private unless explicitly published.
       visibility: input.visibility ?? existing?.visibility ?? 'private',
       createdAt: existing?.createdAt ?? now,

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
+import AppSearch from '../components/AppSearch.vue';
 import AppTable, { type TableColumn } from '../components/AppTable.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { useAdmin } from '../composables/useAdmin.ts';
@@ -37,6 +38,7 @@ const columns: TableColumn[] = [
   { key: 'emergency', label: t('admin.moderation.emergency') }
 ];
 
+const search = ref('');
 const rows = computed(() =>
   cases.value.map((c) => ({
     createdAt: formatDateTime(c.createdAt, activeLocale.value, 'Asia/Tehran'),
@@ -47,6 +49,13 @@ const rows = computed(() =>
     emergency: c.emergency ? t('admin.audit.yes') : t('admin.audit.no')
   }))
 );
+const filteredRows = computed(() => {
+  const q = search.value.trim().toLowerCase();
+  if (q === '') return rows.value;
+  return rows.value.filter((r) =>
+    `${r.subject} ${r.severity} ${r.state}`.toLowerCase().includes(q)
+  );
+});
 
 async function load(cursor?: string): Promise<void> {
   loading.value = true;
@@ -117,11 +126,15 @@ function onStateChange(): void {
         :message="error"
       />
       <template v-else>
+        <AppSearch
+          v-model="search"
+          input-id="admin-moderation-search"
+        />
         <AppTable
           :caption="t('admin.moderation.caption')"
           :columns="columns"
-          :rows="rows"
-          :empty-message="t('admin.moderation.empty')"
+          :rows="filteredRows"
+          :empty-message="search.trim() === '' ? t('admin.moderation.empty') : t('search.noResults')"
           dense
         />
         <button

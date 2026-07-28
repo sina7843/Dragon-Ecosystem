@@ -45,6 +45,13 @@ services:
       # Trust X-Forwarded-For only from nginx's fixed address below. A direct
       # caller therefore cannot spoof the client IP used for per-IP rate limits.
       TRUSTED_PROXIES: 172.28.0.10
+      # Kavenegar SMS credentials come from the deployment environment / .env. This service
+      # runs NODE_ENV=production, so a configured key selects the real provider; SMS_PROVIDER
+      # can force either provider. Secrets are never committed - only referenced here.
+      SMS_PROVIDER: ${SMS_PROVIDER:-}
+      KAVENEGAR_API_KEY: ${KAVENEGAR_API_KEY:-}
+      KAVENEGAR_SENDER: ${KAVENEGAR_SENDER:-}
+      KAVENEGAR_OTP_TEMPLATE: ${KAVENEGAR_OTP_TEMPLATE:-}
     depends_on:
       mongo:
         condition: service_healthy

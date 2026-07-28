@@ -107,7 +107,7 @@ describe('publication validation (TOURN-002)', () => {
       registration: { opensAt: '2026-08-01T00:00:00.000Z', closesAt: '2026-08-10T00:00:00.000Z' },
       schedule: { startAt: '2026-08-11T00:00:00.000Z', endAt: '2026-08-12T00:00:00.000Z' },
       format: 'single_elimination', ruleProfile: { kind: 'custom', text: { fa: 'ق', en: 'R' } },
-      approvalMode: 'manual', waitlistMode: 'disabled',
+      approvalMode: 'manual', waitlistMode: 'disabled', participantsPublic: false, coverImageUrl: null,
       eligibility: { minAge: null, requireCompleteProfile: true, requireGameIdentity: false },
       questionSet: { version: 0, questions: [] },
       fee: { kind: 'free', components: [] },

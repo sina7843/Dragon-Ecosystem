@@ -83,6 +83,17 @@ export interface AppConfig {
    */
   readonly mediaMaxBytes: number;
   /**
+   * SMS provider (INT-001). `kavenegar` sends real messages via the Kavenegar REST API
+   * (OTP through verify/lookup, notifications through sms/send); it is selected when
+   * `KAVENEGAR_API_KEY` is present. Otherwise the deterministic mock is used, which is the
+   * approved provider for automated tests and local development (it drives the dev OTP inbox
+   * the browser suite reads). Credentials come only from the environment, never the source.
+   */
+  readonly sms: {
+    readonly provider: 'mock' | 'kavenegar';
+    readonly kavenegar: { readonly apiKey: string; readonly sender: string; readonly otpTemplate: string } | null;
+  };
+  /**
    * Absolute public origin used to build sitemap/robots/canonical URLs on the server
    * (SEO-005/006). Empty falls back to a relative sitemap; set to the real origin in
    * production so crawlers receive absolute locations.
@@ -281,6 +292,39 @@ function parsePayments(source: NodeJS.ProcessEnv, env: Environment, problems: st
 }
 
 /**
+ * SMS provider selection.
+ *
+ * Production uses Kavenegar whenever a key is configured. Development and test keep the
+ * deterministic mock even when a key is present, because the mock is what writes the dev
+ * OTP inbox that local sign-in, the demo seeder, and the browser suite read; a real
+ * provider deliberately never retains codes, so selecting it locally would break them.
+ * `SMS_PROVIDER=kavenegar` forces the real provider anywhere (to smoke-test delivery), and
+ * `SMS_PROVIDER=mock` forces the mock anywhere. Credentials come from the environment only.
+ */
+function parseSms(source: NodeJS.ProcessEnv, env: Environment, problems: string[]): AppConfig['sms'] {
+  const apiKey = (source['KAVENEGAR_API_KEY'] ?? '').trim();
+  const sender = (source['KAVENEGAR_SENDER'] ?? '').trim();
+  const otpTemplate = (source['KAVENEGAR_OTP_TEMPLATE'] ?? '').trim();
+  const requested = (source['SMS_PROVIDER'] ?? '').trim().toLowerCase();
+
+  if (requested !== '' && requested !== 'mock' && requested !== 'kavenegar') {
+    problems.push('SMS_PROVIDER must be "mock" or "kavenegar" when set.');
+  }
+
+  const useKavenegar =
+    requested === 'kavenegar' || (requested === '' && apiKey !== '' && env === 'production');
+  if (!useKavenegar) return { provider: 'mock', kavenegar: null };
+
+  if (apiKey === '') {
+    problems.push('KAVENEGAR_API_KEY is required to use the Kavenegar SMS provider.');
+  }
+  if (otpTemplate === '') {
+    problems.push('KAVENEGAR_OTP_TEMPLATE is required to use the Kavenegar SMS provider (verify/lookup needs an approved template).');
+  }
+  return { provider: 'kavenegar', kavenegar: { apiKey, sender, otpTemplate } };
+}
+
+/**
  * Builds validated configuration. Throws with every problem at once so a
  * misconfigured deployment fails fast and loudly instead of degrading silently.
  */
@@ -306,6 +350,7 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     pseudonymSalt: parseRequiredSecret(source['ANALYTICS_PSEUDONYM_SALT'], env, 'ANALYTICS_PSEUDONYM_SALT', DEVELOPMENT_PSEUDONYM_SALT, problems),
     // MEDIA-001: default 5 MB cap on uploads; a valid positive override is honoured.
     mediaMaxBytes: parsePositiveInteger(source['MEDIA_MAX_BYTES'], 5_000_000, 'MEDIA_MAX_BYTES', problems),
+    sms: parseSms(source, env, problems),
     publicOrigin: parsePublicOrigin(source['PUBLIC_ORIGIN'], env, problems),
     auth: {
       secret: parseAuthSecret(source['AUTH_SECRET'], env, problems),

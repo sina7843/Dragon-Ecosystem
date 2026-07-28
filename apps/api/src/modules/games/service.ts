@@ -8,6 +8,7 @@ import { newId, type EntityId } from '../../shared/ids.ts';
 import { clampLimit, decodeCursor, toPage, type Page } from '../../shared/pagination.ts';
 import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { resolveSlug } from '../content/slug.ts';
+import { sanitizeRichText } from '../content/sanitize.ts';
 import { GAMES_COLLECTIONS } from './collections.ts';
 
 /**
@@ -25,6 +26,8 @@ type Locale = (typeof LOCALES)[number];
 interface GameTranslation {
   name: string;
   description: string;
+  /** Rich editorial body for the game page. Sanitised on write (CONTENT-005, SEC-003). */
+  body: string;
   seoTitle: string;
   seoDescription: string;
 }
@@ -65,9 +68,12 @@ function validateCoverImage(url: string | null | undefined): string | null {
 function buildTranslation(input: Partial<GameTranslation> | undefined, previous: GameTranslation): GameTranslation {
   const name = (input?.name ?? previous.name).trim();
   const description = (input?.description ?? previous.description).trim();
+  // The body is sanitised at the write boundary, so the public read path serves safe HTML.
+  const body = sanitizeRichText(input?.body ?? previous.body ?? '');
   return {
     name,
     description,
+    body,
     // `||` so an empty prior value falls through to the name/description.
     seoTitle: (input?.seoTitle ?? '').trim() || previous.seoTitle || name,
     seoDescription: (input?.seoDescription ?? '').trim() || previous.seoDescription || description
@@ -75,7 +81,7 @@ function buildTranslation(input: Partial<GameTranslation> | undefined, previous:
 }
 
 function emptyTranslation(): GameTranslation {
-  return { name: '', description: '', seoTitle: '', seoDescription: '' };
+  return { name: '', description: '', body: '', seoTitle: '', seoDescription: '' };
 }
 
 export class GamesService {

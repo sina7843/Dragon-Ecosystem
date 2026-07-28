@@ -130,6 +130,15 @@ export interface TournamentRecord {
   ruleProfile: RuleProfile;
   approvalMode: ApprovalMode;
   waitlistMode: WaitlistMode;
+  /**
+   * Whether the approved participant list is shown publicly (TOURN participant
+   * visibility). Off by default so names are never exposed without an explicit
+   * organizer choice; toggled from the admin panel in any state. Legacy records
+   * predating this field read as private (`undefined` → not public).
+   */
+  participantsPublic: boolean;
+  /** Poster image: a site media path (`/media/<id>`) or an https URL; null when unset. */
+  coverImageUrl: string | null;
   eligibility: Eligibility;
   questionSet: QuestionSet;
   fee: FeeDefinition;

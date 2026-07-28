@@ -3,7 +3,7 @@
  * from the module's internal files (section 32.1).
  */
 export { IdentityService } from './service.ts';
-export { MockSmsAdapter } from './sms.ts';
+export { MockSmsAdapter, KavenegarSmsAdapter } from './sms.ts';
 export { registerIdentityRoutes } from './routes.ts';
 export { createSessionGuards, requireIdentity, SESSION_COOKIE } from './session-guard.ts';
 export type { SessionGuards } from './session-guard.ts';

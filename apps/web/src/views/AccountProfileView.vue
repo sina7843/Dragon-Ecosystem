@@ -2,6 +2,7 @@
 import { onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppField from '../components/AppField.vue';
+import ImagePicker from '../components/ImagePicker.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { ApiRequestError, apiFetch } from '../api.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
@@ -17,6 +18,7 @@ interface Profile {
   displayName: string;
   birthDate: string;
   bio: string;
+  avatarUrl: string | null;
   visibility: 'private' | 'public';
 }
 
@@ -35,6 +37,7 @@ const form = ref<Profile>({
   displayName: '',
   birthDate: '',
   bio: '',
+  avatarUrl: null,
   // Privacy by default: a profile is private until the user publishes it.
   visibility: 'private'
 });
@@ -108,6 +111,14 @@ async function onSubmit(): Promise<void> {
       >
         {{ formError }}
       </p>
+
+      <ImagePicker
+        v-model="form.avatarUrl"
+        :label="t('profile.avatar.label')"
+        :hint="t('profile.avatar.hint')"
+        shape="circle"
+        :disabled="submitting"
+      />
 
       <AppField
         id="profile-username"

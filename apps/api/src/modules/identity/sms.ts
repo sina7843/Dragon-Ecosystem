@@ -3,6 +3,7 @@ import { IDENTITY_COLLECTIONS } from './collections.ts';
 import { maskMobile } from './mobile.ts';
 import { newId } from '../../shared/ids.ts';
 import { utcNow } from '../../shared/events.ts';
+import { kavenegarVerifyLookup } from '../../shared/kavenegar.ts';
 import type { Environment } from '../../config.ts';
 
 /**
@@ -90,6 +91,45 @@ export class MockSmsAdapter implements SmsAdapter {
       });
     }
 
+    return status;
+  }
+}
+
+/**
+ * Kavenegar OTP provider (INT-001). Sends the code as a `token` inside an approved
+ * Kavenegar `verify/lookup` template, so the OTP body is never free text (SMS-001). The
+ * stored delivery record is masked and never contains the code (AUTH-003, SEC-012); the
+ * dev inbox is never written, so codes are never retained by the real provider.
+ */
+export class KavenegarSmsAdapter implements SmsAdapter {
+  readonly #db: Db;
+  readonly #apiKey: string;
+  readonly #template: string;
+
+  constructor(db: Db, options: { apiKey: string; otpTemplate: string }) {
+    this.#db = db;
+    this.#apiKey = options.apiKey;
+    this.#template = options.otpTemplate;
+  }
+
+  async send(input: SmsSendInput): Promise<SmsStatus> {
+    const accepted = await kavenegarVerifyLookup({
+      apiKey: this.#apiKey,
+      receptor: input.recipient,
+      token: input.code,
+      template: this.#template
+    });
+    const status: SmsStatus = accepted ? 'sent' : 'failed';
+
+    await this.#db.collection<SmsDeliveryRecord>(IDENTITY_COLLECTIONS.smsDeliveries).insertOne({
+      _id: newId(),
+      recipientMasked: maskMobile(input.recipient),
+      template: input.template,
+      locale: input.locale,
+      status,
+      correlationId: input.correlationId,
+      createdAt: utcNow()
+    });
     return status;
   }
 }

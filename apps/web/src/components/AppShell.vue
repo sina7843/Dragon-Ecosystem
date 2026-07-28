@@ -1,14 +1,14 @@
 <script setup lang="ts">
-import { computed, onMounted, watch } from 'vue';
+import { computed, onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { useRouter } from 'vue-router';
+import { useRoute, useRouter } from 'vue-router';
 import AppNav, { type NavItem } from './AppNav.vue';
 import LocaleSwitcher from './LocaleSwitcher.vue';
+import PartnersStrip from './PartnersStrip.vue';
 import SkipLink from './SkipLink.vue';
 import ThemeToggle from './ThemeToggle.vue';
 import ToastRegion from './ToastRegion.vue';
 import { useAuth } from '../composables/useAuth.ts';
-import { useAdmin } from '../composables/useAdmin.ts';
 import { useToasts } from '../composables/useToasts.ts';
 import { isLocale } from '../i18n/locale.ts';
 
@@ -28,16 +28,18 @@ const { t, locale } = useI18n();
 
 const localePrefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
 
+// The public bar no longer carries an "Account" text link (the profile chip on the
+// right is the entry point), and neither the account nor admin area shows a separate
+// "overview" entry — the role-aware dashboard at /account is the single landing.
 const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key: string }>>> = {
   public: [
     { path: '', key: 'nav.home' },
     { path: '/content', key: 'nav.content' },
     { path: '/games', key: 'nav.games' },
-    { path: '/tournaments', key: 'nav.tournaments' },
-    { path: '/account', key: 'nav.account' }
+    { path: '/tournaments', key: 'nav.tournaments' }
   ],
   account: [
-    { path: '/account', key: 'nav.accountOverview' },
+    { path: '/account', key: 'nav.dashboard' },
     { path: '/account/profile', key: 'nav.profile' },
     { path: '/account/teams', key: 'nav.teams' },
     { path: '/account/gaming-identities', key: 'nav.gamingIdentities' },
@@ -47,68 +49,36 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '', key: 'nav.home' }
   ],
   admin: [
-    { path: '/admin', key: 'nav.adminOverview' },
+    { path: '/account', key: 'nav.dashboard' },
     { path: '', key: 'nav.home' }
   ]
 };
 
-// An admin link appears in the public/account chrome once the caller is confirmed to
-// hold at least one administrative capability. This is convenience only — the server
-// enforces access on every /admin route and API regardless of what the menu shows.
-const canAdmin = computed(
-  () =>
-    authenticated.value &&
-    !adminForbidden.value &&
-    (isSuperAdmin.value ||
-      canReadUsers.value ||
-      canReadAudit.value ||
-      canReadConfig.value ||
-      canWriteContent.value ||
-      canManageGames.value ||
-      canManageTournaments.value ||
-      canManageModeration.value)
-);
-
-const navItems = computed<NavItem[]>(() => {
-  const items = NAV_KEYS[props.variant].map((item) => ({
+const navItems = computed<NavItem[]>(() =>
+  NAV_KEYS[props.variant].map((item) => ({
     to: `${localePrefix.value}${item.path}`,
     label: t(item.key)
-  }));
-  if (props.variant !== 'admin' && canAdmin.value) {
-    items.push({ to: `${localePrefix.value}/admin`, label: t('nav.adminOverview') });
-  }
-  return items;
-});
+  }))
+);
+
+// The profile chip shows the signed-in user's name; its initial doubles as an avatar.
+const profileInitial = computed(() => (displayName.value ?? '?').trim().charAt(0).toUpperCase());
 
 const navLabel = computed(() => t(`nav.region.${props.variant}`));
 const isAdmin = computed(() => props.variant === 'admin');
 
 const router = useRouter();
-const { authenticated, loaded, refresh, signOut } = useAuth();
-const {
-  refresh: refreshAdmin,
-  forbidden: adminForbidden,
-  isSuperAdmin,
-  canReadUsers,
-  canReadAudit,
-  canReadConfig,
-  canWriteContent,
-  canManageGames,
-  canManageTournaments,
-  canManageModeration
-} = useAdmin();
+const route = useRoute();
+// Re-keying <main> per route replays its entrance animation on every navigation.
+const pageKey = computed(() => route.fullPath);
+const { authenticated, displayName, profile, loaded, refresh, signOut } = useAuth();
+const avatarUrl = computed(() => profile.value?.avatarUrl ?? null);
 const { push } = useToasts();
 
-// The shell learns the session state once; views reuse the same store. Admin
-// capabilities are probed only for a signed-in caller.
+// The shell learns the session state once; views reuse the same store. The role-aware
+// dashboard probes admin capabilities itself, so the chrome no longer needs them.
 onMounted(async () => {
   if (!loaded.value) await refresh();
-  if (authenticated.value) await refreshAdmin();
-});
-
-// A later sign-in (without a full reload) still reveals the admin entry.
-watch(authenticated, (isAuth) => {
-  if (isAuth) void refreshAdmin();
 });
 
 async function onSignOut(): Promise<void> {
@@ -149,7 +119,10 @@ async function onSignOut(): Promise<void> {
           </span>
         </RouterLink>
 
+        <!-- The account area moves its navigation into a side rail below, so the top
+             bar stays a clean brand + controls row there. -->
         <AppNav
+          v-if="props.variant !== 'account'"
           :items="navItems"
           :region-label="navLabel"
           :open-label="t('nav.openMenu')"
@@ -166,15 +139,42 @@ async function onSignOut(): Promise<void> {
           >
             {{ t('nav.signIn') }}
           </RouterLink>
-          <button
-            v-else-if="loaded"
-            type="button"
-            class="btn btn-neutral"
-            data-testid="header-sign-out"
-            @click="onSignOut"
-          >
-            {{ t('nav.signOut') }}
-          </button>
+          <template v-else-if="loaded">
+            <!-- Profile chip: avatar initial + name, links to the role-aware dashboard. -->
+            <RouterLink
+              class="profile-chip"
+              :to="`${localePrefix}/account`"
+              data-testid="header-profile"
+            >
+              <img
+                v-if="avatarUrl"
+                class="profile-avatar profile-avatar-img"
+                :src="avatarUrl"
+                :alt="displayName ?? ''"
+              >
+              <span
+                v-else
+                class="profile-avatar"
+                aria-hidden="true"
+              >{{ profileInitial }}</span>
+              <span
+                v-if="displayName"
+                class="profile-name"
+              >{{ displayName }}</span>
+              <span
+                v-else
+                class="profile-name"
+              >{{ t('nav.dashboard') }}</span>
+            </RouterLink>
+            <button
+              type="button"
+              class="btn btn-neutral"
+              data-testid="header-sign-out"
+              @click="onSignOut"
+            >
+              {{ t('nav.signOut') }}
+            </button>
+          </template>
 
           <LocaleSwitcher />
           <ThemeToggle />
@@ -182,17 +182,54 @@ async function onSignOut(): Promise<void> {
       </div>
     </header>
 
-    <!-- tabindex allows the skip link to move focus here (A11Y-013). -->
-    <main
-      id="main-content"
-      class="main"
-      tabindex="-1"
-    >
-      <slot />
-    </main>
+    <div :class="['shell-body', { 'with-rail': props.variant === 'account' }]">
+      <!-- Account navigation as a vertical side rail (a column menu), not a top bar. -->
+      <aside
+        v-if="props.variant === 'account'"
+        class="side-rail"
+      >
+        <nav
+          class="rail-nav"
+          :aria-label="navLabel"
+        >
+          <RouterLink
+            v-for="item in navItems"
+            :key="item.to"
+            class="rail-link"
+            :to="item.to"
+          >
+            {{ item.label }}
+          </RouterLink>
+        </nav>
+      </aside>
+
+      <!-- tabindex allows the skip link to move focus here (A11Y-013).
+           Keyed by route so the page-enter animation replays on navigation. -->
+      <main
+        id="main-content"
+        :key="pageKey"
+        class="main page-view"
+        tabindex="-1"
+      >
+        <slot />
+      </main>
+    </div>
 
     <footer class="footer">
-      <p>{{ t('app.tagline') }}</p>
+      <div class="footer-inner">
+        <section
+          class="footer-partners"
+          :aria-label="t('partners.heading')"
+        >
+          <h2 class="footer-heading">
+            {{ t('partners.heading') }}
+          </h2>
+          <PartnersStrip variant="footer" />
+        </section>
+        <p class="footer-tagline">
+          {{ t('app.tagline') }}
+        </p>
+      </div>
     </footer>
 
     <ToastRegion />
@@ -306,6 +343,57 @@ async function onSignOut(): Promise<void> {
   margin-inline-start: auto;
 }
 
+.profile-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding-inline: var(--space-1) var(--space-3);
+  block-size: 2.625rem;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  background-color: var(--color-surface-overlay);
+  color: var(--color-text);
+  text-decoration: none;
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+.profile-chip:hover {
+  border-color: var(--color-border-strong);
+}
+.profile-avatar {
+  display: grid;
+  place-items: center;
+  inline-size: 1.875rem;
+  block-size: 1.875rem;
+  border-radius: var(--radius-sm);
+  background-color: var(--color-primary-strong);
+  color: var(--color-primary-text);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-black);
+}
+.profile-avatar-img {
+  object-fit: cover;
+}
+.profile-name {
+  font-size: var(--text-sm);
+  font-weight: var(--weight-bold);
+  max-inline-size: 10rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+/* The name is decoration next to the avatar on the tightest screens. */
+@media (max-width: 560px) {
+  .profile-name {
+    display: none;
+  }
+}
+
+.shell-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+}
+
 .main {
   flex: 1;
   inline-size: 100%;
@@ -321,16 +409,142 @@ async function onSignOut(): Promise<void> {
   padding-block: var(--space-5);
 }
 
+/* Gentle fade + rise as each new page mounts (keyed by route above). */
+.page-view {
+  animation: page-enter var(--motion-slow) var(--motion-ease) both;
+}
+@keyframes page-enter {
+  from {
+    opacity: 0;
+    transform: translateY(0.625rem);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .page-view {
+    animation: none;
+  }
+}
+
+/* ---- Account area: vertical side rail (column menu) beside the content ---- */
+.shell-body.with-rail {
+  display: grid;
+  grid-template-columns: 15rem minmax(0, 1fr);
+  gap: clamp(var(--space-4), 3vw, var(--space-6));
+  inline-size: 100%;
+  max-inline-size: var(--shell-max);
+  margin-inline: auto;
+  padding: clamp(var(--space-5), 4vw, var(--space-7)) clamp(var(--space-4), 4vw, var(--space-6))
+    var(--space-8);
+  align-items: start;
+}
+.with-rail .main {
+  max-inline-size: none;
+  margin-inline: 0;
+  padding: 0;
+}
+
+.side-rail {
+  position: sticky;
+  inset-block-start: 6rem;
+}
+.rail-nav {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-xl);
+  background-color: var(--color-surface);
+  box-shadow: var(--shadow-sm);
+}
+@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .rail-nav {
+    background-color: var(--glass-bg);
+    border-color: var(--glass-border);
+    -webkit-backdrop-filter: blur(var(--glass-blur));
+    backdrop-filter: blur(var(--glass-blur));
+    box-shadow: var(--glass-highlight), var(--shadow-md);
+  }
+}
+
+.rail-link {
+  display: flex;
+  align-items: center;
+  padding: var(--space-3);
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  text-decoration: none;
+  color: var(--color-text-soft);
+  font-weight: var(--weight-semibold);
+  font-size: var(--text-sm);
+  min-block-size: var(--target-min);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.rail-link:hover {
+  color: var(--color-text);
+  background-color: var(--color-surface-sunken);
+}
+.rail-link.router-link-active {
+  color: var(--color-accent);
+  font-weight: var(--weight-black);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-border-strong);
+  /* Non-colour cue: a lit marker on the leading edge (section 23.2). */
+  box-shadow: inset 0.2rem 0 0 var(--color-primary);
+}
+
+/* Below the laptop breakpoint the rail sits above the content as a horizontal,
+   scrollable strip so it never eats the narrow viewport. */
+@media (max-width: 1023px) {
+  .shell-body.with-rail {
+    display: block;
+  }
+  .side-rail {
+    position: static;
+    margin-block-end: var(--space-5);
+  }
+  .rail-nav {
+    flex-direction: row;
+    overflow-x: auto;
+    padding: var(--space-2);
+  }
+  .rail-link {
+    flex: none;
+    white-space: nowrap;
+  }
+  .rail-link.router-link-active {
+    box-shadow: inset 0 -0.2rem 0 var(--color-primary);
+  }
+}
+
 .footer {
   margin-block-start: var(--space-6);
-  padding: var(--space-5) clamp(var(--space-4), 4vw, var(--space-6));
+  padding: var(--space-6) clamp(var(--space-4), 4vw, var(--space-6));
   border-block-start: 1px solid var(--color-border);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
 }
 
-.footer p {
+.footer-inner {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
   max-inline-size: var(--shell-max);
   margin: 0 auto;
+}
+
+.footer-heading {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-md);
+  color: var(--color-text);
+}
+
+.footer-tagline {
+  margin: 0;
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid var(--color-border);
 }
 </style>

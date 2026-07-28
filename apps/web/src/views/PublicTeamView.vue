@@ -51,7 +51,14 @@ onMounted(async () => {
     <template v-else-if="team">
       <div class="hero">
         <div class="hero-top">
+          <img
+            v-if="team.avatarUrl"
+            class="avatar avatar-img"
+            :src="team.avatarUrl"
+            :alt="team.name"
+          >
           <span
+            v-else
             class="avatar"
             aria-hidden="true"
           >{{ team.name.slice(0, 2).toUpperCase() }}</span>
@@ -131,6 +138,9 @@ onMounted(async () => {
   max-inline-size: 70ch;
 }
 
+.avatar-img {
+  object-fit: cover;
+}
 .avatar {
   display: grid;
   place-items: center;

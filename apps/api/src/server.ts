@@ -8,7 +8,7 @@ import { loadConfig, type AppConfig } from './config.ts';
 import { Database } from './shared/db/client.ts';
 import { allMigrations } from './migrations.ts';
 import { runMigrations } from './shared/db/migrations.ts';
-import { IdentityService, MockSmsAdapter, registerIdentityRoutes } from './modules/identity/index.ts';
+import { IdentityService, MockSmsAdapter, KavenegarSmsAdapter, registerIdentityRoutes } from './modules/identity/index.ts';
 import { AdminService, AuthorizationService, registerAdminRoutes } from './modules/admin/index.ts';
 import { ContentService, registerContentRoutes } from './modules/content/index.ts';
 import { GamesService, registerGamesRoutes } from './modules/games/index.ts';
@@ -21,7 +21,7 @@ import { PaymentsService, MockPaymentProvider, registerPaymentsRoutes } from './
 import { HoldsService, HoldsReconciliation, registerHoldsRoutes } from './modules/holds/index.ts';
 import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/index.ts';
 import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
-import { NotificationsService, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
+import { NotificationsService, KavenegarSmsChannel, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
 import { ModerationService, registerModerationRoutes } from './modules/moderation/index.ts';
 import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
 import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferences } from './modules/media/index.ts';
@@ -444,9 +444,12 @@ export async function prepareDatabase(database: Database): Promise<string[]> {
   return applied;
 }
 
-/** Wires the identity module to a live database. */
+/** Wires the identity module to a live database, selecting the configured SMS provider. */
 export function buildIdentity(database: Database, config: AppConfig): { service: IdentityService; db: Db } {
-  const sms = new MockSmsAdapter(database.db, config.env);
+  const sms =
+    config.sms.provider === 'kavenegar' && config.sms.kavenegar !== null
+      ? new KavenegarSmsAdapter(database.db, { apiKey: config.sms.kavenegar.apiKey, otpTemplate: config.sms.kavenegar.otpTemplate })
+      : new MockSmsAdapter(database.db, config.env);
   return { service: new IdentityService(database, config.auth, sms, config.env), db: database.db };
 }
 
@@ -570,7 +573,11 @@ export function buildNotifications(database: Database, config: AppConfig): { ser
       return { mobile, email, locale: account.locale === 'en' ? 'en' : 'fa' };
     }
   };
-  return { service: new NotificationsService(database, { smsEnabled: config.notificationsSmsEnabled, emailEnabled: config.notificationsEmailEnabled }, config.env, contacts) };
+  const smsChannel =
+    config.sms.provider === 'kavenegar' && config.sms.kavenegar !== null
+      ? new KavenegarSmsChannel({ apiKey: config.sms.kavenegar.apiKey, sender: config.sms.kavenegar.sender })
+      : undefined;
+  return { service: new NotificationsService(database, { smsEnabled: config.notificationsSmsEnabled, emailEnabled: config.notificationsEmailEnabled }, config.env, contacts, smsChannel) };
 }
 
 export function buildModeration(database: Database, identity: { service: IdentityService }): { service: ModerationService } {

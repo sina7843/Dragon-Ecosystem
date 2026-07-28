@@ -42,6 +42,8 @@ export interface GameCard {
 
 export interface GameDetail extends GameCard {
   locale: Locale;
+  /** Rich editorial body, sanitised server-side on write (CONTENT-005). */
+  body: string;
   seoTitle: string;
   seoDescription: string;
   publishedAt: string | null;
@@ -66,6 +68,8 @@ export function listContent(params: {
   type?: string;
   category?: string;
   tag?: string;
+  /** Game id, to list only the content attached to that game. */
+  game?: string;
   q?: string;
   cursor?: string;
 }): Promise<Page<ContentCard>> {

@@ -302,3 +302,29 @@ select {
   font-variant-numeric: tabular-nums;
   text-align: end;
 }
+
+/**
+ * Motion layer. Scroll-reveal (via the v-reveal directive) fades sections up as they
+ * enter the viewport; the page-enter fade lives with the shell. Both collapse to no
+ * motion under prefers-reduced-motion.
+ */
+.reveal {
+  opacity: 0;
+  transform: translateY(1.25rem);
+  transition:
+    opacity var(--motion-slow) var(--motion-ease),
+    transform var(--motion-slow) var(--motion-ease);
+  transition-delay: var(--reveal-delay, 0ms);
+}
+.reveal.is-visible {
+  opacity: 1;
+  transform: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+  }
+}

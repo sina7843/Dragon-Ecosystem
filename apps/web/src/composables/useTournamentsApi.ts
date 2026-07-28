@@ -35,6 +35,7 @@ export interface TournamentCard {
   startAt: string | null;
   endAt: string | null;
   capacity: number;
+  coverImageUrl: string | null;
 }
 
 export interface TournamentDetail extends TournamentCard {
@@ -52,6 +53,18 @@ export interface TournamentDetail extends TournamentCard {
   refundPolicy: { kind: string; text: string };
   questions: Array<{ key: string; prompt: string; type: 'short_text' | 'long_text' | 'single_choice'; required: boolean; options: string[] }>;
   publishedAt: string | null;
+  /** Whether the approved participant list is shown publicly. */
+  participantsPublic: boolean;
+}
+
+export interface PublicParticipant {
+  registrationId: string;
+  participantType: 'individual' | 'team';
+  name: string | null;
+  /** Individual entrant's username, for a public player link. */
+  username: string | null;
+  /** Team entry's slug, for a public team link. */
+  teamSlug: string | null;
 }
 
 interface Page<T> {
@@ -83,4 +96,22 @@ export function getTournament(slug: string, locale: Locale): Promise<TournamentD
 
 export function tournamentCalendar(params: { locale: Locale; from: string; to: string }): Promise<Page<TournamentCard>> {
   return apiFetch(`/tournaments-calendar${query(params)}`);
+}
+
+/** Admin tournament record by id (the fields this view needs); carries the current version. */
+export function getAdminTournament(id: string): Promise<{ id: string; version: number; participantsPublic: boolean }> {
+  return apiFetch(`/admin/tournaments/${encodeURIComponent(id)}`);
+}
+
+/** Public participant list; only returns data when the organizer made it public (else 404). */
+export function getTournamentParticipants(id: string): Promise<{ items: PublicParticipant[] }> {
+  return apiFetch(`/tournaments/${encodeURIComponent(id)}/participants`);
+}
+
+/** Admin toggle for public participant visibility (any tournament state). */
+export function setParticipantsVisibility(id: string, isPublic: boolean, expectedVersion: number): Promise<{ id: string; version: number; participantsPublic: boolean }> {
+  return apiFetch(`/admin/tournaments/${encodeURIComponent(id)}/participants-visibility`, {
+    method: 'POST',
+    body: JSON.stringify({ isPublic, expectedVersion })
+  });
 }

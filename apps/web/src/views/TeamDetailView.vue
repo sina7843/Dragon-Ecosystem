@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import AppField from '../components/AppField.vue';
+import ImagePicker from '../components/ImagePicker.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { ApiRequestError } from '../api.ts';
 import { isLocale } from '../i18n/locale.ts';
@@ -128,6 +129,17 @@ async function onToggleVisibility(): Promise<void> {
     push('danger', messageFor(error));
   }
 }
+
+// The owner sets a team logo; the change is saved immediately with the current version.
+async function onLogoChange(url: string | null): Promise<void> {
+  if (team.value === null || url === team.value.avatarUrl) return;
+  try {
+    team.value = await updateTeam(teamId.value, { avatarUrl: url, expectedVersion: team.value.version });
+    push('success', t('teams.detail.updated'));
+  } catch (error) {
+    push('danger', messageFor(error));
+  }
+}
 </script>
 
 <template>
@@ -152,7 +164,14 @@ async function onToggleVisibility(): Promise<void> {
 
       <div class="hero">
         <div class="hero-top">
+          <img
+            v-if="team.avatarUrl"
+            class="avatar avatar-img"
+            :src="team.avatarUrl"
+            :alt="team.name"
+          >
           <span
+            v-else
             class="avatar"
             aria-hidden="true"
           >{{ team.name.slice(0, 2).toUpperCase() }}</span>
@@ -176,6 +195,15 @@ async function onToggleVisibility(): Promise<void> {
         >
           {{ team.description }}
         </p>
+        <ImagePicker
+          v-if="isOwner"
+          class="logo-editor"
+          :model-value="team.avatarUrl"
+          :label="t('teams.field.logo')"
+          :hint="t('teams.field.logoHint')"
+          shape="square"
+          @update:model-value="onLogoChange"
+        />
       </div>
 
       <section class="block">
@@ -348,10 +376,17 @@ async function onToggleVisibility(): Promise<void> {
   font-weight: var(--weight-bold);
 }
 
+.avatar-img {
+  object-fit: cover;
+}
 .avatar-sm {
   inline-size: 2.25rem;
   block-size: 2.25rem;
   font-size: var(--text-sm);
+}
+.logo-editor {
+  margin-block-start: var(--space-4);
+  max-inline-size: 20rem;
 }
 
 .block {

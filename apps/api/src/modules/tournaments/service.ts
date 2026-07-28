@@ -76,6 +76,18 @@ export interface TournamentInput {
   fee?: FeeInput;
   refundPolicy?: { kind?: 'no_refund' | 'until_start' | 'custom'; text?: Record<Locale, string> };
   prizes?: PrizeInput;
+  coverImageUrl?: string | null;
+}
+
+/** Poster reference: a site media path or an https URL (mirrors games/content, MEDIA-006). */
+function validateCoverImage(url: string | null | undefined, fallback: string | null): string | null {
+  if (url === undefined) return fallback;
+  if (url === null || url === '') return null;
+  const value = url.trim();
+  if (value.startsWith('/') || value.startsWith('https://')) return value;
+  throw new ValidationError('The cover image reference is not allowed.', [
+    { field: 'coverImageUrl', code: 'INVALID_MEDIA_REF', message: 'Use a site path or an https URL.' }
+  ]);
 }
 
 export interface UpdateTournamentInput extends TournamentInput {
@@ -151,6 +163,9 @@ export class TournamentsService {
       ruleProfile: buildRuleProfile(input.ruleProfile, { kind: 'custom', text: { fa: '', en: '' } }),
       approvalMode: input.approvalMode ?? 'manual',
       waitlistMode: input.waitlistMode ?? 'disabled',
+      // Private by default: names are only shown after an explicit organizer opt-in.
+      participantsPublic: false,
+      coverImageUrl: validateCoverImage(input.coverImageUrl, null),
       eligibility: buildEligibility(input.eligibility, { minAge: null, requireCompleteProfile: true, requireGameIdentity: false }),
       questionSet: buildQuestions(input.questions, { version: 0, questions: [] }),
       fee: buildFee(input.fee),
@@ -209,11 +224,35 @@ export class TournamentsService {
       fee: input.fee === undefined ? current.fee : buildFee(input.fee),
       refundPolicy: buildRefundPolicy(input.refundPolicy, current.refundPolicy),
       prizes: buildPrizes(input.prizes, current.prizes),
+      coverImageUrl: validateCoverImage(input.coverImageUrl, current.coverImageUrl ?? null),
       version: current.version + 1,
       updatedAt: utcNow()
     };
     assertDateOrdering(next);
     await this.#write(context, next, 'tournament.updated', 'Edited draft.', current);
+    return next;
+  }
+
+  /**
+   * Toggles whether the approved participant list is public. Unlike {@link updateDraft}
+   * this is a display setting an organizer changes at any time, including on a
+   * published tournament, so it is deliberately not gated on the draft state. It still
+   * takes an optimistic version, writes a revision, and audits like any mutation.
+   */
+  async setParticipantsVisibility(context: RequestContext, id: EntityId, isPublic: boolean, expectedVersion: number): Promise<TournamentRecord> {
+    const current = await this.#tournaments().findOne({ _id: id });
+    if (current === null) throw new NotFoundError('Unknown tournament.');
+    if (current.version !== expectedVersion) {
+      throw new ConflictError('TOURNAMENT_STALE', 'This tournament changed since you opened it. Reload and retry.');
+    }
+    if (current.participantsPublic === isPublic) return current; // idempotent no-op
+    const next: TournamentRecord = {
+      ...current,
+      participantsPublic: isPublic,
+      version: current.version + 1,
+      updatedAt: utcNow()
+    };
+    await this.#write(context, next, 'tournament.participants_visibility', isPublic ? 'Participants made public.' : 'Participants made private.', current);
     return next;
   }
 
