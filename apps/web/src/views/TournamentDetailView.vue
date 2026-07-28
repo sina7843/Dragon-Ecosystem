@@ -35,7 +35,7 @@ const notFound = ref(false);
 const errorMessage = ref<string | undefined>(undefined);
 const tour = ref<TournamentDetail | null>(null);
 
-// Time-based status derived from the tournament's own dates â€” no invented backend state.
+// Time-based status derived from the tournament's own dates — no invented backend state.
 const heroStatus = computed<{ key: string; tone: string } | null>(() => {
   const card = tour.value;
   if (!card) return null;
@@ -126,7 +126,7 @@ const hasMatches = computed(() => bracketMatches.value.length > 0);
 /**
  * The result of a finished event, which is the whole point of keeping it public.
  *
- * Only a `final` standings snapshot is quoted â€” a provisional one can still change, and
+ * Only a `final` standings snapshot is quoted — a provisional one can still change, and
  * announcing a champion that later moves would be worse than showing nothing.
  */
 const champion = computed(() => {
@@ -148,7 +148,7 @@ function num(value: number): string {
 /**
  * Who is in each seat. The seed number is the competition's own participant identity and
  * stays the join key; the server resolves the display name beside it. A private profile
- * resolves to a null name, so the seed label remains the fallback â€” a bracket never
+ * resolves to a null name, so the seed label remains the fallback — a bracket never
  * reveals an entrant the participant list would not.
  */
 const bySeed = computed(() => new Map(seedNames.value.map((p) => [p.seed, p])));
@@ -212,7 +212,7 @@ function applySeo(detail: TournamentDetail): void {
   const path = `/${activeLocale()}/tournaments/${encodeURIComponent(detail.slug)}`;
   const origin = globalThis.location?.origin ?? '';
   applyHead({
-    title: `${detail.name} â€” ${t('app.name')}`,
+    title: `${detail.name} — ${t('app.name')}`,
     locale: activeLocale(),
     path,
     indexable: true,
@@ -305,23 +305,11 @@ function openRegistrationForm(): void {
   formOpen.value = true;
 }
 
-/** Multi-choice answers travel as a comma-separated index list, matching the API. */
-function selectedIndices(key: string): number[] {
-  const raw = answers.value[key] ?? '';
-  return raw === '' ? [] : raw.split(',').map(Number).filter((n) => Number.isInteger(n));
-}
-function toggleChoice(key: string, index: number, checked: boolean): void {
-  const current = new Set(selectedIndices(key));
-  if (checked) current.add(index);
-  else current.delete(index);
-  answers.value[key] = [...current].sort((a, b) => a - b).join(',');
-}
-
 /**
  * Blocks advancing past a page with an unanswered required question.
  *
  * This is a courtesy so an entrant is not told about a page-one mistake after filling in
- * page three â€” the server re-validates every answer on submit and is the only authority.
+ * page three — the server re-validates every answer on submit and is the only authority.
  */
 function pageProblems(): boolean {
   const problems: Record<string, string> = {};
@@ -548,7 +536,7 @@ function confirmPaid(): void {
         <span
           class="result-trophy"
           aria-hidden="true"
-        >ðŸ†</span>
+        >🏆</span>
         <div class="result-body">
           <p class="result-kicker">
             {{ t('standings.placementLabel.champion') }}
@@ -971,7 +959,7 @@ function confirmPaid(): void {
           :data-locked="standings.lockState"
         >
           {{ t(`standings.status.${standings.status}`) }}
-          <span v-if="standings.lockState === 'locked'"> Â· {{ t('standings.locked') }}</span>
+          <span v-if="standings.lockState === 'locked'"> · {{ t('standings.locked') }}</span>
         </p>
         <div class="scroll">
           <table>
@@ -1021,7 +1009,7 @@ function confirmPaid(): void {
                     class="standings-name"
                   >{{ slotLabel(row.seed) }}</RouterLink>
                   <template v-else>{{ slotLabel(row.seed) }}</template>
-                  <span class="standings-seed">{{ t('standings.seed', { n: row.seed === null ? 'â€”' : num(row.seed) }) }}</span>
+                  <span class="standings-seed">{{ t('standings.seed', { n: row.seed === null ? '—' : num(row.seed) }) }}</span>
                 </td>
                 <td>{{ num(row.played) }}</td>
                 <td>{{ num(row.wins) }}</td>
