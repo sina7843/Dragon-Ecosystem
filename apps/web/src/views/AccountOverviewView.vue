@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import StateBlock from '../components/StateBlock.vue';
 import { useAuth } from '../composables/useAuth.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
+import { useAdminAreas } from '../composables/useAdminAreas.ts';
 import { isLocale } from '../i18n/locale.ts';
 
 /**
@@ -15,18 +16,7 @@ import { isLocale } from '../i18n/locale.ts';
  */
 const { t, locale } = useI18n();
 const { authenticated, displayName, profileComplete, loaded, refresh } = useAuth();
-const {
-  loaded: adminLoaded,
-  isSuperAdmin,
-  canReadUsers,
-  canReadAudit,
-  canReadConfig,
-  canWriteContent,
-  canManageGames,
-  canManageTournaments,
-  canManageModeration,
-  refresh: refreshAdmin
-} = useAdmin();
+const { loaded: adminLoaded, isSuperAdmin, refresh: refreshAdmin } = useAdmin();
 
 const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
 
@@ -40,18 +30,9 @@ const modules = computed(() => [
   { to: `${prefix.value}/account/security`, label: t('nav.security') }
 ]);
 
-// Administration areas, filtered to the caller's capabilities (mirrors the server).
-const adminAreas = computed(() =>
-  [
-    { to: `${prefix.value}/admin/content`, labelKey: 'admin.area.content', visible: canWriteContent.value, testid: 'area-content' },
-    { to: `${prefix.value}/admin/games`, labelKey: 'admin.area.games', visible: canManageGames.value, testid: 'area-games' },
-    { to: `${prefix.value}/admin/tournaments`, labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
-    { to: `${prefix.value}/admin/users`, labelKey: 'admin.area.users', visible: canReadUsers.value, testid: 'area-users' },
-    { to: `${prefix.value}/admin/audit`, labelKey: 'admin.area.audit', visible: canReadAudit.value, testid: 'area-audit' },
-    { to: `${prefix.value}/admin/moderation`, labelKey: 'admin.area.moderation', visible: canManageModeration.value, testid: 'area-moderation' },
-    { to: `${prefix.value}/admin/configuration`, labelKey: 'admin.area.configuration', visible: canReadConfig.value, testid: 'area-configuration' }
-  ].filter((area) => area.visible)
-);
+// Administration areas come from one shared definition (see useAdminAreas), so this
+// dashboard and the /admin landing can never list different areas.
+const { areas: adminAreas } = useAdminAreas();
 
 const isStaff = computed(() => adminAreas.value.length > 0 || isSuperAdmin.value);
 const roleLabel = computed(() => {
@@ -139,7 +120,7 @@ onMounted(async () => {
               :data-testid="area.testid"
             >
               <h3 class="card-title">
-                {{ t(area.labelKey) }}
+                {{ area.label }}
               </h3>
             </RouterLink>
           </li>

@@ -1,55 +1,21 @@
 <script setup lang="ts">
-import { computed, onMounted } from 'vue';
+import { onMounted } from 'vue';
 import { useI18n } from 'vue-i18n';
 import StateBlock from '../components/StateBlock.vue';
 import { useAdmin } from '../composables/useAdmin.ts';
-import { isLocale } from '../i18n/locale.ts';
+import { useAdminAreas } from '../composables/useAdminAreas.ts';
 
 /**
  * Administration landing page. The area links are generated from the user's
  * effective permissions (section 9.4); a caller without admin access sees the
  * forbidden state, and the server enforces the same regardless of the UI.
  */
-const { t, locale } = useI18n();
-const {
-  loaded,
-  forbidden,
-  isSuperAdmin,
-  canReadUsers,
-  canReadAudit,
-  canReadConfig,
-  canWriteContent,
-  canManageGames,
-  canManageTournaments,
-  canManageModeration,
-  refresh
-} = useAdmin();
+const { t } = useI18n();
+const { loaded, forbidden, isSuperAdmin, refresh } = useAdmin();
 
-const prefix = computed(() => `/${isLocale(locale.value) ? locale.value : 'fa'}`);
-
-interface Area {
-  readonly to: string;
-  readonly labelKey: string;
-  readonly visible: boolean;
-  readonly testid: string;
-}
-
-const areas = computed<Area[]>(() =>
-  [
-    { to: `${prefix.value}/admin/content`, labelKey: 'admin.area.content', visible: canWriteContent.value, testid: 'area-content' },
-    { to: `${prefix.value}/admin/games`, labelKey: 'admin.area.games', visible: canManageGames.value, testid: 'area-games' },
-    { to: `${prefix.value}/admin/tournaments`, labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
-    { to: `${prefix.value}/admin/users`, labelKey: 'admin.area.users', visible: canReadUsers.value, testid: 'area-users' },
-    { to: `${prefix.value}/admin/audit`, labelKey: 'admin.area.audit', visible: canReadAudit.value, testid: 'area-audit' },
-    { to: `${prefix.value}/admin/moderation`, labelKey: 'admin.area.moderation', visible: canManageModeration.value, testid: 'area-moderation' },
-    {
-      to: `${prefix.value}/admin/configuration`,
-      labelKey: 'admin.area.configuration',
-      visible: canReadConfig.value,
-      testid: 'area-configuration'
-    }
-  ].filter((area) => area.visible)
-);
+// One shared definition, also used by the /account dashboard, so the two landings
+// can never list different areas (and neither can link to a route that does not exist).
+const { areas } = useAdminAreas();
 
 onMounted(refresh);
 </script>
@@ -95,7 +61,7 @@ onMounted(refresh);
               :to="area.to"
               :data-testid="area.testid"
             >
-              {{ t(area.labelKey) }}
+              {{ area.label }}
             </RouterLink>
           </li>
         </ul>

@@ -75,29 +75,48 @@ const role = computed(() => {
 </template>
 
 <style scoped>
+/* The empty/error plate is the same chamfered material as everything else, one
+   step sunken so it reads as an absence rather than a card. */
 .state {
+  --hud-cut: var(--hud-cut-md);
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-7) var(--space-4);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface-raised);
-  background-image: var(--gradient-hero);
+  border-radius: var(--radius-sm);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  /* The clip cuts the border away along the two diagonals; redraw them. */
+  background-image:
+    linear-gradient(135deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%),
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%);
+  background-size: var(--hud-cut) var(--hud-cut);
+  background-position: bottom right, bottom left;
+  background-repeat: no-repeat;
+  background-color: var(--color-surface-sunken);
   text-align: center;
 }
 
+/* A chamfered tile, not a circle: the state marker is part of the HUD language. */
 .glyph {
   display: grid;
   place-items: center;
   inline-size: 3rem;
   block-size: 3rem;
   margin-block-end: var(--space-1);
-  border-radius: var(--radius-full);
-  background-color: var(--color-surface-sunken);
-  border: 1px solid var(--color-border);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface);
+  border: 1px solid var(--color-border-strong);
   color: var(--color-text-muted);
+  font-family: var(--font-display);
   font-size: var(--text-xl);
   line-height: 1;
 }
@@ -120,20 +139,23 @@ const role = computed(() => {
   max-inline-size: 48ch;
 }
 
-/* Each state also differs in text, so colour is never the only signal. */
+/* Each state also differs in text, so colour is never the only signal. Setting
+   --plate-edge carries the colour onto the chamfered corners as well. */
 .error,
 .forbidden {
+  --plate-edge: var(--color-danger-text);
   border-color: var(--color-danger-text);
 }
 
 .notFound {
+  --plate-edge: var(--color-border-strong);
   border-color: var(--color-border-strong);
 }
 
 .spinner {
   inline-size: 1.5rem;
   block-size: 1.5rem;
-  border: 3px solid var(--color-border);
+  border: 3px solid var(--color-border-strong);
   border-block-start-color: var(--color-accent);
   border-radius: var(--radius-full);
   animation: spin 900ms linear infinite;

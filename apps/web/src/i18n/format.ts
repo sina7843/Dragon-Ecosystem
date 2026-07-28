@@ -55,6 +55,36 @@ export function viewerTimeZone(): string {
   return Intl.DateTimeFormat().resolvedOptions().timeZone;
 }
 
+/** Largest-first, so the unit chosen is the coarsest one the elapsed time fills. */
+const RELATIVE_UNITS: ReadonlyArray<readonly [Intl.RelativeTimeFormatUnit, number]> = [
+  ['year', 31_536_000_000],
+  ['month', 2_592_000_000],
+  ['week', 604_800_000],
+  ['day', 86_400_000],
+  ['hour', 3_600_000],
+  ['minute', 60_000]
+];
+
+/**
+ * "2 hours ago" in the active locale, for a log or feed where recency is the point.
+ *
+ * `Intl.RelativeTimeFormat` localizes and pluralizes for both locales and produces
+ * Persian digits in fa, matching every other figure on these screens. Anything under a
+ * minute reads as "just now" rather than "in 0 seconds". This is always paired with the
+ * absolute timestamp in a `title`, because a relative label alone is useless for
+ * correlating an audit entry with anything outside the page.
+ */
+export function formatRelativeTime(value: Date | string, locale: Locale, now: Date = new Date()): string {
+  const date = typeof value === 'string' ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) throw new TypeError(`Invalid date: ${String(value)}`);
+  const elapsed = date.getTime() - now.getTime();
+  const formatter = new Intl.RelativeTimeFormat(intlLocale(locale), { numeric: 'auto' });
+  for (const [unit, ms] of RELATIVE_UNITS) {
+    if (Math.abs(elapsed) >= ms) return formatter.format(Math.round(elapsed / ms), unit);
+  }
+  return formatter.format(0, 'second');
+}
+
 /**
  * Splits a stored integer rial amount into its Toman value and any rial
  * remainder. The remainder is returned rather than rounded away so a caller can

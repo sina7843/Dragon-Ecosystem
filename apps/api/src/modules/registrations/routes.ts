@@ -72,12 +72,13 @@ export function registerRegistrationsRoutes(app: FastifyInstance, deps: Registra
         tags: ['registrations'],
         summary: 'Approved participants of a tournament, shown by name. Private/unpublished → 404.',
         params: idParam,
+        querystring: { type: 'object', additionalProperties: false, properties: { cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
         response: { 200: { type: 'object', additionalProperties: true }, 404: { $ref: 'ErrorResponse#' } }
       }
     },
     async (request) => {
-      const items = await deps.registrations.listPublicParticipants((request.params as { id: string }).id);
-      return { items };
+      const query = request.query as { cursor?: string; limit?: number };
+      return deps.registrations.listPublicParticipants((request.params as { id: string }).id, query);
     }
   );
 
@@ -138,6 +139,37 @@ export function registerRegistrationsRoutes(app: FastifyInstance, deps: Registra
   );
 
   // --- Administrative queue and decisions (resource-scoped) ---
+
+  /**
+   * Registration counts for a set of tournaments, for the organizer workspace.
+   *
+   * Gated on global `tournament.manage`, matching the admin tournament list this
+   * accompanies — a caller who may list those tournaments may already see them, so this
+   * exposes no tournament they could not otherwise reach. The id list is capped so it
+   * cannot be turned into a scan.
+   */
+  app.post(
+    '/admin/registration-counts',
+    {
+      preHandler: [guards.requireSession, requirePermission(deps.authorization, PERMISSIONS.tournamentManage)],
+      schema: {
+        tags: ['registrations'],
+        summary: 'Registration counts by state for several tournaments (organizer workspace).',
+        body: {
+          type: 'object',
+          required: ['tournamentIds'],
+          additionalProperties: false,
+          properties: { tournamentIds: { type: 'array', minItems: 1, maxItems: 50, items: { type: 'string', minLength: 1, maxLength: 64 } } }
+        },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const { tournamentIds } = request.body as { tournamentIds: string[] };
+      const counts = await deps.registrations.countsByState(tournamentIds);
+      return { counts: Object.fromEntries(counts) };
+    }
+  );
 
   app.get(
     '/admin/tournaments/:id/registrations',

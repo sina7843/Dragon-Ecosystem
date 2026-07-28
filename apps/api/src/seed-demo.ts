@@ -25,7 +25,10 @@ import { seedTournaments, seedRegistrations } from './seed/tournaments.ts';
 import { seedEconomy } from './seed/economy.ts';
 import { seedEngagement } from './seed/engagement.ts';
 import { seedMedia } from './seed/media.ts';
+import { seedImagery } from './seed/imagery.ts';
+import { seedAuditTimeline } from './seed/audit-timeline.ts';
 import { seedCompetitions } from './seed/competitions.ts';
+import { seedPrizes } from './seed/prizes.ts';
 
 interface Options {
   readonly reset: boolean;
@@ -91,8 +94,15 @@ async function main(): Promise<void> {
     const tournaments = await seedTournaments(services, registry, summary, users, catalog);
     await seedRegistrations(services, summary, users, tournaments);
     await seedCompetitions(services, registry, summary, users, catalog);
-    await seedEconomy(services, registry, summary, users);
+    // Needs the final standings the competitions step produces.
+    await seedPrizes(services, summary, users);
+    await seedEconomy(services, registry, summary, users, tournaments);
     await seedEngagement(services, registry, summary, users);
+    // Artwork is attached once every entity exists, so it works the same on a fresh
+    // database and on one seeded before the image slots were filled.
+    await seedImagery(services, registry, summary, authorId);
+    // Last: restamps the audit events this run appended (see audit-timeline.ts).
+    await seedAuditTimeline(services, summary);
 
     console.log('\nDemo data summary (records newly created vs reused):');
     for (const line of summary.lines()) console.log(line);

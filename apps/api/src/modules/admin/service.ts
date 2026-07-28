@@ -363,6 +363,31 @@ export class AdminService {
     );
   }
 
+  /**
+   * Every configuration key with its current value and anything awaiting approval.
+   *
+   * Keys are operator-proposed rather than a fixed catalogue, so a console cannot know
+   * what exists without asking. This is the pair an operator actually needs to see per
+   * key: what is live now, and what a colleague has proposed and is waiting on them to
+   * approve. Full history stays behind {@link listConfigurationVersions}.
+   */
+  async listConfigurationKeys(): Promise<Array<{ key: string; active: ConfigurationVersionRecord | null; pending: ConfigurationVersionRecord | null }>> {
+    const rows = await configurationVersions(this.#db)
+      .find({ state: { $in: ['active', 'pending_approval'] } })
+      .sort({ key: 1, version: -1 })
+      .limit(500)
+      .toArray();
+    const byKey = new Map<string, { key: string; active: ConfigurationVersionRecord | null; pending: ConfigurationVersionRecord | null }>();
+    for (const row of rows) {
+      const entry = byKey.get(row.key) ?? { key: row.key, active: null, pending: null };
+      // Sorted by descending version, so the first of each state is the newest.
+      if (row.state === 'active') entry.active ??= row;
+      else entry.pending ??= row;
+      byKey.set(row.key, entry);
+    }
+    return [...byKey.values()];
+  }
+
   async listConfigurationVersions(key: string): Promise<ConfigurationVersionRecord[]> {
     return configurationVersions(this.#db)
       .find({ key: normalizeConfigKey(key) })

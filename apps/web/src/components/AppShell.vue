@@ -36,7 +36,11 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '', key: 'nav.home' },
     { path: '/content', key: 'nav.content' },
     { path: '/games', key: 'nav.games' },
-    { path: '/tournaments', key: 'nav.tournaments' }
+    { path: '/tournaments', key: 'nav.tournaments' },
+    // The team and player directories existed only as detail URLs until now; without a
+    // nav entry nothing on the site linked to them at all.
+    { path: '/teams', key: 'nav.teamsDirectory' },
+    { path: '/players', key: 'nav.playersDirectory' }
   ],
   account: [
     { path: '/account', key: 'nav.dashboard' },
@@ -131,6 +135,32 @@ async function onSignOut(): Promise<void> {
         />
 
         <div class="controls">
+          <!-- Global search sits with the other chrome controls: reachable from every
+               page without taking a slot in the primary navigation. -->
+          <RouterLink
+            class="icon-btn"
+            :to="`${localePrefix}/search`"
+            :aria-label="t('search.global.heading')"
+            :title="t('search.global.heading')"
+            data-testid="global-search-link"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="2"
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              aria-hidden="true"
+            >
+              <circle
+                cx="11"
+                cy="11"
+                r="7"
+              />
+              <path d="M20 20l-3.5-3.5" />
+            </svg>
+          </RouterLink>
           <RouterLink
             v-if="loaded && !authenticated"
             class="btn btn-primary"
@@ -243,8 +273,8 @@ async function onSignOut(): Promise<void> {
   min-block-size: 100vh;
 }
 
-/* The design floats the chrome as a rounded glass bar over the ambient field,
-   rather than pinning a full-bleed band to the viewport edge. */
+/* The chrome is a chamfered HUD plate floating over the ambient field, lit along
+   its top edge, rather than a full-bleed band pinned to the viewport. */
 .header {
   position: sticky;
   inset-block-start: 0;
@@ -253,6 +283,8 @@ async function onSignOut(): Promise<void> {
 }
 
 .header-bar {
+  --hud-cut: var(--hud-cut-md);
+  position: relative;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
@@ -261,27 +293,35 @@ async function onSignOut(): Promise<void> {
   max-inline-size: var(--shell-max);
   margin-inline: auto;
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-md);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-raised);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  background-image:
+    linear-gradient(135deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%),
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%);
+  background-size: var(--hud-cut) var(--hud-cut);
+  background-position: bottom right, bottom left;
+  background-repeat: no-repeat;
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .header-bar {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
-  }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .header-bar {
-    background-color: var(--color-surface);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+/* The bracket seam starts here: a gold run along the leading half of the bar. */
+.header-bar::before {
+  content: '';
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  inline-size: min(9rem, 34%);
+  block-size: var(--seam-width);
+  background-color: var(--color-accent);
 }
 
 .brand {
@@ -293,13 +333,21 @@ async function onSignOut(): Promise<void> {
 }
 
 .brand-mark {
+  --hud-cut: 0.5rem;
   display: grid;
   place-items: center;
   flex: none;
   inline-size: 2.5rem;
   block-size: 2.5rem;
-  border-radius: var(--radius-md);
-  background: var(--color-primary-strong);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  background: var(--gradient-brand);
   color: var(--color-primary-text);
   box-shadow: var(--glow-primary);
 }
@@ -312,20 +360,38 @@ async function onSignOut(): Promise<void> {
 .brand-text {
   display: flex;
   flex-direction: column;
+  gap: 0.15rem;
   line-height: 1.15;
   text-align: start;
 }
 
 .brand-name {
-  font-size: var(--text-md);
-  font-weight: var(--weight-black);
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
   letter-spacing: var(--tracking-tight);
+}
+[lang='fa'] .brand-name {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  font-size: var(--text-md);
 }
 
 .brand-tagline {
-  font-size: var(--text-xs);
-  font-weight: var(--weight-semibold);
+  font-family: var(--font-mono);
+  font-size: 0.6875rem;
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
   color: var(--color-text-muted);
+}
+[lang='fa'] .brand-tagline {
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 /* One line of chrome is enough; the tagline is decorative on narrow screens. */
@@ -343,21 +409,50 @@ async function onSignOut(): Promise<void> {
   margin-inline-start: auto;
 }
 
+/* Matches the theme and locale controls beside it, so the chrome row reads as one set. */
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  inline-size: 2.625rem;
+  block-size: 2.625rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text);
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+.icon-btn:hover {
+  color: var(--color-accent);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-accent);
+}
+.icon-btn svg {
+  inline-size: 1.15rem;
+  block-size: 1.15rem;
+}
+
 .profile-chip {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2);
   padding-inline: var(--space-1) var(--space-3);
   block-size: 2.625rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text);
   text-decoration: none;
-  transition: border-color var(--motion-fast) var(--motion-ease);
+  transition:
+    border-color var(--motion-fast) var(--motion-ease),
+    background-color var(--motion-fast) var(--motion-ease);
 }
 .profile-chip:hover {
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
+  background-color: var(--color-primary-soft);
 }
 .profile-avatar {
   display: grid;
@@ -365,10 +460,11 @@ async function onSignOut(): Promise<void> {
   inline-size: 1.875rem;
   block-size: 1.875rem;
   border-radius: var(--radius-sm);
-  background-color: var(--color-primary-strong);
+  background: var(--gradient-brand);
   color: var(--color-primary-text);
+  font-family: var(--font-display);
   font-size: var(--text-sm);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
 }
 .profile-avatar-img {
   object-fit: cover;
@@ -448,23 +544,29 @@ async function onSignOut(): Promise<void> {
   inset-block-start: 6rem;
 }
 .rail-nav {
+  --hud-cut: var(--hud-cut-md);
   display: flex;
   flex-direction: column;
   gap: var(--space-1);
   padding: var(--space-3);
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-sm);
-}
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .rail-nav {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-md);
-  }
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-raised);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  background-image:
+    linear-gradient(135deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%),
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%);
+  background-size: var(--hud-cut) var(--hud-cut);
+  background-position: bottom right, bottom left;
+  background-repeat: no-repeat;
+  box-shadow: var(--glass-highlight), var(--shadow-md);
 }
 
 .rail-link {
@@ -472,7 +574,7 @@ async function onSignOut(): Promise<void> {
   align-items: center;
   padding: var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   text-decoration: none;
   color: var(--color-text-soft);
   font-weight: var(--weight-semibold);
@@ -489,11 +591,11 @@ async function onSignOut(): Promise<void> {
 }
 .rail-link.router-link-active {
   color: var(--color-accent);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
   background-color: var(--color-primary-soft);
   border-color: var(--color-border-strong);
   /* Non-colour cue: a lit marker on the leading edge (section 23.2). */
-  box-shadow: inset 0.2rem 0 0 var(--color-primary);
+  box-shadow: inset 0.2rem 0 0 var(--color-accent);
 }
 
 /* Below the laptop breakpoint the rail sits above the content as a horizontal,
@@ -516,16 +618,28 @@ async function onSignOut(): Promise<void> {
     white-space: nowrap;
   }
   .rail-link.router-link-active {
-    box-shadow: inset 0 -0.2rem 0 var(--color-primary);
+    box-shadow: inset 0 -0.2rem 0 var(--color-accent);
   }
 }
 
+/* The footer closes the page on the same lapis plate, capped by the gold seam. */
 .footer {
-  margin-block-start: var(--space-6);
-  padding: var(--space-6) clamp(var(--space-4), 4vw, var(--space-6));
+  position: relative;
+  margin-block-start: var(--space-7);
+  padding: var(--space-7) clamp(var(--space-4), 4vw, var(--space-6)) var(--space-6);
   border-block-start: 1px solid var(--color-border);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text-muted);
   font-size: var(--text-sm);
+}
+.footer::before {
+  content: '';
+  position: absolute;
+  inset-block-start: -1px;
+  inset-inline-start: 0;
+  inline-size: 6rem;
+  block-size: var(--seam-width);
+  background-color: var(--color-accent);
 }
 
 .footer-inner {
@@ -538,13 +652,33 @@ async function onSignOut(): Promise<void> {
 
 .footer-heading {
   margin: 0 0 var(--space-3);
-  font-size: var(--text-md);
-  color: var(--color-text);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-soft);
+}
+[lang='fa'] .footer-heading {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .footer-tagline {
   margin: 0;
   padding-block-start: var(--space-4);
   border-block-start: 1px solid var(--color-border);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
+}
+[lang='fa'] .footer-tagline {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
 }
 </style>

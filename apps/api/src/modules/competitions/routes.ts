@@ -5,6 +5,7 @@ import type { ResourceScope } from '../../shared/authz/policy.ts';
 import { createSessionGuards, type IdentityService } from '../identity/index.ts';
 import { requirePermission, type AuthorizationService } from '../admin/index.ts';
 import type { TournamentsService } from '../tournaments/index.ts';
+import type { RegistrationsService } from '../registrations/index.ts';
 import type { CompetitionsService } from './service.ts';
 import type { CompetitionRecord, MatchRecord, ParticipantRef } from './state.ts';
 
@@ -19,6 +20,7 @@ export interface CompetitionsDeps {
   identity: IdentityService;
   authorization: AuthorizationService;
   tournaments: TournamentsService;
+  registrations: RegistrationsService;
   competitions: CompetitionsService;
 }
 
@@ -35,7 +37,11 @@ const idParam = { type: 'object', required: ['id'], additionalProperties: false,
 const matchParams = { type: 'object', required: ['id', 'mid'], additionalProperties: false, properties: { id: { type: 'string' }, mid: { type: 'string' } } };
 const tournamentScope = (request: FastifyRequest): ResourceScope => ({ type: 'tournament', id: (request.params as { id: string }).id });
 
-/** Public identity of a participant is its seed number; names are DRAGON-10 presentation polish. */
+/**
+ * Seed number is the competition's own participant identity and stays the payload's
+ * join key; the display name is resolved separately (see `participantIdentities`) so
+ * the match and standings shapes are unchanged.
+ */
 function seedMap(competition: CompetitionRecord): Map<string, number> {
   return new Map(competition.participants.map((p, i) => [p.registrationId, i + 1]));
 }
@@ -43,13 +49,47 @@ function seedOf(seeds: Map<string, number>, ref: ParticipantRef | null): number 
   return ref === null ? null : seeds.get(ref.registrationId) ?? null;
 }
 
+/**
+ * Display identity per seed, for a bracket or standings table that would otherwise read
+ * "Seed 1 … Seed 4" and tell a spectator nothing.
+ *
+ * Names come from the registrations module's existing batched resolver, which is the same
+ * one behind the public participant list — so privacy is resolved in exactly one place: a
+ * private profile yields a null name and the client falls back to the seed label. Nothing
+ * here depends on the tournament's participant-visibility switch, because a bracket is
+ * already public; what it adds is the label, not the roster.
+ */
+async function participantIdentities(
+  registrations: RegistrationsService,
+  competition: CompetitionRecord
+): Promise<Array<{ seed: number; name: string | null; username: string | null; teamSlug: string | null }>> {
+  const ids = competition.participants.map((p) => p.registrationId);
+  if (ids.length === 0) return [];
+  const rows = await registrations.listByIds(ids);
+  const names = await registrations.resolveNames(rows);
+  return competition.participants.map((p, index) => {
+    const resolved = names.get(p.registrationId);
+    return {
+      seed: index + 1,
+      name: resolved?.name ?? null,
+      username: resolved?.username ?? null,
+      teamSlug: resolved?.teamSlug ?? null
+    };
+  });
+}
+
 export function registerCompetitionsRoutes(app: FastifyInstance, deps: CompetitionsDeps): void {
   const guards = createSessionGuards(deps.identity);
   const gate = () => ({ preHandler: [guards.requireSession, requirePermission(deps.authorization, PERMISSIONS.tournamentManage, tournamentScope)] });
 
-  async function publishedCompetition(tournamentId: string): Promise<CompetitionRecord> {
+  /**
+   * The competition behind a publicly readable tournament. A finished event keeps its
+   * bracket and standings — that record is the point of the archive — so this follows the
+   * tournament's own public visibility rather than pinning to `published`.
+   */
+  async function publicCompetition(tournamentId: string): Promise<CompetitionRecord> {
     const tournament = await deps.tournaments.getById(tournamentId);
-    if (tournament === null || tournament.state !== 'published') throw new NotFoundError();
+    if (tournament === null || !deps.tournaments.isPubliclyReadable(tournament.state)) throw new NotFoundError();
     const competition = await deps.competitions.getCompetition(tournamentId);
     if (competition === null) throw new NotFoundError();
     return competition;
@@ -62,7 +102,7 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
     { schema: { tags: ['competitions'], summary: 'Current standings for a published tournament.', params: idParam, response: { 200: { type: 'object', additionalProperties: true }, 404: { $ref: 'ErrorResponse#' } } } },
     async (request) => {
       const tournamentId = (request.params as { id: string }).id;
-      const competition = await publishedCompetition(tournamentId);
+      const competition = await publicCompetition(tournamentId);
       const snapshot = await deps.competitions.getStandings(tournamentId);
       if (snapshot === null) throw new NotFoundError();
       const seeds = seedMap(competition);
@@ -71,6 +111,7 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
         status: snapshot.status,
         calculationVersion: snapshot.calculationVersion,
         lockState: competition.lockState,
+        participants: await participantIdentities(deps.registrations, competition),
         rows: snapshot.rows.map((r) => ({ seed: seeds.get(r.participantId) ?? null, rank: r.rank, shared: r.shared, played: r.played, wins: r.wins, losses: r.losses, points: r.points, placement: r.placement }))
       };
     }
@@ -89,13 +130,14 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
     },
     async (request) => {
       const tournamentId = (request.params as { id: string }).id;
-      const competition = await publishedCompetition(tournamentId);
+      const competition = await publicCompetition(tournamentId);
       const seeds = seedMap(competition);
       const q = request.query as { cursor?: string; limit?: number };
       const page = await deps.competitions.listMatchesPage(competition._id, q);
       return {
         format: competition.format,
         lockState: competition.lockState,
+        participants: await participantIdentities(deps.registrations, competition),
         items: page.items.map((m) => ({ key: m.key, bracket: m.bracket, round: m.round, a: seedOf(seeds, m.slotA), b: seedOf(seeds, m.slotB), state: m.state, winner: seedOf(seeds, m.winner) })),
         nextCursor: page.nextCursor
       };

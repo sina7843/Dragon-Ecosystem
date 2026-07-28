@@ -13,7 +13,7 @@ import type { DemoRegistry } from './registry.ts';
 import type { UserRegistry } from './users.ts';
 import { accountContext, ensureDemo, type Services } from './wiring.ts';
 
-type Format = 'single_elimination' | 'round_robin' | 'swiss';
+type Format = 'single_elimination' | 'double_elimination' | 'round_robin' | 'swiss';
 
 interface CompSpec {
   readonly slug: string;
@@ -23,6 +23,12 @@ interface CompSpec {
   readonly format: Format;
   readonly players: readonly string[];
   readonly advance: 'generated' | 'partial' | 'complete' | 'round_robin' | 'swiss';
+  /**
+   * Prize placements, which are also what gives the prize module something to allocate.
+   * A Toman reward becomes a cash entitlement a finance operator works through
+   * (pending → approved → paid); a Dragon Coin reward is credited straight to the wallet.
+   */
+  readonly prizes?: ReadonlyArray<{ rank: number; tomanAmount?: number; dragonCoinAmount?: number }>;
 }
 
 const DAY = 86_400_000;
@@ -30,7 +36,10 @@ const DAY = 86_400_000;
 const COMPS: readonly CompSpec[] = [
   { slug: 'comp-se-generated', nameEn: 'Nova Bracket (Seeded)', nameFa: 'جدول نوا (تعیین‌شده)', game: 'nova-strike', format: 'single_elimination', players: ['player-01', 'player-02', 'player-03', 'player-04'], advance: 'generated' },
   { slug: 'comp-se-partial', nameEn: 'Nova Bracket (In Play)', nameFa: 'جدول نوا (در حال اجرا)', game: 'nova-strike', format: 'single_elimination', players: ['player-05', 'player-06', 'player-07', 'player-08'], advance: 'partial' },
-  { slug: 'comp-se-complete', nameEn: 'Nova Bracket (Finished)', nameFa: 'جدول نوا (پایان‌یافته)', game: 'nova-strike', format: 'single_elimination', players: ['player-09', 'player-10', 'player-11', 'player-12'], advance: 'complete' },
+  { slug: 'comp-se-complete', nameEn: 'Nova Bracket (Finished)', nameFa: 'جدول نوا (پایان‌یافته)', game: 'nova-strike', format: 'single_elimination', players: ['player-09', 'player-10', 'player-11', 'player-12'], advance: 'complete', prizes: [{ rank: 1, tomanAmount: 3_000_000, dragonCoinAmount: 500 }, { rank: 2, tomanAmount: 1_500_000 }, { rank: 3, tomanAmount: 750_000 }] },
+  // Eight entrants so the winners, losers, and grand-final bands all exist; the single
+  // 4-player double-elimination tournament in the catalogue never had a competition.
+  { slug: 'comp-de-complete', nameEn: 'Shadow Double Elimination', nameFa: 'حذفی دوگانه سایه', game: 'shadow-duel', format: 'double_elimination', players: ['player-01', 'player-02', 'player-03', 'player-04', 'player-05', 'player-06', 'player-07', 'player-08'], advance: 'complete', prizes: [{ rank: 1, dragonCoinAmount: 400 }] },
   { slug: 'comp-round-robin', nameEn: 'Astro Round Robin', nameFa: 'دوره‌ای فضایی', game: 'astro-racers', format: 'round_robin', players: ['player-13', 'player-14', 'player-15', 'player-16'], advance: 'round_robin' },
   { slug: 'comp-swiss', nameEn: 'Rune Swiss', nameFa: 'سوئیسی رون', game: 'rune-tactics', format: 'swiss', players: ['player-17', 'player-18', 'player-19', 'player-20'], advance: 'swiss' }
 ];
@@ -83,6 +92,7 @@ export async function seedCompetitions(
           format: spec.format,
           capacity: spec.players.length,
           approvalMode: 'automatic',
+          ...(spec.prizes === undefined ? {} : { prizes: { placements: spec.prizes.map((p) => ({ ...p })) } }),
           registration: { opensAt: iso(-2), closesAt: iso(5) },
           schedule: { startAt: iso(7), endAt: iso(9) },
           ruleProfile: { text: { fa: 'قوانین نمونه.', en: 'Fictional demo rules.' } },
@@ -98,6 +108,41 @@ export async function seedCompetitions(
     );
     if (reused) reusedT += 1;
     else built += 1;
+
+    // Prize placements on a tournament seeded before they existed. `updateDraft` is
+    // draft-only and these are published or completed, so this fills the empty slot
+    // directly — the same development-only backfill the posters use, and equally
+    // presentation-level: it adds a prize table where there was none and never edits one.
+    if (spec.prizes !== undefined) {
+      const withPrizes = (await db.collection('tournaments').findOne({ _id: tournamentId } as never)) as unknown as
+        | { prizes?: { placements?: unknown[]; version?: number } }
+        | null;
+      if (withPrizes !== null && (withPrizes.prizes?.placements?.length ?? 0) === 0) {
+        await db.collection('tournaments').updateOne({ _id: tournamentId } as never, {
+          $set: {
+            prizes: {
+              version: (withPrizes.prizes?.version ?? 0) + 1,
+              placements: spec.prizes.map((p) => ({
+                rank: p.rank,
+                rewards: [
+                  ...(p.tomanAmount === undefined ? [] : [{ assetCode: 'IRR', amountInteger: p.tomanAmount * 10 }]),
+                  ...(p.dragonCoinAmount === undefined ? [] : [{ assetCode: 'DRC', amountInteger: p.dragonCoinAmount }])
+                ]
+              }))
+            }
+          }
+        });
+      }
+    }
+
+    // These are the bracket/standings demos, so their rosters are public: the participant
+    // list, and the player links that hang off it, are the point of the page.
+    const saved = (await db.collection('tournaments').findOne({ _id: tournamentId } as never)) as unknown as
+      | { version: number; participantsPublic?: boolean }
+      | null;
+    if (saved !== null && saved.participantsPublic !== true) {
+      await services.tournaments.setParticipantsVisibility(orgCtx(), tournamentId, true, saved.version);
+    }
 
     // Register the players (automatic approval claims a main seat -> approved).
     for (const key of spec.players) {
@@ -167,12 +212,27 @@ export async function seedCompetitions(
       }
     }
 
-    // Ensure a standings snapshot exists for the played competitions.
-    if (spec.advance !== 'generated') {
+    // Ensure a standings snapshot exists for the played competitions — but only when one
+    // is missing. `recalculate` bumps the calculation version every time it runs, and prize
+    // allocation is keyed on that version, so calling it unconditionally made each rerun
+    // supersede the previous allocation and mint a fresh set of entitlements.
+    if (spec.advance !== 'generated' && (await services.competitions.getStandings(tournamentId)) === null) {
       try {
         await services.competitions.recalculate(orgCtx(), tournamentId);
       } catch {
-        // no-op if standings are already current
+        // Not enough played matches to produce a snapshot yet.
+      }
+    }
+
+    // A bracket that has been played to the end leaves a finished event, which is what
+    // the public results archive shows: final standings, a champion, and no entry form.
+    // Only the fully played single-elimination demo qualifies — the others are mid-run.
+    if (spec.advance === 'complete') {
+      const current = (await db.collection('tournaments').findOne({ _id: tournamentId } as never)) as unknown as
+        | { state: string }
+        | null;
+      if (current?.state === 'published') {
+        await services.tournaments.transition(orgCtx(), tournamentId, 'completed', 'demo seed: bracket played to completion');
       }
     }
   }

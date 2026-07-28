@@ -4,6 +4,9 @@ import vue from 'eslint-plugin-vue';
 
 export default tseslint.config(
   {
+    // Keep this aligned with .gitignore: lint covers only files that are actually part
+    // of the project. Local scratch directories are untracked, so linting them made an
+    // unrelated throwaway script fail `npm run lint` for the whole repository.
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
@@ -11,7 +14,9 @@ export default tseslint.config(
       '**/test-results/**',
       '**/playwright-report/**',
       '.claude/**',
-      'tools/**'
+      'tools/**',
+      '.design-ref/**',
+      '.dragon-backups/**'
     ]
   },
   js.configs.recommended,

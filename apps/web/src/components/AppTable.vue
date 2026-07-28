@@ -18,6 +18,15 @@ const props = defineProps<{
   caption: string;
   columns: readonly TableColumn[];
   rows: ReadonlyArray<Record<string, string>>;
+  /**
+   * Optional per-cell `title`, parallel to `rows` and keyed by column.
+   *
+   * Lets a cell show a short, readable value while keeping the exact one reachable —
+   * a relative timestamp with the absolute time behind it, or a truncated identifier
+   * with the full id behind it. Never the only place a value appears if a user needs it,
+   * because a `title` is not reachable by touch or by every screen reader.
+   */
+  titles?: ReadonlyArray<Record<string, string | undefined>>;
   emptyMessage: string;
   dense?: boolean;
 }>();
@@ -53,6 +62,7 @@ const props = defineProps<{
             v-for="column in props.columns"
             :key="column.key"
             :class="{ numeric: column.numeric }"
+            :title="props.titles?.[index]?.[column.key]"
           >
             <bdi
               v-if="column.latin"
@@ -79,8 +89,8 @@ const props = defineProps<{
 <style scoped>
 .scroll {
   overflow-x: auto;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface);
   box-shadow: var(--shadow-sm);
 }
@@ -94,8 +104,9 @@ caption {
   padding: var(--space-3) var(--space-4);
   text-align: start;
   font-weight: var(--weight-semibold);
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
   font-size: var(--text-sm);
+  border-block-end: 1px solid var(--color-border);
 }
 
 th,
@@ -105,19 +116,24 @@ td {
   border-block-start: 1px solid var(--color-border);
 }
 
+/* Column heads are labels, so they take the utility face — the same treatment as
+   every other label in the system. */
 th {
   position: sticky;
   inset-block-start: 0;
   background-color: var(--color-surface-sunken);
   color: var(--color-text-muted);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
-  letter-spacing: var(--tracking-wide);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
   text-transform: uppercase;
 }
 
 /* Letter-spacing breaks Persian connected script — reset it there (17.5). */
 [lang='fa'] th {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
   letter-spacing: normal;
   text-transform: none;
 }
@@ -126,7 +142,7 @@ tbody tr {
   transition: background-color var(--motion-fast) var(--motion-ease);
 }
 tbody tr:hover {
-  background-color: var(--color-surface-raised);
+  background-color: var(--color-primary-soft);
 }
 
 /* Compact administration density without shrinking touch targets (section 23.2). */

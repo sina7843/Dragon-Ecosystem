@@ -9,6 +9,7 @@ import type { RawCallback } from '../modules/payments/provider.ts';
 import type { SeedSummary } from './harness.ts';
 import { demoRef, newIdemKey } from './harness.ts';
 import type { UserRegistry } from './users.ts';
+import type { TournamentRegistry } from './tournaments.ts';
 import type { DemoRegistry } from './registry.ts';
 import { accountContext, sysContext, type Services } from './wiring.ts';
 
@@ -39,7 +40,74 @@ async function issueCoins(services: Services, registry: DemoRegistry, accountId:
   return true;
 }
 
-export async function seedEconomy(services: Services, registry: DemoRegistry, summary: SeedSummary, users: UserRegistry): Promise<void> {
+/**
+ * Paid tournament entry, end to end, for both fee currencies.
+ *
+ * Every demo tournament was free, so checkout, the Dragon-Coin hold, and the
+ * `pending_payment` registration state had no data behind them. Two priced tournaments
+ * now exercise both paths:
+ *
+ * - Toman: a checkout is started and deliberately left `awaiting_payment`, which is the
+ *   `pending_payment` registration a finance operator sees while a payment settles.
+ * - Dragon Coin: a checkout is started and confirmed from the entrant's own balance,
+ *   capturing the hold and activating the registration.
+ *
+ * Gated on `PAID_TOURNAMENTS_ENABLED` exactly like the feature itself (OD-007), so the
+ * seeder can never conjure paid state the running configuration does not permit. No real
+ * provider is ever contacted: the Toman leg only creates a request through the mock.
+ */
+async function seedPaidCheckouts(
+  services: Services,
+  registry: DemoRegistry,
+  summary: SeedSummary,
+  users: UserRegistry,
+  tournaments: TournamentRegistry
+): Promise<void> {
+  if (!services.config.paidTournamentsEnabled) {
+    summary.skip('paid tournament checkouts (PAID_TOURNAMENTS_ENABLED is off)');
+    return;
+  }
+  const plan: { slug: string; playerKey: string; confirm: boolean }[] = [
+    { slug: 'nova-premier-cup', playerKey: 'player-13', confirm: false },
+    { slug: 'dragon-coin-clash', playerKey: 'player-12', confirm: true }
+  ];
+  let started = 0;
+  let reused = 0;
+  for (const p of plan) {
+    const tournament = tournaments.get(p.slug);
+    const player = users.get(p.playerKey);
+    if (tournament === undefined || player === undefined) continue;
+    const key = demoRef('checkout', p.slug);
+    if (await registry.has(key)) {
+      reused += 1;
+      continue;
+    }
+    const ctx = accountContext(player.accountId);
+    try {
+      const checkout = await services.checkout.startCheckout(ctx, player.accountId, tournament.id, {
+        idempotencyKey: newIdemKey(`checkout:${p.slug}`)
+      });
+      await registry.record({ demoSeedKey: key, domainType: 'checkout', collection: 'registration_checkouts', recordId: checkout._id, resettable: false, businessRef: checkout.businessRef });
+      started += 1;
+      if (p.confirm && checkout.state === 'awaiting_confirmation') {
+        await services.checkout.confirmDragonCoin(accountContext(player.accountId), player.accountId, checkout._id);
+      }
+    } catch {
+      // Insufficient balance, an existing registration, or a closed window: leave it out
+      // rather than forcing financial state the services would not produce themselves.
+      summary.skip(`paid checkout for ${p.slug} (the service declined it)`);
+    }
+  }
+  summary.record('paid checkouts', started, reused);
+}
+
+export async function seedEconomy(
+  services: Services,
+  registry: DemoRegistry,
+  summary: SeedSummary,
+  users: UserRegistry,
+  tournaments: TournamentRegistry
+): Promise<void> {
   let issued = 0;
   let reused = 0;
   for (const [key, amount] of BALANCES) {
@@ -117,4 +185,7 @@ export async function seedEconomy(services: Services, registry: DemoRegistry, su
       summary.record('holds', 0, 1);
     }
   }
+
+  // Wallets are funded by this point, which the Dragon-Coin checkout below depends on.
+  await seedPaidCheckouts(services, registry, summary, users, tournaments);
 }

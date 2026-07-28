@@ -70,6 +70,28 @@ export class HoldsService {
     return this.#holds().findOne({ _id: holdId, ownerId });
   }
 
+  /**
+   * Holds across every account, for the finance console.
+   *
+   * {@link listHolds} is deliberately owner-scoped because it serves a user looking at
+   * their own wallet. An operator needs the opposite view — what is reserved platform-wide
+   * and what is old enough to chase — so this is a separate, finance-gated read rather
+   * than a parameter that could accidentally widen the owner-scoped one.
+   */
+  async listAllHolds(query: { state?: string; purpose?: string; cursor?: string; limit?: number } = {}): Promise<Page<HoldRecord>> {
+    const limit = clampLimit(query.limit);
+    const filter: Record<string, unknown> = {};
+    if (query.state !== undefined && query.state !== '') filter['state'] = query.state;
+    if (query.purpose !== undefined && query.purpose !== '') filter['purpose'] = query.purpose;
+    const cursor = decodeCursor(query.cursor);
+    if (cursor !== null) {
+      filter['$or'] = [{ createdAt: { $lt: cursor.sortValue } }, { createdAt: cursor.sortValue, _id: { $gt: cursor.id } }];
+    }
+    const rows = await this.#holds().find(filter).sort({ createdAt: -1, _id: 1 }).limit(limit + 1).toArray();
+    const page = toPage(rows.map((r) => ({ ...r, sortValue: r.createdAt, id: r._id })), limit);
+    return { items: page.items.map(({ sortValue: _s, id: _i, ...r }) => r as unknown as HoldRecord), nextCursor: page.nextCursor };
+  }
+
   async listHolds(ownerId: EntityId, query: { cursor?: string; limit?: number } = {}): Promise<Page<HoldRecord>> {
     const limit = clampLimit(query.limit);
     const filter: Record<string, unknown> = { ownerId };

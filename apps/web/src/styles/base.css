@@ -1,6 +1,10 @@
-﻿/**
+/**
  * Base layer. Logical properties throughout so a single stylesheet serves both
  * RTL and LTR without mirrored overrides (Requirements section 17.5).
+ *
+ * The "Lapis & Ember" material is a chamfered HUD plate: an opaque lapis surface,
+ * a steel hairline, and two cut bottom corners. The cut is on *both* bottom
+ * corners deliberately — a mirror-symmetric shape needs no RTL variant at all.
  */
 
 *,
@@ -21,7 +25,7 @@ body {
   margin: 0;
   min-block-size: 100vh;
   background-color: var(--color-canvas);
-  /* Ambient violet field so glass panels have depth to blur through. */
+  /* Gold horizon above, lapis pool below — the field the plates sit on. */
   background-image: var(--bg-ambient);
   background-attachment: fixed;
   background-repeat: no-repeat;
@@ -32,9 +36,8 @@ body {
 }
 
 /**
- * Faint technical grid behind everything, fading out below the fold exactly as
- * the design does. A fixed decorative layer rather than a body background so the
- * radial mask applies to the grid alone.
+ * Ambient field: a fine diagonal hatch, the texture of a bracket sheet rather
+ * than a square blueprint grid. Fixed and masked so it fades out below the fold.
  */
 body::before {
   content: '';
@@ -42,37 +45,63 @@ body::before {
   inset: 0;
   z-index: -1;
   pointer-events: none;
+  background-image: repeating-linear-gradient(
+    115deg,
+    var(--color-grid) 0 1px,
+    transparent 1px calc(var(--grid-size) / 4)
+  );
+  -webkit-mask-image: radial-gradient(120% 90% at 50% -10%, #000000, transparent 68%);
+  mask-image: radial-gradient(120% 90% at 50% -10%, #000000, transparent 68%);
+}
+
+/* ---- The plate material ---- */
+
+/**
+ * `.hud` chamfers both bottom corners and draws the two diagonal hairlines with
+ * background gradients, because a `border` is cut away along a clip-path edge.
+ * `.glass-panel` is kept as the raised-plate alias so existing views keep working.
+ */
+.hud,
+.glass-panel {
+  --hud-cut: var(--hud-cut-md);
+  position: relative;
+  border: 1px solid var(--color-border);
+  background-color: var(--color-surface-raised);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
   background-image:
-    linear-gradient(var(--color-grid) 1px, transparent 1px),
-    linear-gradient(90deg, var(--color-grid) 1px, transparent 1px);
-  background-size: var(--grid-size) var(--grid-size);
-  -webkit-mask-image: radial-gradient(circle at 50% -10%, #000000, transparent 60%);
-  mask-image: radial-gradient(circle at 50% -10%, #000000, transparent 60%);
+    linear-gradient(135deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%),
+    linear-gradient(45deg, transparent calc(50% - 1px), var(--plate-edge) calc(50% - 1px) 50%, transparent 50%);
+  background-size: var(--hud-cut) var(--hud-cut);
+  background-position: bottom right, bottom left;
+  background-repeat: no-repeat;
+  box-shadow: var(--glass-highlight), var(--shadow-md);
+}
+
+/* Larger plates take a deeper cut so the chamfer stays proportional. */
+.hud-lg {
+  --hud-cut: var(--hud-cut-lg);
+}
+.hud-xl {
+  --hud-cut: var(--hud-cut-xl);
 }
 
 /**
- * Frosted-glass material (iOS-style). Translucent fill + blur + edge highlight.
- * Solid, accessible fallbacks when blur or reduced-transparency apply.
+ * A clip-path also clips `outline`, so anything chamfered draws its focus ring
+ * with inset shadows instead. The ink gap keeps the gold legible on gold fills.
  */
-.glass-panel {
-  background-color: var(--color-surface-raised);
-  border: 1px solid var(--color-border);
-}
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass-panel {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-md);
-  }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .glass-panel {
-    background-color: var(--color-surface-raised);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+.hud:focus-visible,
+.btn:focus-visible {
+  outline: none;
+  box-shadow:
+    inset 0 0 0 2px var(--color-canvas),
+    inset 0 0 0 5px var(--color-focus);
 }
 
 /* Persian content gets a taller line so ascenders/descenders never clip (17.5). */
@@ -80,6 +109,8 @@ body::before {
 [lang='fa'] {
   line-height: var(--leading-persian);
 }
+
+/* ---- Typography ---- */
 
 h1,
 h2,
@@ -89,25 +120,28 @@ h4 {
   margin-block: 0 var(--space-3);
   text-wrap: balance;
   font-family: var(--font-display);
+  /* Semi-condensed where the display face carries a width axis (Bahnschrift). */
+  font-variation-settings: 'wdth' var(--display-width);
   letter-spacing: var(--tracking-tight);
-  font-weight: var(--weight-black);
+  font-weight: var(--weight-bold);
 }
 
-/* Persian headings must not sit too tight vertically (17.5). */
+/* Persian headings must not sit too tight vertically, and the Arabic script has
+   no width axis to vary or tracking to add (17.5). */
 [lang='fa'] h1,
 [lang='fa'] h2,
 [lang='fa'] h3,
 [lang='fa'] h4 {
   line-height: 1.4;
   letter-spacing: normal;
+  font-variation-settings: normal;
 }
 
-/* Fluid display sizes, matching the design's clamp ramp. */
 h1 {
-  font-size: clamp(1.625rem, 3vw, 2.25rem);
+  font-size: clamp(1.875rem, 3.6vw, 2.875rem);
 }
 h2 {
-  font-size: clamp(1.25rem, 2.2vw, 1.625rem);
+  font-size: clamp(1.375rem, 2.4vw, 1.875rem);
 }
 h3 {
   font-size: var(--text-lg);
@@ -135,8 +169,30 @@ video {
 }
 
 ::selection {
-  background-color: var(--color-primary);
-  color: var(--color-primary-text);
+  background-color: var(--color-accent);
+  color: var(--color-accent-text);
+}
+
+/**
+ * Utility face: eyebrows, counters, and section kickers. Mono, wide-tracked,
+ * uppercase in Latin. Persian resets both — tracking and casing break connected
+ * script — and leans on the accent colour and size instead (17.5).
+ */
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-accent);
+}
+[lang='fa'] .eyebrow {
+  font-family: var(--font-sans);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 /* Visible focus meeting contrast requirements (A11Y-003). */
@@ -160,11 +216,13 @@ select {
 /**
  * Shared button system (section 23.2). Native <button>/<a> semantics preserved;
  * variants add hover, active, focus-visible, disabled, and loading states.
- * Primary uses violet; destructive is visually distinct from primary.
  *
- * Shape follows the design: 10px corners on actions, never a full pill.
+ * Shape follows the HUD language: a chamfered plate with a condensed, tracked
+ * label. Primary is the saffron fill; destructive is lacquer red and never gold.
  */
 .btn {
+  --hud-cut: var(--hud-cut-sm);
+  position: relative;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -172,27 +230,54 @@ select {
   padding-block: var(--space-3);
   padding-inline: var(--space-5);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
   font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   line-height: 1.2;
   text-decoration: none;
   cursor: pointer;
   white-space: nowrap;
   transition:
     background-color var(--motion-fast) var(--motion-ease),
+    color var(--motion-fast) var(--motion-ease),
     border-color var(--motion-fast) var(--motion-ease),
     box-shadow var(--motion-fast) var(--motion-ease),
     transform var(--motion-fast) var(--motion-ease);
 }
 
-/* iOS press feedback: instant physical push-in on pointer-down. */
-.btn:active {
-  transform: scale(0.97);
+/* Persian labels keep their natural casing and spacing (17.5). */
+[lang='fa'] .btn {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--text-md);
 }
 
+/* Press feedback: an instant physical push-in on pointer-down. */
+.btn:active {
+  transform: translateY(1px);
+}
+
+/* Disabled is its own appearance rather than a faded fill: a dimmed gold reads as
+   a muddy colour of its own instead of an unavailable control. */
 .btn:disabled,
 .btn[aria-disabled='true'] {
-  opacity: 0.55;
+  background-color: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  border-color: var(--color-border);
   cursor: not-allowed;
   transform: none;
   box-shadow: none;
@@ -221,44 +306,50 @@ select {
 }
 
 .btn-primary {
-  background-color: var(--color-primary-strong);
+  background-color: var(--color-primary);
   color: var(--color-primary-text);
   box-shadow: var(--shadow-sm);
 }
 .btn-primary:hover {
-  background-color: var(--color-primary);
+  background-color: var(--color-primary-strong);
+  color: var(--color-primary-text);
   box-shadow: var(--glow-primary);
 }
 
+/* Outlined gold. A gold *tint* over lapis turns olive, so secondary carries the
+   accent in its edge and label only. */
 .btn-secondary {
-  background-color: var(--color-primary-soft);
+  background-color: transparent;
   color: var(--color-accent);
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
 }
 .btn-secondary:hover {
-  border-color: var(--color-primary);
+  background-color: var(--color-primary-soft);
+  color: var(--color-accent-hover);
 }
 
-/* Neutral is the design's "glass" action: solid panel with a hairline edge. */
+/* Neutral is the plain plate action: lapis surface with a hairline edge. */
 .btn-neutral {
-  background-color: var(--color-surface);
+  background-color: var(--color-surface-overlay);
   color: var(--color-text);
-  border-color: var(--color-border);
-  font-weight: var(--weight-semibold);
-}
-.btn-neutral:hover {
   border-color: var(--color-border-strong);
 }
+.btn-neutral:hover {
+  color: var(--color-accent);
+  border-color: var(--color-accent);
+}
 
-/* Ghost is the quiet tertiary action (design `btnGhost`): outlined, smaller. */
+/* Ghost is the quiet tertiary action: outlined, smaller. */
 .btn-ghost {
   padding-block: var(--space-2);
   padding-inline: var(--space-4);
   background-color: transparent;
   color: var(--color-text-soft);
   border-color: var(--color-border);
+  font-size: var(--text-xs);
+}
+[lang='fa'] .btn-ghost {
   font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
 }
 .btn-ghost:hover {
   color: var(--color-accent);

@@ -21,6 +21,7 @@ import { moderationMigration } from './modules/moderation/migrations.ts';
 import { operationsMigration } from './modules/operations/migrations.ts';
 import { mediaMigration } from './modules/media/migrations.ts';
 import { perfIndexesMigration } from './migrations-perf-indexes.ts';
+import { auditIndexesMigration } from './migrations-audit-indexes.ts';
 
 /**
  * The ordered migration registry.
@@ -51,5 +52,6 @@ export const allMigrations: readonly Migration[] = [
   moderationMigration,
   operationsMigration,
   mediaMigration,
-  perfIndexesMigration
+  perfIndexesMigration,
+  auditIndexesMigration
 ];

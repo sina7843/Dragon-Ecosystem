@@ -69,9 +69,9 @@ function toggle(): void {
   justify-content: center;
   inline-size: 2.625rem;
   block-size: 2.625rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text);
   cursor: pointer;
   transition:
@@ -81,7 +81,8 @@ function toggle(): void {
 }
 .icon-btn:hover {
   color: var(--color-accent);
-  border-color: var(--color-border-strong);
+  background-color: var(--color-primary-soft);
+  border-color: var(--color-accent);
 }
 .icon-btn svg {
   inline-size: 1.15rem;

@@ -1,46 +1,62 @@
 /**
  * Design tokens (Requirements section 23.2).
  *
- * Source of truth: the "Dragon Ecosystem redesign" Claude Design project
- * (`Dragon Ecosystem.dc.html`). Visual direction: violet-on-near-black glass
- * portal. Translucent blurred surfaces over an ambient violet field and a faint
- * 72px grid, hairline violet borders, soft-tinted status chips, 10px actions /
- * 14px cards / full pills.
+ * Visual direction: "Lapis & Ember". A deep indigo-lapis ground carrying saffron
+ * gold — the palette of Persian manuscript night skies — set in the vernacular of
+ * a tournament HUD: chamfered plates, hairline steel edges, a condensed technical
+ * display face, and a mono utility face for readouts.
  *
- * Translucent values from the design (rgba over the panel) are flattened to hex
- * for the pairs tokens.test.ts contrast-checks, so the declared colour and the
- * checked colour cannot drift apart. Two values are deliberately darker than the
- * design's: `--color-border-strong` and (light) `--color-text-muted`, which the
- * design draws too pale to clear WCAG AA against their surfaces.
+ * Gold is the prize colour, so it is the accent and the primary fill. Lacquer red
+ * is destructive only. Jade marks live play. Nothing else competes.
+ *
+ * Every colour token is a flat hex so tokens.test.ts can contrast-check the
+ * declared value itself — the declared colour and the checked colour cannot drift.
  */
 
 :root {
-  /* Typography */
-  --font-sans: 'Segoe UI', system-ui, Tahoma, Roboto, 'Helvetica Neue', sans-serif;
-  --font-display: 'Segoe UI', system-ui, Tahoma, Roboto, 'Helvetica Neue', sans-serif;
-  --font-mono: ui-monospace, 'Cascadia Mono', Consolas, monospace;
+  /* ---- Typography ----
+     Three roles, all resolved from locally installed faces (CSP allows font-src
+     'self' only, and the bundle carries no font files).
+
+     Display: a condensed technical grotesque. Bahnschrift ships with Windows 10+,
+     Avenir Next Condensed with macOS, Roboto Condensed with most Linux desktops.
+     Persian has no condensed Latin equivalent, so Arabic-script glyphs fall
+     through per-glyph to Vazirmatn / IRANSans / Tahoma — no override needed.
+
+     Utility: the mono face. Eyebrows, labels, counts, dates, IDs, standings. */
+  --font-sans: 'Segoe UI Variable Text', 'Segoe UI', Vazirmatn, IRANSans, system-ui, Tahoma,
+    'Helvetica Neue', sans-serif;
+  --font-display: Bahnschrift, 'Avenir Next Condensed', 'Roboto Condensed', 'Segoe UI Variable Display',
+    'Segoe UI', Vazirmatn, IRANSans, Tahoma, sans-serif;
+  --font-mono: 'Cascadia Mono', ui-monospace, Consolas, 'SF Mono', 'Roboto Mono', monospace;
+
   --text-xs: 0.75rem;
   --text-sm: 0.875rem;
   --text-md: 1rem;
   --text-lg: 1.1875rem;
   --text-xl: 1.5rem;
-  --text-2xl: 2rem;
-  --text-3xl: 2.625rem;
-  --text-4xl: 3.25rem;
-  --text-5xl: 4rem;
-  --leading-tight: 1.08;
+  --text-2xl: 2.125rem;
+  --text-3xl: 2.875rem;
+  --text-4xl: 3.75rem;
+  --text-5xl: 4.75rem;
+  --leading-tight: 1.02;
   --leading-normal: 1.6;
   --leading-persian: 1.85;
-  --tracking-tight: -0.015em;
-  --tracking-wide: 0.06em;
+  /* The condensed display face is set tight and slightly wide-tracked at small
+     sizes; the utility face carries the widest tracking of the system. */
+  --tracking-tight: -0.01em;
+  --tracking-wide: 0.08em;
+  --tracking-eyebrow: 0.16em;
   --weight-regular: 400;
   --weight-medium: 500;
   --weight-semibold: 600;
   --weight-bold: 700;
-  /* The design sets headings and figures at 800. */
   --weight-black: 800;
 
-  /* Spacing */
+  /* Bahnschrift is a variable face; widen the display axis where it is available. */
+  --display-width: 87.5;
+
+  /* ---- Spacing ---- */
   --space-1: 0.25rem;
   --space-2: 0.5rem;
   --space-3: 0.75rem;
@@ -50,35 +66,50 @@
   --space-7: 3rem;
   --space-8: 4rem;
 
-  /* Radius — 10px actions, 14px cards, 20px panels, 26px hero */
-  --radius-sm: 0.5rem;
-  --radius-md: 0.625rem;
-  --radius-lg: 0.875rem;
-  --radius-xl: 1.25rem;
-  --radius-2xl: 1.625rem;
+  /* ---- Radius ----
+     The HUD language is angular. Radii are near-zero; the corner treatment that
+     carries the personality is the chamfer (--hud-cut), not a rounded edge. */
+  --radius-sm: 0.125rem;
+  --radius-md: 0.1875rem;
+  --radius-lg: 0.25rem;
+  --radius-xl: 0.3125rem;
+  --radius-2xl: 0.375rem;
   --radius-full: 9999px;
 
-  /* Frosted-glass material */
+  /* Chamfer depth per surface size. Applied through the .hud-* utilities. */
+  --hud-cut-sm: 0.5rem;
+  --hud-cut-md: 0.75rem;
+  --hud-cut-lg: 1.25rem;
+  --hud-cut-xl: 2rem;
+  /* The hairline a chamfered plate redraws along its cut corners. A plate that
+     changes its border colour (an error state, a selected row) overrides this
+     one variable and both the border and the diagonals follow. */
+  --plate-edge: var(--color-border);
+
+  /* Retained for the legacy .glass utility; the new material is opaque plate. */
   --glass-blur: 14px;
 
-  /* Page shell */
+  /* ---- Page shell ---- */
   --shell-max: 85rem;
-  --grid-size: 72px;
+  --grid-size: 96px;
+  /* Bracket seam: the gold hairline that runs into every section heading. */
+  --seam-width: 2px;
+  --seam-reach: 1.75rem;
 
-  /* Motion */
-  --motion-fast: 120ms;
-  --motion-base: 200ms;
-  --motion-slow: 340ms;
+  /* ---- Motion ---- */
+  --motion-fast: 110ms;
+  --motion-base: 190ms;
+  --motion-slow: 320ms;
   --motion-ease: cubic-bezier(0.2, 0.7, 0.3, 1);
   --motion-spring: cubic-bezier(0.34, 1.4, 0.64, 1);
 
-  /* Z-index */
+  /* ---- Z-index ---- */
   --z-nav: 100;
   --z-drawer: 200;
   --z-dialog: 300;
   --z-toast: 400;
 
-  /* Breakpoints */
+  /* ---- Breakpoints ---- */
   --breakpoint-mobile: 375px;
   --breakpoint-tablet: 768px;
   --breakpoint-laptop: 1024px;
@@ -87,137 +118,149 @@
   --target-min: 2.75rem;
 }
 
-/* Dark theme — the primary surface of the design */
+/* ---- Dark theme — the primary surface of the design ---- */
 :root[data-theme='dark'] {
   color-scheme: dark;
 
-  --color-canvas: #080d0b;
-  --color-surface: #101714;
-  --color-surface-raised: #16211c;
-  --color-surface-sunken: #0b110e;
-  --color-surface-overlay: #17231e;
+  /* Lapis night: there is blue in every step, never neutral grey. */
+  --color-canvas: #070a18;
+  --color-surface: #0e1330;
+  --color-surface-raised: #141a3c;
+  --color-surface-sunken: #0a0e24;
+  --color-surface-overlay: #171e46;
 
-  --color-text: #f2faf6;
-  /* Secondary prose — softer than body, stronger than muted. */
-  --color-text-soft: #bfd8cd;
-  --color-text-muted: #8ea89b;
-  --color-border: rgb(52 211 153 / 16%);
-  --color-border-strong: #4e7a68;
-  --color-grid: rgb(52 211 153 / 5%);
+  --color-text: #eef1ff;
+  --color-text-soft: #b9c1ea;
+  --color-text-muted: #98a1d0;
+  --color-border: rgb(143 154 220 / 18%);
+  --color-border-strong: #6f78ae;
+  --color-grid: rgb(143 154 220 / 6%);
 
-  /* Accent = electric emerald (links, live, selected, focus) */
-  --color-accent: #34d399;
-  --color-accent-hover: #6ee7b7;
-  --color-accent-text: #05231a;
-  --color-focus: #6ee7b7;
+  /* Accent = saffron gold. Links, live markers, selection, focus. */
+  --color-accent: #ffc24b;
+  --color-accent-hover: #ffd684;
+  --color-accent-text: #1a1204;
+  --color-focus: #ffd05c;
 
-  /* Primary action = deep emerald so white labels pass AA */
-  --color-primary: #047857;
-  --color-primary-strong: #065f46;
-  --color-primary-bright: #34d399;
-  --color-primary-soft: rgb(16 185 129 / 16%);
-  --color-primary-text: #ffffff;
+  /* Primary action = the same gold, filled, with an ink label. */
+  --color-primary: #e8ad33;
+  --color-primary-strong: #ffc24b;
+  --color-primary-bright: #ffd684;
+  --color-primary-soft: rgb(255 194 75 / 14%);
+  --color-primary-text: #160f02;
 
-  --color-secondary-surface: #16211c;
-  --color-secondary-text: #bfd8cd;
+  --color-secondary-surface: #141a3c;
+  --color-secondary-text: #b9c1ea;
 
-  --color-success-surface: #123024;
-  --color-success-text: #4ade80;
-  --color-warning-surface: #35291c;
-  --color-warning-text: #fbbf24;
-  --color-danger-surface: #371e24;
-  --color-danger-text: #f87171;
-  --color-danger: #c2263f;
-  --color-danger-strong: #a71f35;
+  /* Jade marks live play — deliberately cool so it never reads as the brand. */
+  --color-success-surface: #06301f;
+  --color-success-text: #43dc9f;
+  /* Copper, not amber: warning must be separable from the gold accent by hue. */
+  --color-warning-surface: #3a2210;
+  --color-warning-text: #f79a56;
+  /* Lacquer red — destructive only. */
+  --color-danger-surface: #3a1220;
+  --color-danger-text: #ff7f92;
+  --color-danger: #c22b41;
+  --color-danger-strong: #a31f33;
   --color-danger-text-on: #ffffff;
-  --color-info-surface: #12283a;
-  --color-info-text: #60a5fa;
+  --color-info-surface: #0b2946;
+  --color-info-text: #5cc8ff;
 
-  --shadow-sm: 0 1px 2px rgb(0 0 0 / 35%);
-  --shadow-md: 0 12px 30px -16px rgb(0 0 0 / 70%);
-  --shadow-lg: 0 20px 48px -30px rgb(0 0 0 / 85%);
-  --glow-primary: 0 8px 22px -8px rgb(16 185 129 / 65%);
-  --ring-primary: 0 0 0 3px rgb(52 211 153 / 36%);
+  --shadow-sm: 0 1px 2px rgb(2 4 14 / 55%);
+  --shadow-md: 0 14px 34px -18px rgb(2 4 14 / 85%);
+  --shadow-lg: 0 26px 60px -34px rgb(2 4 14 / 95%);
+  --glow-primary: 0 6px 26px -10px rgb(255 194 75 / 55%);
+  --ring-primary: 0 0 0 3px rgb(255 194 75 / 32%);
 
-  --color-overlay: rgb(3 8 6 / 55%);
+  --color-overlay: rgb(3 5 16 / 72%);
 
-  /* Frosted glass material (translucent panel + edge highlight) */
-  --glass-bg: rgb(16 23 20 / 82%);
-  --glass-border: rgb(52 211 153 / 16%);
-  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 3%);
+  /* The plate material: opaque lapis with a lit top edge. Blur is gone — the
+     design is built from solid HUD plates, not frosted glass. */
+  --glass-bg: #141a3c;
+  --glass-border: rgb(143 154 220 / 20%);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 7%);
 
-  /* Ambient emerald field so glass has depth to blur through. */
-  --bg-ambient: radial-gradient(1200px 560px at 50% -18%, rgb(16 185 129 / 15%), transparent 58%);
+  /* Ambient field: gold horizon above, lapis pool below. */
+  --bg-ambient:
+    radial-gradient(1400px 620px at 50% -22%, rgb(255 194 75 / 11%), transparent 62%),
+    radial-gradient(1100px 700px at 12% 108%, rgb(76 96 220 / 16%), transparent 64%);
 
-  --gradient-brand: linear-gradient(135deg, #047857 0%, #34d399 100%);
-  --gradient-surface: var(--color-surface-raised);
-  --gradient-hero: linear-gradient(180deg, rgb(8 13 11 / 0%) 0%, rgb(8 13 11 / 92%) 100%);
+  --gradient-brand: linear-gradient(100deg, #ffc24b 0%, #f2793b 100%);
+  --gradient-surface: linear-gradient(168deg, #171e46 0%, #0e1330 100%);
+  --gradient-hero: linear-gradient(0deg, rgb(5 8 22 / 96%) 0%, rgb(5 8 22 / 72%) 42%, rgb(5 8 22 / 0%) 100%);
 }
 
-/* Light theme (default fallback) — the design's daytime counterpart */
+/* ---- Light theme — daylight lapis, not a washed-out dark ---- */
 :root,
 :root[data-theme='light'] {
   color-scheme: light;
 
-  --color-canvas: #f2f7f4;
+  --color-canvas: #eceff9;
   --color-surface: #ffffff;
   --color-surface-raised: #ffffff;
-  --color-surface-sunken: #e7efea;
+  --color-surface-sunken: #dfe4f4;
   --color-surface-overlay: #ffffff;
 
-  --color-text: #0f1c16;
-  --color-text-soft: #476054;
-  --color-text-muted: #4b6b5c;
-  --color-border: rgb(4 120 87 / 14%);
-  --color-border-strong: #6a9a86;
-  --color-grid: rgb(4 120 87 / 5%);
+  --color-text: #10163a;
+  --color-text-soft: #3c4470;
+  --color-text-muted: #4b5382;
+  --color-border: rgb(30 42 110 / 16%);
+  --color-border-strong: #7b84b4;
+  --color-grid: rgb(30 42 110 / 6%);
 
-  --color-accent: #047857;
-  --color-accent-hover: #065f46;
+  /* Bronze is gold at reading contrast; the bright gold survives as the fill. */
+  --color-accent: #7a5200;
+  --color-accent-hover: #5c3d00;
   --color-accent-text: #ffffff;
-  --color-focus: #047857;
+  --color-focus: #6b4700;
 
-  --color-primary: #047857;
-  --color-primary-strong: #065f46;
-  --color-primary-bright: #10b981;
-  --color-primary-soft: rgb(4 120 87 / 10%);
-  --color-primary-text: #ffffff;
+  --color-primary: #efae1b;
+  --color-primary-strong: #d99a0c;
+  --color-primary-bright: #ffc24b;
+  --color-primary-soft: rgb(239 174 27 / 18%);
+  --color-primary-text: #160f02;
 
-  --color-secondary-surface: #e7efea;
-  --color-secondary-text: #14312a;
+  --color-secondary-surface: #dfe4f4;
+  --color-secondary-text: #1a2350;
 
-  --color-success-surface: #e3f5eb;
-  --color-success-text: #0a6b47;
-  --color-warning-surface: #fbf0d9;
-  --color-warning-text: #6b4300;
-  --color-danger-surface: #fce9ec;
-  --color-danger-text: #97132f;
-  --color-danger: #b91c3c;
-  --color-danger-strong: #97132f;
+  --color-success-surface: #dff6ea;
+  --color-success-text: #0a6647;
+  --color-warning-surface: #fcecdb;
+  --color-warning-text: #7a3d05;
+  --color-danger-surface: #fce7ec;
+  --color-danger-text: #97112e;
+  --color-danger: #b81c39;
+  --color-danger-strong: #97112e;
   --color-danger-text-on: #ffffff;
-  --color-info-surface: #e6edfb;
-  --color-info-text: #1a3faa;
+  --color-info-surface: #e3edfc;
+  --color-info-text: #14449e;
 
-  --shadow-sm: 0 1px 2px rgb(6 40 30 / 5%), 0 2px 6px rgb(6 40 30 / 5%);
-  --shadow-md: 0 10px 26px -14px rgb(4 120 87 / 22%);
-  --shadow-lg: 0 16px 40px -28px rgb(4 120 87 / 30%);
-  --glow-primary: 0 8px 22px -10px rgb(4 120 87 / 45%);
-  --ring-primary: 0 0 0 3px rgb(4 120 87 / 22%);
+  --shadow-sm: 0 1px 2px rgb(16 22 58 / 6%), 0 2px 8px rgb(16 22 58 / 5%);
+  --shadow-md: 0 12px 30px -18px rgb(16 22 58 / 28%);
+  --shadow-lg: 0 22px 52px -32px rgb(16 22 58 / 34%);
+  --glow-primary: 0 6px 22px -10px rgb(217 154 12 / 50%);
+  --ring-primary: 0 0 0 3px rgb(217 154 12 / 28%);
 
-  --color-overlay: rgb(10 20 16 / 44%);
+  --color-overlay: rgb(10 14 36 / 48%);
 
-  --glass-bg: rgb(255 255 255 / 85%);
-  --glass-border: rgb(4 120 87 / 14%);
-  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 70%);
+  --glass-bg: #ffffff;
+  --glass-border: rgb(30 42 110 / 16%);
+  --glass-highlight: inset 0 1px 0 rgb(255 255 255 / 80%);
 
-  --bg-ambient: radial-gradient(1200px 560px at 50% -18%, rgb(16 185 129 / 10%), transparent 58%);
+  --bg-ambient:
+    radial-gradient(1400px 620px at 50% -22%, rgb(239 174 27 / 14%), transparent 62%),
+    radial-gradient(1100px 700px at 12% 108%, rgb(76 96 220 / 10%), transparent 64%);
 
-  --gradient-brand: linear-gradient(135deg, #047857 0%, #10b981 100%);
-  --gradient-surface: var(--color-surface-raised);
-  --gradient-hero: linear-gradient(180deg, rgb(8 13 11 / 0%) 0%, rgb(8 13 11 / 82%) 100%);
+  --gradient-brand: linear-gradient(100deg, #efae1b 0%, #e2622c 100%);
+  --gradient-surface: linear-gradient(168deg, #ffffff 0%, #f3f5fd 100%);
+  --gradient-hero: linear-gradient(0deg, rgb(8 12 32 / 94%) 0%, rgb(8 12 32 / 66%) 42%, rgb(8 12 32 / 0%) 100%);
 }
 
-/* Solid hairline fallback first; the blur is progressive enhancement. */
+/**
+ * Legacy `.glass` utility, kept so no view breaks. It now paints the plate
+ * material: a solid surface first, then the lit edge as progressive enhancement.
+ */
 .glass {
   background-color: var(--color-surface-raised);
   border: 1px solid var(--color-border);
@@ -226,16 +269,12 @@
   .glass {
     background-color: var(--glass-bg);
     border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
     box-shadow: var(--glass-highlight), var(--shadow-lg);
   }
 }
 @media (prefers-reduced-transparency: reduce) {
   .glass {
     background-color: var(--color-surface-raised);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
   }
 }
 

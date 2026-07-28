@@ -36,6 +36,25 @@ export interface TournamentCard {
   endAt: string | null;
   capacity: number;
   coverImageUrl: string | null;
+  /** Public lifecycle state. `completed` and `cancelled` are the archive; both stay readable. */
+  state: PublicTournamentState;
+}
+
+/** The tournament states a visitor can ever see (draft and archived are never served). */
+export type PublicTournamentState = 'published' | 'completed' | 'cancelled';
+
+/**
+ * One question on a tournament's registration form, localized to the requested locale.
+ * A `file`/`image` answer is the `/media/<id>` path of an already uploaded asset; a
+ * `multi_choice` answer is a comma-separated list of option indices.
+ */
+export interface PublicQuestion {
+  key: string;
+  prompt: string;
+  type: 'short_text' | 'long_text' | 'number' | 'national_id' | 'single_choice' | 'multi_choice' | 'file' | 'image';
+  required: boolean;
+  options: string[];
+  page: number;
 }
 
 export interface TournamentDetail extends TournamentCard {
@@ -51,7 +70,9 @@ export interface TournamentDetail extends TournamentCard {
   fee: FeeView;
   prizes: PrizeView;
   refundPolicy: { kind: string; text: string };
-  questions: Array<{ key: string; prompt: string; type: 'short_text' | 'long_text' | 'single_choice'; required: boolean; options: string[] }>;
+  questions: PublicQuestion[];
+  /** Number of steps in the entry form; 1 when it is not paged. */
+  questionPages: number;
   publishedAt: string | null;
   /** Whether the approved participant list is shown publicly. */
   participantsPublic: boolean;
@@ -84,10 +105,21 @@ export function listTournaments(params: {
   game?: string;
   participantType?: string;
   format?: string;
+  /** Omitted lists what is open or running; `completed`/`cancelled` open the archive. */
+  state?: PublicTournamentState;
   q?: string;
   cursor?: string;
 }): Promise<Page<TournamentCard>> {
   return apiFetch(`/tournaments${query(params)}`);
+}
+
+/**
+ * Public slugs for tournament ids. Domain events (and the notifications built from them)
+ * carry ids, but the detail route is addressed by slug, so a link needs this hop.
+ */
+export function resolveTournamentSlugs(ids: readonly string[], locale: Locale): Promise<{ items: Array<{ id: string; slug: string; name: string }> }> {
+  if (ids.length === 0) return Promise.resolve({ items: [] });
+  return apiFetch(`/tournament-slugs${query({ locale, ids: [...new Set(ids)].join(',') })}`);
 }
 
 export function getTournament(slug: string, locale: Locale): Promise<TournamentDetail> {
@@ -99,13 +131,20 @@ export function tournamentCalendar(params: { locale: Locale; from: string; to: s
 }
 
 /** Admin tournament record by id (the fields this view needs); carries the current version. */
-export function getAdminTournament(id: string): Promise<{ id: string; version: number; participantsPublic: boolean }> {
+export function getAdminTournament(id: string): Promise<{ id: string; version: number; participantsPublic: boolean; state: string }> {
   return apiFetch(`/admin/tournaments/${encodeURIComponent(id)}`);
 }
 
 /** Public participant list; only returns data when the organizer made it public (else 404). */
-export function getTournamentParticipants(id: string): Promise<{ items: PublicParticipant[] }> {
-  return apiFetch(`/tournaments/${encodeURIComponent(id)}/participants`);
+/**
+ * One page of approved participants. The endpoint is cursor-paginated (DB-002), so a
+ * large field arrives in bounded pages rather than one unbounded payload; the page size
+ * is the endpoint's maximum to keep the round-trip count down.
+ */
+export function getTournamentParticipants(id: string, cursor?: string): Promise<{ items: PublicParticipant[]; nextCursor: string | null }> {
+  const params = new URLSearchParams({ limit: '100' });
+  if (cursor !== undefined) params.set('cursor', cursor);
+  return apiFetch(`/tournaments/${encodeURIComponent(id)}/participants?${params.toString()}`);
 }
 
 /** Admin toggle for public participant visibility (any tournament state). */

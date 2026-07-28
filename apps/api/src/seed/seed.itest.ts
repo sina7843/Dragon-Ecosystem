@@ -46,7 +46,9 @@ describe('demo seeder', () => {
       const author = users.get('admin-content')?.accountId ?? users.get('admin-super')?.accountId;
       assert.ok(author !== undefined, 'an admin author exists');
       await seedCatalog(services, registry, s, author);
-      await seedEconomy(services, registry, s, users);
+      // No tournaments are seeded in this fixture, so the paid-checkout step has nothing
+      // to act on; an empty registry keeps the economy assertions focused on the ledger.
+      await seedEconomy(services, registry, s, users, new Map());
     };
 
     await run();

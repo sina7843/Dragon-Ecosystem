@@ -4,6 +4,7 @@ import { useI18n } from 'vue-i18n';
 import { useRoute, useRouter } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
 import AppThumb from '../components/AppThumb.vue';
+import { apiFetch } from '../api.ts';
 import { listContent, type ContentCard } from '../composables/useContentApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { formatDate } from '../i18n/format.ts';
@@ -24,6 +25,9 @@ const activeLocale = computed<Locale>(() => (isLocale(locale.value) ? locale.val
 const prefix = computed(() => `/${activeLocale.value}`);
 const activeType = computed(() => (route.query.type as string | undefined) ?? '');
 const activeQuery = computed(() => (route.query.q as string | undefined) ?? '');
+// Set when arriving from a game page ("view all articles for this game").
+const activeGame = computed(() => (route.query.game as string | undefined) ?? '');
+const activeGameName = ref<string | null>(null);
 const searchInput = ref(activeQuery.value);
 watch(activeQuery, (value) => {
   searchInput.value = value;
@@ -45,6 +49,7 @@ async function load(cursor?: string): Promise<void> {
       locale: activeLocale.value,
       ...(activeType.value === '' ? {} : { type: activeType.value }),
       ...(activeQuery.value === '' ? {} : { q: activeQuery.value }),
+      ...(activeGame.value === '' ? {} : { game: activeGame.value }),
       ...(cursor === undefined ? {} : { cursor })
     });
     if (token !== requestToken) return; // a newer load started; drop this stale result
@@ -58,18 +63,67 @@ async function load(cursor?: string): Promise<void> {
   }
 }
 
-onMounted(() => load());
-// Re-fetch when the filter, search text, or locale changes.
-watch([activeType, activeQuery, activeLocale], () => load());
+/** Resolves the filtered game's name so the chip reads as a name, not an id. */
+async function loadGameName(): Promise<void> {
+  if (activeGame.value === '') {
+    activeGameName.value = null;
+    return;
+  }
+  try {
+    const games = await apiFetch<{ items: Array<{ id: string; name: string }> }>(
+      `/games?locale=${activeLocale.value}&limit=100`
+    );
+    activeGameName.value = games.items.find((g) => g.id === activeGame.value)?.name ?? null;
+  } catch {
+    activeGameName.value = null; // the chip falls back to the raw id
+  }
+}
 
-function pushQuery(overrides: { type?: string; q?: string }): void {
+onMounted(async () => {
+  await Promise.all([load(), loadGameName()]);
+});
+// Re-fetch when the filter, search text, or locale changes.
+watch([activeType, activeQuery, activeGame, activeLocale], () => load());
+watch([activeGame, activeLocale], () => void loadGameName());
+
+function pushQuery(overrides: { type?: string; q?: string; game?: string }): void {
   const type = overrides.type ?? activeType.value;
   const q = overrides.q ?? activeQuery.value;
+  // A game filter survives type/search changes until it is explicitly cleared.
+  const game = overrides.game ?? activeGame.value;
   const query: Record<string, string> = {};
   if (type !== '') query.type = type;
   if (q !== '') query.q = q;
+  if (game !== '') query.game = game;
   void router.push({ path: `${prefix.value}/content`, query });
 }
+
+/**
+ * Every filter currently narrowing the list, each with its own clear control. The type
+ * toggle row below shows only its own dimension, so this is the one place the combined
+ * filter state (an arriving game, a search term, a type) is visible at once.
+ */
+const activeFilters = computed(() => {
+  const chips: Array<{ key: string; label: string; clear: () => void }> = [];
+  if (activeGame.value !== '') {
+    chips.push({
+      key: 'game',
+      label: t('content.hub.filteredByGame', { game: activeGameName.value ?? activeGame.value }),
+      clear: () => pushQuery({ game: '' })
+    });
+  }
+  if (activeQuery.value !== '') {
+    chips.push({ key: 'q', label: t('search.filteredByTerm', { q: activeQuery.value }), clear: () => pushQuery({ q: '' }) });
+  }
+  if (activeType.value !== '') {
+    chips.push({
+      key: 'type',
+      label: t('content.hub.filteredByType', { type: t(`content.type.${activeType.value}`) }),
+      clear: () => pushQuery({ type: '' })
+    });
+  }
+  return chips;
+});
 
 function selectType(type: string): void {
   pushQuery({ type });
@@ -93,6 +147,33 @@ function detailPath(card: ContentCard): string {
           {{ t('content.hub.intro') }}
         </p>
       </div>
+    </div>
+
+    <!-- Every active filter is visible and individually removable, never silent. -->
+    <div
+      v-if="activeFilters.length > 0"
+      class="active-filter"
+      role="group"
+      :aria-label="t('search.activeFilters')"
+      data-testid="active-filters"
+    >
+      <span
+        v-for="chip in activeFilters"
+        :key="chip.key"
+        class="filter-chip"
+        :data-testid="`active-filter-${chip.key}`"
+      >
+        <span>{{ chip.label }}</span>
+        <button
+          type="button"
+          class="chip-clear"
+          :aria-label="t('search.clearFilter', { filter: chip.label })"
+          :data-testid="`clear-${chip.key}-filter`"
+          @click="chip.clear()"
+        >
+          ×
+        </button>
+      </span>
     </div>
 
     <nav
@@ -177,10 +258,13 @@ function detailPath(card: ContentCard): string {
           :to="detailPath(card)"
           :data-testid="`content-card-${card.slug}`"
         >
+          <!-- Matches the article hero's 21/9 so the cover is cropped the same way here
+               as on the page it links to. -->
           <AppThumb
             class="card-thumb"
             :src="card.coverImageUrl"
             :label="card.title"
+            :ratio="21 / 9"
           />
           <span class="badge badge-accent type">{{ t(`content.type.${card.type}`) }}</span>
           <h2 class="card-title">
@@ -214,6 +298,51 @@ function detailPath(card: ContentCard): string {
 </template>
 
 <style scoped>
+.active-filter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin-block: 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-md);
+  background-color: var(--color-primary-soft);
+  color: var(--color-accent);
+  font-size: var(--text-sm);
+  font-weight: var(--weight-semibold);
+  inline-size: fit-content;
+  max-inline-size: 100%;
+}
+
+/* One pill per active filter, each carrying its own dismiss control so a visitor removes
+   exactly the constraint they mean to and can see the rest still applied. */
+.filter-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+.filter-chip + .filter-chip {
+  padding-inline-start: var(--space-2);
+  border-inline-start: 1px solid var(--color-border-strong);
+}
+.chip-clear {
+  display: inline-grid;
+  place-items: center;
+  min-inline-size: var(--target-min);
+  min-block-size: var(--target-min);
+  border: 0;
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font-size: var(--text-lg);
+  line-height: 1;
+  cursor: pointer;
+}
+.chip-clear:hover {
+  color: var(--color-text);
+}
+
 .filters {
   display: flex;
   flex-wrap: wrap;
@@ -224,7 +353,7 @@ function detailPath(card: ContentCard): string {
 .chip {
   padding-inline: var(--space-4);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface);
   color: var(--color-text);
   cursor: pointer;

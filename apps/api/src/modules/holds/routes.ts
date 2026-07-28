@@ -84,6 +84,14 @@ export function registerHoldsRoutes(app: FastifyInstance, deps: HoldsDeps): void
 
   // --- Finance operations ---
 
+  // Platform-wide hold list. The owner is included because a finance operator acting on a
+  // hold has to know whose funds are reserved; the owner-scoped `/wallet/holds` above is
+  // unchanged and still only ever returns the caller's own.
+  app.get('/admin/holds', { ...financeManage(), schema: { tags: ['holds'], summary: 'List holds across accounts (finance).', querystring: { type: 'object', additionalProperties: false, properties: { state: { type: 'string' }, purpose: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
+    const page = await deps.holds.listAllHolds(request.query as { state?: string; purpose?: string; cursor?: string; limit?: number });
+    return { items: page.items.map((hold) => ({ ...holdView(hold), ownerId: hold.ownerId })), nextCursor: page.nextCursor };
+  });
+
   app.post(
     '/admin/holds',
     {

@@ -1,18 +1,21 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
+import AppDialog from '../components/AppDialog.vue';
+import RegistrationField from '../components/RegistrationField.vue';
 import AppThumb from '../components/AppThumb.vue';
 import StateBlock from '../components/StateBlock.vue';
+import { uploadImage } from '../composables/useMediaApi.ts';
 import { ApiRequestError } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, formatTomanValue, viewerTimeZone } from '../i18n/format.ts';
-import { getTournament, getTournamentParticipants, type MoneyView, type PublicParticipant, type TournamentDetail } from '../composables/useTournamentsApi.ts';
+import { getTournament, getTournamentParticipants, type MoneyView, type PublicParticipant, type PublicQuestion, type TournamentDetail } from '../composables/useTournamentsApi.ts';
 import { applyHead } from '../head.ts';
 import { myRegistration, newIdempotencyKey, registerForTournament, withdraw, type RegistrationStatus } from '../composables/useRegistrationsApi.ts';
 import { fileReport } from '../composables/useModerationApi.ts';
-import { getBracket, getStandings, type BracketMatchView, type StandingsView } from '../composables/useCompetitionsApi.ts';
-import { startCheckout, confirmCheckout, mockPayCheckout, newCheckoutKey, type CheckoutView } from '../composables/useCheckoutApi.ts';
+import { getBracket, getStandings, type BracketMatchView, type ParticipantIdentity, type StandingsView } from '../composables/useCompetitionsApi.ts';
+import { startCheckout, confirmCheckout, findOpenCheckout, mockPayCheckout, newCheckoutKey, type CheckoutView } from '../composables/useCheckoutApi.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useAuth } from '../composables/useAuth.ts';
 import { useToasts } from '../composables/useToasts.ts';
@@ -32,10 +35,14 @@ const notFound = ref(false);
 const errorMessage = ref<string | undefined>(undefined);
 const tour = ref<TournamentDetail | null>(null);
 
-// Time-based status derived from the tournament's own dates — no invented backend state.
+// Time-based status derived from the tournament's own dates â€” no invented backend state.
 const heroStatus = computed<{ key: string; tone: string } | null>(() => {
   const card = tour.value;
   if (!card) return null;
+  // The lifecycle state outranks the schedule: a cancelled event is not "upcoming"
+  // because its dates have not passed, and a completed one is finished regardless.
+  if (card.state === 'cancelled') return { key: 'tournaments.state.cancelled', tone: 'danger' };
+  if (card.state === 'completed') return { key: 'tournaments.state.completed', tone: 'neutral' };
   const now = Date.now();
   const start = card.startAt ? Date.parse(card.startAt) : null;
   const end = card.endAt ? Date.parse(card.endAt) : null;
@@ -53,6 +60,8 @@ const registerError = ref<string | undefined>(undefined);
 const standings = ref<StandingsView | null>(null);
 const bracketMatches = ref<BracketMatchView[]>([]);
 const participants = ref<PublicParticipant[]>([]);
+/** Display identity per bracket seed, served alongside the bracket and standings. */
+const seedNames = ref<ParticipantIdentity[]>([]);
 
 // A participant links to its public page: a team to its team page, an individual to
 // their public player profile. Returns null when there is no public destination.
@@ -114,10 +123,53 @@ const matchBands = computed<MatchBand[]>(() => {
 
 const hasMatches = computed(() => bracketMatches.value.length > 0);
 
-// Seeds are the competition's participant identity (names are separate polish); a null
-// slot is a not-yet-decided position.
+/**
+ * The result of a finished event, which is the whole point of keeping it public.
+ *
+ * Only a `final` standings snapshot is quoted â€” a provisional one can still change, and
+ * announcing a champion that later moves would be worse than showing nothing.
+ */
+const champion = computed(() => {
+  if (tour.value?.state !== 'completed' || standings.value?.status !== 'final') return null;
+  const row = standings.value.rows.find((r) => r.placement === 'champion');
+  return row === undefined ? null : { seed: row.seed, label: slotLabel(row.seed), link: slotLink(row.seed) };
+});
+const runnerUp = computed(() => {
+  if (champion.value === null) return null;
+  const row = standings.value?.rows.find((r) => r.placement === 'runner_up');
+  return row === undefined ? null : { label: slotLabel(row.seed), link: slotLink(row.seed) };
+});
+
+/** Locale-aware digits (Persian numerals in fa), used for every figure on this page. */
+function num(value: number): string {
+  return formatNumber(value, activeLocale());
+}
+
+/**
+ * Who is in each seat. The seed number is the competition's own participant identity and
+ * stays the join key; the server resolves the display name beside it. A private profile
+ * resolves to a null name, so the seed label remains the fallback â€” a bracket never
+ * reveals an entrant the participant list would not.
+ */
+const bySeed = computed(() => new Map(seedNames.value.map((p) => [p.seed, p])));
+
 function seedLabel(seed: number | null): string {
-  return seed === null ? t('standings.tbd') : t('standings.seed', { n: seed });
+  return seed === null ? t('standings.tbd') : t('standings.seed', { n: num(seed) });
+}
+
+/** Display name for a seat, falling back to "Seed N" and then to the undecided label. */
+function slotLabel(seed: number | null): string {
+  if (seed === null) return t('standings.tbd');
+  return bySeed.value.get(seed)?.name ?? seedLabel(seed);
+}
+
+/** Route to the entrant's public page, or null when there is nothing to link to. */
+function slotLink(seed: number | null): string | null {
+  const p = seed === null ? undefined : bySeed.value.get(seed);
+  if (p === undefined || p.name === null) return null;
+  const base = `/${activeLocale()}`;
+  if (p.teamSlug !== null) return `${base}/teams/${encodeURIComponent(p.teamSlug)}`;
+  return p.username === null ? null : `${base}/players/${encodeURIComponent(p.username)}`;
 }
 
 function printBracket(): void {
@@ -144,13 +196,23 @@ async function loadStatus(id: string): Promise<void> {
   } catch {
     registration.value = null; // 404 = not registered yet.
   }
+  // A payment left mid-flight still holds a reserved seat, so the page has to resume it
+  // rather than offer a fresh start: the server rejects a second checkout as a duplicate,
+  // and the entrant would otherwise see no trace of the money in progress.
+  if (registration.value?.state === 'pending_payment' || checkout.value === null) {
+    try {
+      checkout.value = (await findOpenCheckout(id)) ?? checkout.value;
+    } catch {
+      checkout.value = null; // Not signed in, or nothing to resume.
+    }
+  }
 }
 
 function applySeo(detail: TournamentDetail): void {
   const path = `/${activeLocale()}/tournaments/${encodeURIComponent(detail.slug)}`;
   const origin = globalThis.location?.origin ?? '';
   applyHead({
-    title: `${detail.name} — ${t('app.name')}`,
+    title: `${detail.name} â€” ${t('app.name')}`,
     locale: activeLocale(),
     path,
     indexable: true,
@@ -186,7 +248,16 @@ onMounted(async () => {
   // Public participant list, only when the organizer has made it public.
   if (tour.value !== null && tour.value.participantsPublic) {
     try {
-      participants.value = (await getTournamentParticipants(tour.value.id)).items;
+      // Paged through so a large field renders completely; the cap mirrors the bracket
+      // loop above and keeps a runaway cursor from looping forever.
+      const collected: PublicParticipant[] = [];
+      let cursor: string | undefined;
+      do {
+        const page = await getTournamentParticipants(tour.value.id, cursor);
+        collected.push(...page.items);
+        cursor = page.nextCursor ?? undefined;
+      } while (cursor !== undefined && collected.length < 2000);
+      participants.value = collected;
     } catch {
       participants.value = []; // 404 if visibility flipped off between reads
     }
@@ -200,25 +271,115 @@ onMounted(async () => {
       do {
         const page = await getBracket(tour.value.id, cursor);
         collected.push(...page.items);
+        // Tolerate a payload without the roster (an older API): the seed label is the
+        // fallback, and a missing name must never cost the whole standings panel.
+        seedNames.value = page.participants ?? [];
         cursor = page.nextCursor ?? undefined;
       } while (cursor !== undefined && collected.length < 2000);
       bracketMatches.value = collected;
+      // Standings carry the same roster; either response is enough to name every seed.
+      if (seedNames.value.length === 0) seedNames.value = standings.value.participants ?? [];
     } catch {
       standings.value = null; // 404 = competition not generated yet.
     }
   }
 });
 
+// --- Registration form (modal, optionally multi-page) ---
+
+const formOpen = ref(false);
+const formPage = ref(1);
+const uploading = ref('');
+/** Per-question messages, so a problem is shown beside the field that caused it. */
+const answerErrors = ref<Record<string, string>>({});
+
+const questionPages = computed(() => Math.max(1, tour.value?.questionPages ?? 1));
+const pageQuestions = computed(() => (tour.value?.questions ?? []).filter((q) => (q.page ?? 1) === formPage.value));
+const isLastPage = computed(() => formPage.value >= questionPages.value);
+
+/** Opens the form at page one with a clean slate; a re-open never shows a stale error. */
+function openRegistrationForm(): void {
+  answerErrors.value = {};
+  registerError.value = undefined;
+  formPage.value = 1;
+  formOpen.value = true;
+}
+
+/** Multi-choice answers travel as a comma-separated index list, matching the API. */
+function selectedIndices(key: string): number[] {
+  const raw = answers.value[key] ?? '';
+  return raw === '' ? [] : raw.split(',').map(Number).filter((n) => Number.isInteger(n));
+}
+function toggleChoice(key: string, index: number, checked: boolean): void {
+  const current = new Set(selectedIndices(key));
+  if (checked) current.add(index);
+  else current.delete(index);
+  answers.value[key] = [...current].sort((a, b) => a - b).join(',');
+}
+
+/**
+ * Blocks advancing past a page with an unanswered required question.
+ *
+ * This is a courtesy so an entrant is not told about a page-one mistake after filling in
+ * page three â€” the server re-validates every answer on submit and is the only authority.
+ */
+function pageProblems(): boolean {
+  const problems: Record<string, string> = {};
+  for (const question of pageQuestions.value) {
+    if (question.required && (answers.value[question.key] ?? '').trim() === '') {
+      problems[question.key] = t('registration.answerRequired');
+    }
+  }
+  answerErrors.value = problems;
+  return Object.keys(problems).length > 0;
+}
+
+function nextPage(): void {
+  if (pageProblems()) return;
+  formPage.value = Math.min(formPage.value + 1, questionPages.value);
+}
+function previousPage(): void {
+  answerErrors.value = {};
+  formPage.value = Math.max(1, formPage.value - 1);
+}
+
+/** Uploads through the shared media endpoint; the answer stores only the returned path. */
+async function onAnswerFile(question: PublicQuestion, file: File): Promise<void> {
+  uploading.value = question.key;
+  try {
+    const media = await uploadImage(file, { fa: question.prompt, en: question.prompt });
+    answers.value[question.key] = media.url;
+    delete answerErrors.value[question.key];
+  } catch (error) {
+    answerErrors.value = { ...answerErrors.value, [question.key]: messageFor(error) };
+  } finally {
+    uploading.value = '';
+  }
+}
+
 async function onRegister(): Promise<void> {
   if (tour.value === null || registering.value) return;
+  if (pageProblems()) return;
   registering.value = true;
   registerError.value = undefined;
   try {
     const payload = tour.value.questions.map((q) => ({ key: q.key, value: answers.value[q.key] ?? '' }));
     registration.value = await registerForTournament(tour.value.id, { idempotencyKey: newIdempotencyKey(), answers: payload });
+    formOpen.value = false;
     push('success', t('registration.registered'));
   } catch (error) {
-    registerError.value = fieldMessage(error, 'participantType') ?? fieldMessage(error, 'age') ?? fieldMessage(error, 'fee') ?? messageFor(error);
+    // Surface a per-question message where the server named one, so the entrant is sent
+    // back to the field rather than to a generic banner.
+    const perQuestion: Record<string, string> = {};
+    for (const question of tour.value.questions) {
+      const message = fieldMessage(error, `answers.${question.key}`);
+      if (message !== undefined) perQuestion[question.key] = message;
+    }
+    answerErrors.value = perQuestion;
+    const firstBad = tour.value.questions.find((q) => perQuestion[q.key] !== undefined);
+    if (firstBad !== undefined) formPage.value = firstBad.page ?? 1;
+    registerError.value =
+      fieldMessage(error, 'participantType') ?? fieldMessage(error, 'age') ?? fieldMessage(error, 'fee') ?? messageFor(error);
   } finally {
     registering.value = false;
   }
@@ -376,6 +537,51 @@ function confirmPaid(): void {
           </p>
         </div>
       </div>
+
+      <!-- The archive headline: a finished event leads with who won, a cancelled one
+           says so plainly rather than looking like an event you can still enter. -->
+      <section
+        v-if="champion"
+        class="block result-banner"
+        data-testid="tournament-result"
+      >
+        <span
+          class="result-trophy"
+          aria-hidden="true"
+        >ðŸ†</span>
+        <div class="result-body">
+          <p class="result-kicker">
+            {{ t('standings.placementLabel.champion') }}
+          </p>
+          <p class="result-name">
+            <RouterLink
+              v-if="champion.link"
+              :to="champion.link"
+            >{{ champion.label }}</RouterLink>
+            <template v-else>{{ champion.label }}</template>
+          </p>
+          <p
+            v-if="runnerUp"
+            class="result-runner"
+          >
+            {{ t('standings.placementLabel.runner_up') }}:
+            <RouterLink
+              v-if="runnerUp.link"
+              :to="runnerUp.link"
+            >{{ runnerUp.label }}</RouterLink>
+            <template v-else>{{ runnerUp.label }}</template>
+          </p>
+        </div>
+      </section>
+
+      <p
+        v-else-if="tour.state === 'cancelled'"
+        class="block cancelled-notice"
+        role="status"
+        data-testid="tournament-cancelled"
+      >
+        {{ t('tournaments.cancelledNotice') }}
+      </p>
 
       <form
         v-if="reportOpen"
@@ -559,7 +765,11 @@ function confirmPaid(): void {
         </ul>
       </section>
 
+      <!-- Registration only exists while the event is live. A finished or cancelled
+           tournament is a record to read, not something to sign in and enter, and the
+           server rejects an entry in either state anyway. -->
       <section
+        v-if="tour.state === 'published'"
         class="block register"
         data-testid="registration-panel"
       >
@@ -577,7 +787,7 @@ function confirmPaid(): void {
           >
             {{ t(`registration.state.${registration.state}`) }}
             <span v-if="registration.state === 'waitlisted' && registration.waitlistSeq !== null">
-              (#{{ registration.waitlistSeq }})
+              (#{{ num(registration.waitlistSeq) }})
             </span>
           </p>
           <button
@@ -654,10 +864,39 @@ function confirmPaid(): void {
           <p>{{ t('registration.teamOnly') }}</p>
         </template>
 
+        <template v-else>
+          <p
+            v-if="registerError && !formOpen"
+            class="summary"
+            role="alert"
+            data-testid="register-error"
+          >
+            {{ registerError }}
+          </p>
+          <!-- The entry form opens as a dialog. A tournament with no questions still goes
+               through it, so entering is one predictable flow either way. -->
+          <button
+            type="button"
+            class="btn btn-primary"
+            data-testid="open-register-form"
+            @click="openRegistrationForm"
+          >
+            {{ t('registration.register') }}
+          </button>
+        </template>
+      </section>
+
+      <AppDialog
+        v-model:open="formOpen"
+        :title="t('registration.formTitle')"
+        :description="questionPages > 1 ? t('registration.stepOf', { current: num(formPage), total: num(questionPages) }) : undefined"
+        :close-label="t('registration.cancel')"
+      >
         <form
-          v-else
           novalidate
           data-testid="register-form"
+          :data-page="formPage"
+          :data-pages="questionPages"
           @submit.prevent="onRegister"
         >
           <p
@@ -668,41 +907,56 @@ function confirmPaid(): void {
           >
             {{ registerError }}
           </p>
-          <div
-            v-for="question in tour.questions"
+
+          <p
+            v-if="tour.questions.length === 0"
+            class="muted"
+          >
+            {{ t('registration.noQuestions') }}
+          </p>
+
+          <RegistrationField
+            v-for="question in pageQuestions"
             :key="question.key"
-            class="field"
-          >
-            <label :for="`q-${question.key}`">{{ question.prompt }}</label>
-            <select
-              v-if="question.type === 'single_choice'"
-              :id="`q-${question.key}`"
-              v-model="answers[question.key]"
+            :question="question"
+            :model-value="answers[question.key] ?? ''"
+            :error="answerErrors[question.key]"
+            :uploading="uploading === question.key"
+            @update:model-value="answers[question.key] = $event"
+            @upload="onAnswerFile(question, $event)"
+          />
+
+          <div class="form-nav">
+            <button
+              v-if="formPage > 1"
+              type="button"
+              class="btn btn-neutral"
+              data-testid="form-back"
+              @click="previousPage"
             >
-              <option
-                v-for="(option, index) in question.options"
-                :key="index"
-                :value="String(index)"
-              >
-                {{ option }}
-              </option>
-            </select>
-            <input
+              {{ t('registration.back') }}
+            </button>
+            <button
+              v-if="!isLastPage"
+              type="button"
+              class="btn btn-primary"
+              data-testid="form-next"
+              @click="nextPage"
+            >
+              {{ t('registration.next') }}
+            </button>
+            <button
               v-else
-              :id="`q-${question.key}`"
-              v-model="answers[question.key]"
+              type="submit"
+              class="btn btn-primary"
+              data-testid="register"
+              :disabled="registering || uploading !== ''"
             >
+              {{ registering ? t('registration.registering') : t('registration.register') }}
+            </button>
           </div>
-          <button
-            type="submit"
-            class="primary"
-            data-testid="register"
-            :disabled="registering"
-          >
-            {{ registering ? t('registration.registering') : t('registration.register') }}
-          </button>
         </form>
-      </section>
+      </AppDialog>
 
       <section
         v-if="standings"
@@ -717,7 +971,7 @@ function confirmPaid(): void {
           :data-locked="standings.lockState"
         >
           {{ t(`standings.status.${standings.status}`) }}
-          <span v-if="standings.lockState === 'locked'"> · {{ t('standings.locked') }}</span>
+          <span v-if="standings.lockState === 'locked'"> Â· {{ t('standings.locked') }}</span>
         </p>
         <div class="scroll">
           <table>
@@ -755,12 +1009,24 @@ function confirmPaid(): void {
                 :key="i"
                 :data-placement="row.placement"
               >
-                <td>{{ row.rank }}<span v-if="row.shared"> ({{ t('standings.tied') }})</span></td>
-                <td>{{ t('standings.seed', { n: row.seed ?? '—' }) }}</td>
-                <td>{{ row.played }}</td>
-                <td>{{ row.wins }}</td>
-                <td>{{ row.losses }}</td>
-                <td>{{ row.points }}</td>
+                <!-- Every figure goes through formatNumber so Persian renders Persian
+                     digits, matching the dates and prize figures on this same page. -->
+                <td>{{ num(row.rank) }}<span v-if="row.shared"> ({{ t('standings.tied') }})</span></td>
+                <!-- Who, not just which seat. Falls back to "Seed N" for a private
+                     profile, and links out only when there is a public page to reach. -->
+                <td>
+                  <RouterLink
+                    v-if="slotLink(row.seed)"
+                    :to="slotLink(row.seed) ?? ''"
+                    class="standings-name"
+                  >{{ slotLabel(row.seed) }}</RouterLink>
+                  <template v-else>{{ slotLabel(row.seed) }}</template>
+                  <span class="standings-seed">{{ t('standings.seed', { n: row.seed === null ? 'â€”' : num(row.seed) }) }}</span>
+                </td>
+                <td>{{ num(row.played) }}</td>
+                <td>{{ num(row.wins) }}</td>
+                <td>{{ num(row.losses) }}</td>
+                <td>{{ num(row.points) }}</td>
                 <td>{{ t(`standings.placementLabel.${row.placement}`) }}</td>
               </tr>
             </tbody>
@@ -817,7 +1083,7 @@ function confirmPaid(): void {
                   :key="col.round"
                   class="round-col"
                 >
-                  <span class="round-label">{{ t('standings.round', { n: col.round }) }}</span>
+                  <span class="round-label">{{ t('standings.round', { n: num(col.round) }) }}</span>
                   <div class="match-list">
                     <div
                       v-for="m in col.matches"
@@ -832,7 +1098,10 @@ function confirmPaid(): void {
                           class="slot"
                           :class="{ win: m.winner !== null && m.winner === m.a }"
                         >
-                          <span class="seed">{{ seedLabel(m.a) }}</span>
+                          <span class="seed">
+                            <span class="slot-name">{{ slotLabel(m.a) }}</span>
+                            <span class="slot-seed">{{ seedLabel(m.a) }}</span>
+                          </span>
                           <svg
                             v-if="m.winner !== null && m.winner === m.a"
                             class="win-ic"
@@ -851,7 +1120,10 @@ function confirmPaid(): void {
                           class="slot"
                           :class="{ win: m.winner !== null && m.winner === m.b }"
                         >
-                          <span class="seed">{{ seedLabel(m.b) }}</span>
+                          <span class="seed">
+                            <span class="slot-name">{{ slotLabel(m.b) }}</span>
+                            <span class="slot-seed">{{ seedLabel(m.b) }}</span>
+                          </span>
                           <svg
                             v-if="m.winner !== null && m.winner === m.b"
                             class="win-ic"
@@ -1116,7 +1388,7 @@ function confirmPaid(): void {
   padding-block: 0.25em;
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-full);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface-sunken);
   font-weight: var(--weight-semibold);
 }
@@ -1404,8 +1676,74 @@ function confirmPaid(): void {
   color: var(--color-accent);
   font-weight: var(--weight-black);
 }
+.result-banner {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  border: 1px solid var(--color-accent);
+  background-color: var(--color-primary-soft);
+}
+.result-trophy {
+  font-size: 2.5rem;
+  line-height: 1;
+}
+.result-body {
+  min-inline-size: 0;
+}
+.result-kicker {
+  margin: 0;
+  font-size: var(--text-xs);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-muted);
+}
+.result-name {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--weight-black);
+  color: var(--color-accent);
+}
+.result-runner {
+  margin: var(--space-1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-soft);
+}
+.cancelled-notice {
+  border: 1px solid var(--color-danger);
+  color: var(--color-danger);
+}
+
+/* The name leads and the seed stays as a quiet second line, so a card is readable at a
+   glance without losing the seat number the bracket is actually ordered by. */
 .slot .seed {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-inline-size: 0;
   font-variant-numeric: tabular-nums;
+}
+.slot-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.slot-seed {
+  font-size: var(--text-xs);
+  font-weight: var(--weight-regular);
+  color: var(--color-text-muted);
+}
+.slot.win .slot-seed {
+  color: inherit;
+  opacity: 0.75;
+}
+/* Same pairing in the standings table: name first, seat number underneath. */
+.standings-name {
+  color: inherit;
+}
+.standings-seed {
+  display: block;
+  font-size: var(--text-xs);
+  color: var(--color-text-muted);
 }
 .win-ic {
   flex: none;
@@ -1443,3 +1781,4 @@ function confirmPaid(): void {
   clip-path: inset(50%);
 }
 </style>
+

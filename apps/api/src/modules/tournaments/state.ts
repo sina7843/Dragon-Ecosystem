@@ -77,19 +77,47 @@ export interface PrizeDefinition {
   placements: PrizePlacement[];
 }
 
-export type QuestionType = 'short_text' | 'long_text' | 'single_choice';
+/**
+ * Question types an organizer can put on a registration form.
+ *
+ * `national_id` is a checked identity number rather than free text, so a typo is caught
+ * at submission instead of at check-in. `file` and `image` hold a reference to an already
+ * uploaded asset — the answer never carries bytes, only the `/media/<id>` path the media
+ * service returned, so uploads keep going through the one validated path.
+ */
+export type QuestionType =
+  | 'short_text'
+  | 'long_text'
+  | 'number'
+  | 'national_id'
+  | 'single_choice'
+  | 'multi_choice'
+  | 'file'
+  | 'image';
+
 export interface CustomQuestion {
   key: string;
   prompt: Record<Locale, string>;
   type: QuestionType;
   required: boolean;
   options: Array<Record<Locale, string>>;
+  /**
+   * 1-based step in a multi-page form. Every question carries one; a single-page form is
+   * simply every question on page 1, so there is no separate "is this paged" flag to
+   * disagree with the questions themselves.
+   */
+  page: number;
 }
 
 /** Versioned question set (TOURN-007): submitted answers are stamped with `version`. */
 export interface QuestionSet {
   version: number;
   questions: CustomQuestion[];
+}
+
+/** Highest page number in a set; 1 when the form has no questions. */
+export function questionPageCount(set: QuestionSet): number {
+  return set.questions.reduce((max, question) => Math.max(max, question.page), 1);
 }
 
 export interface Eligibility {

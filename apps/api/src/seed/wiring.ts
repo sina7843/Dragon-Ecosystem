@@ -53,6 +53,9 @@ export function buildServices(database: Database, config: AppConfig) {
   const media = buildMedia(database, config);
   return {
     db: database.db,
+    // The connection itself, so a seeder step may build a second, differently configured
+    // instance of a service (see the notification-delivery demo in engagement.ts).
+    database,
     config,
     identity: identity.service,
     admin: admin.service,

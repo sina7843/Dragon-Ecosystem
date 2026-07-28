@@ -127,12 +127,37 @@ export interface QuestionInput {
   type: QuestionType;
   required?: boolean;
   options?: Array<Record<Locale, string>>;
+  page?: number;
 }
 
-const QUESTION_TYPES: readonly QuestionType[] = ['short_text', 'long_text', 'single_choice'];
+const QUESTION_TYPES: readonly QuestionType[] = [
+  'short_text',
+  'long_text',
+  'number',
+  'national_id',
+  'single_choice',
+  'multi_choice',
+  'file',
+  'image'
+];
+
+/** Types that present a fixed option list and therefore need at least two of them. */
+const CHOICE_TYPES: readonly QuestionType[] = ['single_choice', 'multi_choice'];
+
+/**
+ * Upper bound on form length and depth. Generous for a real entry form, but bounded so a
+ * question set cannot grow without limit and every registration then has to carry it.
+ */
+const MAX_QUESTIONS = 60;
+const MAX_PAGES = 10;
 
 export function buildQuestions(input: QuestionInput[] | undefined, previous: QuestionSet): QuestionSet {
   if (input === undefined) return previous;
+  if (input.length > MAX_QUESTIONS) {
+    throw new ValidationError('The form has too many questions.', [
+      { field: 'questions', code: 'TOO_MANY_QUESTIONS', message: `Use at most ${String(MAX_QUESTIONS)} questions.` }
+    ]);
+  }
   const seen = new Set<string>();
   const questions: CustomQuestion[] = input.map((q, index) => {
     if (!QUESTION_TYPES.includes(q.type)) {
@@ -153,16 +178,38 @@ export function buildQuestions(input: QuestionInput[] | undefined, previous: Que
       ]);
     }
     seen.add(key);
-    const options = q.type === 'single_choice'
+    const isChoice = CHOICE_TYPES.includes(q.type);
+    const options = isChoice
       ? (q.options ?? []).map((o) => ({ fa: trimField(o.fa, NAME_MAX), en: trimField(o.en, NAME_MAX) }))
       : [];
-    if (q.type === 'single_choice' && options.length < 2) {
+    if (isChoice && options.length < 2) {
       throw new ValidationError('A choice question needs options.', [
         { field: `questions.${String(index)}.options`, code: 'INSUFFICIENT_OPTIONS', message: 'Provide at least two options.' }
       ]);
     }
-    return { key, prompt, type: q.type, required: q.required ?? false, options };
+    if (isChoice && options.some((o) => o.fa === '' || o.en === '')) {
+      throw new ValidationError('An option needs both languages.', [
+        { field: `questions.${String(index)}.options`, code: 'INCOMPLETE_OPTION', message: 'Provide each option in both languages.' }
+      ]);
+    }
+    // Unspecified means page 1, so an existing single-page form stays valid untouched.
+    const page = q.page ?? 1;
+    if (!Number.isSafeInteger(page) || page < 1 || page > MAX_PAGES) {
+      throw new ValidationError('A question page is not valid.', [
+        { field: `questions.${String(index)}.page`, code: 'INVALID_QUESTION_PAGE', message: `Use a page between 1 and ${String(MAX_PAGES)}.` }
+      ]);
+    }
+    return { key, prompt, type: q.type, required: q.required ?? false, options, page };
   });
+
+  // Pages must be contiguous from 1: a form that jumps from page 1 to page 3 would show
+  // an empty step, which reads as a broken form rather than a deliberate one.
+  const pages = [...new Set(questions.map((q) => q.page))].sort((a, b) => a - b);
+  if (pages.some((page, i) => page !== i + 1)) {
+    throw new ValidationError('Form pages must run in order from 1.', [
+      { field: 'questions', code: 'NON_CONTIGUOUS_PAGES', message: 'Number the pages consecutively, starting at 1, with no gaps.' }
+    ]);
+  }
   const changed = JSON.stringify(questions) !== JSON.stringify(previous.questions);
   return changed ? { version: previous.version + 1, questions } : previous;
 }

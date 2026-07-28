@@ -1,4 +1,4 @@
-<script setup lang="ts">
+﻿<script setup lang="ts">
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppSearch from '../components/AppSearch.vue';
@@ -7,7 +7,7 @@ import StateBlock from '../components/StateBlock.vue';
 import { useAdmin } from '../composables/useAdmin.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { listModerationCases, type ModerationCaseView } from '../composables/useModerationApi.ts';
-import { formatDateTime } from '../i18n/format.ts';
+import { formatDateTime, formatNumber, formatRelativeTime } from '../i18n/format.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 
 /**
@@ -39,23 +39,49 @@ const columns: TableColumn[] = [
 ];
 
 const search = ref('');
-const rows = computed(() =>
+
+/** First segment of a UUID: enough to tell two rows apart, short enough to read. */
+function shortId(id: string): string {
+  return id.length <= 8 ? id : `${id.slice(0, 8)}…`;
+}
+
+/**
+ * The subject a case is about. A reported user resolves to their name (the server does
+ * the lookup); content and tournaments are not accounts, so they keep a readable
+ * `type · short-id`. The exact `type:id` stays in the cell's title either way — a
+ * moderator still needs it, but it does not belong in every screenshot.
+ */
+function subjectLabel(c: ModerationCaseView): string {
+  const type = t(`admin.moderation.subjectType.${c.subjectType}`);
+  return `${type} · ${c.subjectName?.displayName || c.subjectName?.username || shortId(c.subjectId)}`;
+}
+
+/** Cells and the exact values behind them, built and filtered together so they stay aligned. */
+const entries = computed(() =>
   cases.value.map((c) => ({
-    createdAt: formatDateTime(c.createdAt, activeLocale.value, 'Asia/Tehran'),
-    subject: `${c.subjectType}:${c.subjectId}`,
-    severity: t(`admin.moderation.severityValue.${c.severity}`),
-    state: t(`admin.moderation.stateValue.${c.state}`),
-    reportCount: String(c.reportCount),
-    emergency: c.emergency ? t('admin.audit.yes') : t('admin.audit.no')
+    row: {
+      createdAt: formatRelativeTime(c.createdAt, activeLocale.value),
+      subject: subjectLabel(c),
+      severity: t(`admin.moderation.severityValue.${c.severity}`),
+      state: t(`admin.moderation.stateValue.${c.state}`),
+      // Locale digits, like every other figure on the page (the relative time beside it
+      // already renders Persian numerals).
+      reportCount: formatNumber(c.reportCount, activeLocale.value),
+      emergency: c.emergency ? t('admin.audit.yes') : t('admin.audit.no')
+    },
+    title: {
+      createdAt: formatDateTime(c.createdAt, activeLocale.value, 'Asia/Tehran'),
+      subject: `${c.subjectType}:${c.subjectId}`
+    }
   }))
 );
-const filteredRows = computed(() => {
+const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (q === '') return rows.value;
-  return rows.value.filter((r) =>
-    `${r.subject} ${r.severity} ${r.state}`.toLowerCase().includes(q)
-  );
+  if (q === '') return entries.value;
+  return entries.value.filter((e) => `${e.row.subject} ${e.row.severity} ${e.row.state} ${e.title.subject}`.toLowerCase().includes(q));
 });
+const filteredRows = computed(() => filtered.value.map((e) => e.row));
+const filteredTitles = computed(() => filtered.value.map((e) => e.title));
 
 async function load(cursor?: string): Promise<void> {
   loading.value = true;
@@ -134,6 +160,7 @@ function onStateChange(): void {
           :caption="t('admin.moderation.caption')"
           :columns="columns"
           :rows="filteredRows"
+          :titles="filteredTitles"
           :empty-message="search.trim() === '' ? t('admin.moderation.empty') : t('search.noResults')"
           dense
         />
@@ -169,3 +196,4 @@ select {
   margin-block-start: var(--space-4);
 }
 </style>
+

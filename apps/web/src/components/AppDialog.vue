@@ -78,34 +78,22 @@ function onClose(): void {
 </template>
 
 <style scoped>
+/* A dialog is the plate lifted off the page. It keeps square corners rather than
+   the chamfer: the panel scrolls, and a clip-path would shear whatever content
+   reached the cut corners. The gold seam identifies it as the same system. */
 .dialog {
+  position: relative;
   inline-size: min(32rem, calc(100vw - 2rem));
   /* Long content must never exceed the viewport without a scroll path (320px). */
   max-block-size: calc(100dvh - 2rem);
   overflow: auto;
   padding: var(--space-6);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+  border-block-start: var(--seam-width) solid var(--color-accent);
+  background-color: var(--color-surface-raised);
   color: var(--color-text);
-  box-shadow: var(--shadow-lg);
-}
-
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .dialog {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
-  }
-}
-@media (prefers-reduced-transparency: reduce) {
-  .dialog {
-    background-color: var(--color-surface-overlay);
-    -webkit-backdrop-filter: none;
-    backdrop-filter: none;
-  }
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
 /* Entrance is gated on motion preference via the reduced-motion token (A11Y-010). */
@@ -158,6 +146,7 @@ function onClose(): void {
     max-block-size: 100dvh;
     margin: 0;
     border-radius: 0;
+    border-inline: 0;
     /* Full-height sheet still scrolls when its content is taller than the viewport. */
     overflow-y: auto;
   }

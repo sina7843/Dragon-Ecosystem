@@ -8,6 +8,8 @@ import ContentDetailView from './views/ContentDetailView.vue';
 import GamesCatalogView from './views/GamesCatalogView.vue';
 import GameDetailView from './views/GameDetailView.vue';
 import PublicTeamView from './views/PublicTeamView.vue';
+import TeamsDirectoryView from './views/TeamsDirectoryView.vue';
+import PlayersDirectoryView from './views/PlayersDirectoryView.vue';
 import TournamentsListView from './views/TournamentsListView.vue';
 import TournamentCalendarView from './views/TournamentCalendarView.vue';
 import TournamentDetailView from './views/TournamentDetailView.vue';
@@ -93,11 +95,34 @@ export const router = createRouter({
       component: TournamentDetailView,
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
     },
+    // The directories come before their detail routes so `/teams` is not swallowed by
+    // `/teams/:slug`. Both are crawlable index pages over the existing search endpoints.
+    {
+      path: '/:locale(fa|en)/teams',
+      name: 'teams',
+      component: TeamsDirectoryView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
+    },
     {
       path: '/:locale(fa|en)/teams/:slug',
       name: 'public-team',
       component: PublicTeamView,
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
+    },
+    {
+      path: '/:locale(fa|en)/players',
+      name: 'players',
+      component: PlayersDirectoryView,
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.players' }
+    },
+    {
+      // Global search is a utility surface, not a landing page: it must not be indexed,
+      // and for the same reason it is not part of the first-paint bundle — an anonymous
+      // visitor landing on an article should not download it.
+      path: '/:locale(fa|en)/search',
+      name: 'search',
+      component: () => import('./views/SearchView.vue'),
+      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.search' }
     },
     {
       path: '/:locale(fa|en)/players/:username',
@@ -182,6 +207,48 @@ export const router = createRouter({
       name: 'admin-moderation',
       component: () => import('./views/AdminModerationView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/media',
+      name: 'admin-media',
+      component: () => import('./views/AdminMediaView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminMedia' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/configuration',
+      name: 'admin-configuration',
+      component: () => import('./views/AdminConfigurationView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminConfiguration' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/notifications',
+      name: 'admin-notifications',
+      component: () => import('./views/AdminNotificationsView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminNotifications' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/organizer',
+      name: 'admin-organizer',
+      component: () => import('./views/OrganizerWorkspaceView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminOrganizer' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/finance',
+      name: 'admin-finance',
+      component: () => import('./views/AdminFinanceView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminFinance' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/support',
+      name: 'admin-support',
+      component: () => import('./views/AdminSupportView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminSupport' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/operations',
+      name: 'admin-operations',
+      component: () => import('./views/AdminOperationsView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminOperations' }
     },
     {
       path: '/:locale(fa|en)/admin/content',

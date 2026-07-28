@@ -4,6 +4,7 @@ import AppSearch from '../components/AppSearch.vue';
 import { useI18n } from 'vue-i18n';
 import AppField from '../components/AppField.vue';
 import ImagePicker from '../components/ImagePicker.vue';
+import RegistrationFormBuilder, { type QuestionDraft } from '../components/RegistrationFormBuilder.vue';
 import StateBlock from '../components/StateBlock.vue';
 import { apiFetch } from '../api.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -36,6 +37,8 @@ interface Tournament {
   fee: { kind: 'free' | 'toman' | 'dragon_coin' | 'mixed'; components: Money[] };
   prizes: { version: number; placements: Array<{ rank: number; rewards: Money[] }> };
   coverImageUrl: string | null;
+  /** The registration form an entrant fills in; empty means no questions are asked. */
+  questionSet: { version: number; questions: QuestionDraft[] };
 }
 
 const { t, locale } = useI18n();
@@ -86,6 +89,18 @@ function emptyForm() {
 }
 const form = reactive(emptyForm());
 
+/**
+ * The registration form's questions, held beside the tournament form because they are an
+ * array rather than flat fields. Sent only when the organizer has touched them, so saving
+ * an unrelated field never bumps the question-set version and invalidates stamped answers.
+ */
+const questions = ref<QuestionDraft[]>([]);
+const questionsTouched = ref(false);
+function onQuestionsChange(next: QuestionDraft[]): void {
+  questions.value = next;
+  questionsTouched.value = true;
+}
+
 async function loadList(): Promise<void> {
   loading.value = true;
   try {
@@ -113,6 +128,8 @@ const dt = (iso: string | null): string => (iso === null ? '' : iso.slice(0, 16)
 function resetForm(): void {
   editing.value = null;
   Object.assign(form, emptyForm());
+  questions.value = [];
+  questionsTouched.value = false;
   formError.value = undefined;
   fieldErrors.value = {};
 }
@@ -142,6 +159,9 @@ function edit(tour: Tournament): void {
     prizeCoin: prize?.rewards.find((r) => r.assetCode === 'DRC') ? String((prize.rewards.find((r) => r.assetCode === 'DRC') as Money).amountInteger) : '',
     coverImageUrl: tour.coverImageUrl ?? null
   });
+  // Legacy records predate the page field; treat those questions as a single-page form.
+  questions.value = (tour.questionSet?.questions ?? []).map((q) => ({ ...q, page: q.page ?? 1, options: q.options ?? [] }));
+  questionsTouched.value = false;
   formError.value = undefined;
   fieldErrors.value = {};
 }
@@ -175,6 +195,9 @@ function buildPayload(): Record<string, unknown> {
     if (form.prizeCoin !== '') placement['dragonCoinAmount'] = Number(form.prizeCoin);
     payload['prizes'] = { placements: [placement] };
   }
+  // Only sent when edited: the server bumps the question-set version on any change, and
+  // answers already submitted are stamped with the version they were given.
+  if (questionsTouched.value) payload['questions'] = questions.value;
   return payload;
 }
 
@@ -526,6 +549,13 @@ async function clone(): Promise<void> {
               latin
             />
           </fieldset>
+
+          <!-- The entry form entrants fill in. Shown for every tournament, including a new
+               one, so questions can be set before the first registration arrives. -->
+          <RegistrationFormBuilder
+            :model-value="questions"
+            @update:model-value="onQuestionsChange"
+          />
 
           <div class="actions">
             <button

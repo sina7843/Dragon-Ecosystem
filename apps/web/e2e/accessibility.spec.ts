@@ -80,10 +80,22 @@ test.describe('shared primitive accessibility', () => {
 
   test('a danger toast is announced assertively; loading/error state blocks expose the right roles', async ({ page }) => {
     await page.goto(DS('en'));
+
+    // Both live regions are mounted before anything is announced and start empty: text
+    // inserted into an existing live region is the only reliably announced pattern, so
+    // the announcement never rides on the toast element itself (A11Y-001).
+    const assertive = page.getByTestId('toast-live-assertive');
+    const polite = page.getByTestId('toast-live-polite');
+    await expect(assertive).toHaveAttribute('aria-live', 'assertive');
+    await expect(polite).toHaveAttribute('aria-live', 'polite');
+    await expect(assertive).toHaveText('');
+
     await page.getByTestId('toast-danger').click();
-    const toast = page.getByTestId('toast').first();
-    await expect(toast).toHaveAttribute('role', 'alert');
-    await expect(toast).toHaveAttribute('aria-live', 'assertive');
+    // The urgent notice lands in the assertive region, and not in the polite one.
+    await expect(assertive).toContainText(/\S/);
+    await expect(polite).toHaveText('');
+    // The visible toast is decoration; its text is hidden so it is not read twice.
+    await expect(page.getByTestId('toast').first().locator('.toast-text')).toHaveAttribute('aria-hidden', 'true');
   });
 
   test('the not-found state announces assertively with a real heading (SEO/A11Y)', async ({ page }) => {

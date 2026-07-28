@@ -45,6 +45,13 @@ const filteredRows = computed(() => {
   );
 });
 
+/**
+ * Lifecycle state of the tournament, so an empty queue can say *why* it is empty.
+ * A draft accepts no entries at all, which otherwise looks identical to a published
+ * tournament nobody has entered yet.
+ */
+const tournamentState = ref<string | null>(null);
+
 async function load(): Promise<void> {
   loading.value = true;
   try {
@@ -65,6 +72,7 @@ async function loadVisibility(): Promise<void> {
     participantsPublic.value = record.participantsPublic;
     visibilityVersion.value = record.version;
     visibilityKnown.value = true;
+    tournamentState.value = record.state;
   } catch {
     visibilityKnown.value = false; // toggle stays hidden if the record can't be read
   }
@@ -214,7 +222,13 @@ async function decide(reg: AdminRegistration, verb: 'approve' | 'reject' | 'wait
       <StateBlock
         v-else-if="filteredRows.length === 0"
         variant="empty"
-        :message="search.trim() === '' ? t('adminRegistrations.empty') : t('search.noResults')"
+        :message="
+          search.trim() !== ''
+            ? t('search.noResults')
+            : tournamentState !== null && tournamentState !== 'published'
+              ? t('adminRegistrations.notPublished')
+              : t('adminRegistrations.empty')
+        "
       />
 
       <div

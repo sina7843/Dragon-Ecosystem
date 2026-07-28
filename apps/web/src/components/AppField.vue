@@ -96,17 +96,34 @@ function onInput(event: Event): void {
   margin-block-end: var(--space-4);
 }
 
+/* Field labels are labels: the utility face, like every other label in the UI. */
 label {
-  font-weight: 600;
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: var(--color-text-soft);
+}
+[lang='fa'] label {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 input {
   padding: var(--space-2) var(--space-3);
   /* Interactive control boundary meets non-text 3:1 (A11Y-008). */
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text);
+  transition: border-color var(--motion-fast) var(--motion-ease);
+}
+
+input:focus {
+  border-color: var(--color-accent);
 }
 
 input[aria-invalid='true'] {

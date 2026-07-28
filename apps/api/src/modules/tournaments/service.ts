@@ -51,6 +51,9 @@ import {
 
 const DEFAULT_CAPACITY = 16;
 const DUPLICATE_KEY = 11000;
+
+/** See `TournamentsService#publicFilter` for why a finished/cancelled event stays readable. */
+export const PUBLIC_STATES: readonly TournamentState[] = ['published', 'completed', 'cancelled'];
 function isDuplicateKey(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: number }).code === DUPLICATE_KEY;
 }
@@ -370,11 +373,15 @@ export class TournamentsService {
     return this.#tournaments().findOne({ _id: id });
   }
 
-  async listForAdmin(query: { state?: TournamentState; gameId?: string; cursor?: string; limit?: number }): Promise<Page<TournamentRecord>> {
+  async listForAdmin(query: { state?: TournamentState; gameId?: string; organizerId?: string; cursor?: string; limit?: number }): Promise<Page<TournamentRecord>> {
     const limit = clampLimit(query.limit);
     const filter: Record<string, unknown> = {};
     if (query.state !== undefined) filter['state'] = query.state;
     if (query.gameId !== undefined) filter['gameId'] = query.gameId;
+    // Narrows the admin list to one organizer's own events (the organizer workspace).
+    // It is a filter, not an authorization boundary: the route's permission gate still
+    // decides who may read the list at all.
+    if (query.organizerId !== undefined) filter['organizerId'] = query.organizerId;
     this.#applyCursor(filter, decodeCursor(query.cursor), 'updatedAt', -1);
     const rows = await this.#tournaments().find(filter).sort({ updatedAt: -1, _id: -1 }).limit(limit + 1).toArray();
     return this.#toPage(rows, limit, (r) => r.updatedAt);
@@ -391,21 +398,39 @@ export class TournamentsService {
 
   // --- Public reads (published only) ---
 
-  #publicFilter(): Record<string, unknown> {
-    return { state: 'published' };
+  /**
+   * States a visitor may read directly.
+   *
+   * A finished event is the permanent public record of what happened — its winner,
+   * final bracket, and standings — and a cancelled one has to say so rather than
+   * vanish, so both stay readable. `draft` has never been public and `archived` is
+   * the deliberate withdrawal, so both remain hidden.
+   */
+  #publicFilter(states: readonly TournamentState[] = PUBLIC_STATES): Record<string, unknown> {
+    return { state: states.length === 1 ? states[0] : { $in: [...states] } };
+  }
+
+  /** True when a visitor may read this tournament (shared with the modules that join onto it). */
+  isPubliclyReadable(state: TournamentState): boolean {
+    return PUBLIC_STATES.includes(state);
   }
 
   async listPublished(query: {
     gameId?: string;
     participantType?: string;
     format?: string;
+    state?: TournamentState;
     q?: string;
     locale?: Locale;
     cursor?: string;
     limit?: number;
   }): Promise<Page<TournamentRecord>> {
     const limit = clampLimit(query.limit);
-    const filter: Record<string, unknown> = this.#publicFilter();
+    // The directory still leads with what is open or running; the archive is asked for
+    // explicitly, so a finished event never displaces a live one in the default view.
+    const filter: Record<string, unknown> = this.#publicFilter(
+      query.state !== undefined && PUBLIC_STATES.includes(query.state) ? [query.state] : ['published']
+    );
     if (query.gameId !== undefined) filter['gameId'] = query.gameId;
     if (query.participantType !== undefined) filter['participantType'] = query.participantType;
     if (query.format !== undefined) filter['format'] = query.format;

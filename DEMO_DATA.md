@@ -50,12 +50,22 @@ scripts (host, against a host-reachable dev database): `npm run seed:demo` /
 - Never prints OTP codes, secrets, session tokens, or callback signatures.
 - Writes domain state only through the real application services (identity, teams,
   games, content, tournaments, registrations, competitions, ledger, payments, holds,
-  media, notifications, moderation, operations) — never by hand-editing rows.
+  media, notifications, moderation, operations) — never by hand-editing rows, with three
+  presentation-only exceptions that exist because no service write covers them:
+  - **Tournament posters.** `updateDraft` is deliberately draft-only and the state machine
+    has no route back to draft, so an empty `coverImageUrl` on a published tournament is
+    filled directly. A poster already set is never overwritten.
+  - **Delivery log shaping.** A slice of notification deliveries is held in the gated state
+    so `suppressed` stays visible next to the delivered ones.
+  - **Audit timeline.** `occurredAt` is restamped across the preceding weeks so day
+    grouping, relative time, and date filtering have something to show. Only the timestamp
+    changes, and the original ordering is preserved.
 - Demo ownership is tracked in a separate development-only `demo_seed_registry`
   collection (unique on `demoSeedKey`), never as a marker field on a domain record.
-  Immutable and append-only rows (ledger, purchases, holds, audit, notifications,
+  Immutable and append-only rows (ledger, purchases, holds, notifications,
   competition matches/standings/versions, registrations, analytics) are therefore
-  never mutated or marked after creation.
+  never mutated or marked after creation. Audit rows keep their content; only the
+  timeline step above touches their timestamp.
 - Idempotent: a rerun creates no duplicates, no duplicate financial effect, and does
   not mutate any immutable record (verified by an integration test).
 - No live SMS/email/payment/analytics; refunds, withdrawals, payouts, and transfers stay
@@ -95,14 +105,39 @@ mints a session or bypasses authentication, and it never prints a code.
 ## Pages worth inspecting
 
 - Public home / content / games directory / tournament directory (search, filters, pagination).
-- Tournament detail, registration & waitlist (approved / pending / waitlisted / cancelled;
-  one full tournament — `orbit-qualifier`).
+- Tournament detail, registration & waitlist — every registration state is represented
+  (approved / pending / waitlisted / rejected / cancelled); `orbit-qualifier` is full and
+  holds the waitlisted and rejected examples.
+- Imagery: every game, tournament, article, team, and profile carries generated artwork with
+  bilingual alt text, so heroes, cards, thumbnails, and avatars all render real images. The
+  bytes are produced deterministically by the seeder — nothing is downloaded, and because
+  media is content-addressed a rerun reuses the same assets.
+- Participant lists: public on most tournaments (with clickable player/team links) and
+  private on `astro-grand-prix` and `nova-draft-cup`, so both states are reviewable.
+- Content taxonomy: categories per content type plus cross-cutting tags, with every article
+  filed, so the taxonomy filters and the admin taxonomy screens have data.
+- Notification deliveries: a mix of `sent` and gated `suppressed` rows, with approved SMS
+  templates behind them. The mock channel is used unconditionally — no message is ever sent.
+- Administration audit: events spread across the preceding weeks, so day grouping, relative
+  time, and the date filter are all exercisable.
 - Brackets & standings: dedicated competitions in every state — `comp-se-generated`
   (seeded bracket), `comp-se-partial` (partially played), `comp-se-complete` (finished, with
-  a result correction / version history), `comp-round-robin` (final standings with rank/tiebreak
-  columns), `comp-swiss` (a completed Swiss round with provisional standings).
-- Media: published cover on the `nova-strike` game, staged vs published assets, decorative
-  (empty-alt) media, and localized fa/en alt text.
+  a result correction / version history), `comp-de-complete` (double elimination played out
+  over 8 entrants, so the winners, losers, and grand-final bands all render),
+  `comp-round-robin` (final standings with rank/tiebreak columns), `comp-swiss` (a completed
+  Swiss round with provisional standings).
+- Paid entry, both currencies: `nova-premier-cup` charges Toman and has one entrant left
+  mid-payment (`pending_payment` registration, `awaiting_payment` checkout — returning to
+  the page resumes it); `dragon-coin-clash` charges Dragon Coin and has one entrant who
+  confirmed from their own balance, capturing the hold and activating the registration.
+  Requires `PAID_TOURNAMENTS_ENABLED` (on in the development override, off by default).
+- Prizes: two allocations from final standings. `comp-se-complete` pays Toman for ranks
+  1–3, giving one entitlement in each state a finance operator sees — **paid** (with
+  settlement evidence), **approved**, and **pending** — and credits Dragon Coin to the
+  winner's wallet; `comp-de-complete` allocates a Dragon Coin prize only. Entitlements
+  appear under Account → Wallet → Prizes.
+- Media library: staged vs published assets, decorative (empty-alt) media, localized fa/en
+  alt text, and a referenced-and-therefore-undeletable cover on the `nova-strike` game.
 - Teams directory & detail (public/private, members, pending invitations; `demo_player_ash`
   has several pending invites; `demo_empty` has no team).
 - Player directory / profile (public & private, complete & incomplete, gaming identities).
@@ -110,6 +145,25 @@ mints a session or bypasses authentication, and it never prints a code.
   `demo_empty` has an empty wallet), notifications (unread & read; `demo_empty` empty inbox).
 - Administration: overview, users, content (incl. one draft game & draft article — visible
   to admins only, never in public lists), moderation queue, finance/operator & support views.
+- Administration → Media library: every seeded asset with its alt text, one staged file
+  awaiting publication, and delete refused while something still references an asset.
+- Administration → Configuration: two low-risk keys active on proposal, and one high-risk
+  key (`finance.` prefix) held awaiting approval — approving it requires a *different*
+  operator, and the proposer trying to approve their own change is refused.
+- Administration → Notifications: approved SMS templates and the delivery log with its
+  mix of delivered and gated rows, plus a bounded "run a delivery pass" control.
+- Administration → Finance: the Dragon Coin hold list and the cash-entitlement queue.
+  Capture and approve need `finance.manage`; force-release and marking an entitlement
+  **paid** need `finance.approve`, so `demo_finance` is offered the first pair and not the
+  second, with a note saying why.
+- Administration → Support: the support case queue and account-recovery triage. Recovery
+  is triage-only by design — there is no approval path on the screen or on the server.
+- Administration → Operations: the metrics snapshot, the alert list with acknowledgement,
+  and recent background job runs, plus bounded "run jobs" and "health check" passes.
+- Administration → Organizer workspace: each organizer's own events with seat usage, the
+  number of entries awaiting review, and direct links into the registration queue and the
+  competition controls. `demo_org_kai` has one entry pending; `demo_org_ava` owns ten
+  events with none outstanding.
 
 Empty states: `demo_empty` (no team/wallet/notifications/registrations) and the two
 incomplete-profile accounts.
@@ -148,12 +202,18 @@ financial invariants survive a reset.
 The demo reflects Phase-1 fail-closed behavior:
 
 - Payments use the **deterministic mock provider** only (`PAYMENTS_MOCK_ENABLED=true` in the
-  dev override). No real gateway is called. Toman prize entitlements, refunds, withdrawals,
-  payouts, and user-to-user transfers are disabled.
-- Paid tournaments stay gated off (`PAID_TOURNAMENTS_ENABLED` unset) — demo tournaments are
-  free; the paid checkout path is not exercised.
-- SMS/email delivery is gated off; only the in-app inbox is populated. OTP SMS uses the
-  dev inbox above.
+  dev override). No real gateway is called. Refunds, withdrawals, payouts, and
+  user-to-user transfers are disabled.
+- Paid tournaments are enabled **in the development override only**
+  (`PAID_TOURNAMENTS_ENABLED=true`); `.env.example` ships it as `false`, so production stays
+  gated unless it is turned on deliberately. With it off, the seeder still defines the two
+  priced tournaments but skips their checkouts and says so in its summary.
+- Toman prize entitlements are settled **off-platform**: marking one paid records
+  settlement evidence and an operator, and moves no money through the platform. Dragon Coin
+  prizes are credited on-platform through a balanced double-entry posting.
+- SMS delivery uses the mock channel; the seeder settles most deliveries through it and
+  leaves a slice gated so both states are visible. No message ever leaves the machine, and
+  OTP SMS uses the dev inbox above.
 - External analytics forwarding is off; analytics are recorded to the internal pseudonymous
   sink only (a non-consented nonessential event is correctly dropped).
 - Recovery is triage-only; no approval/auth-bypass path exists.

@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import { useRoute } from 'vue-router';
 import StateBlock from '../components/StateBlock.vue';
-import { ApiRequestError } from '../api.ts';
+import { ApiRequestError, apiFetch } from '../api.ts';
 import { isLocale } from '../i18n/locale.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
@@ -76,9 +76,31 @@ const swissCanAdvance = computed(() => {
   return matches.value.filter((m) => m.round === c.swiss?.currentRound).every((m) => m.state === 'completed' || m.state === 'bye');
 });
 
+/**
+ * The tournament this console is operating on.
+ *
+ * A competition can only be generated for a *published* tournament, and the server
+ * answers a draft with a plain 404. Without knowing the state, this screen showed
+ * "no competition generated yet" plus a Generate button that could only ever fail with
+ * "That item could not be found" — which reads as a broken button rather than as
+ * "publish the tournament first".
+ */
+const tournamentState = ref<string | null>(null);
+const canGenerate = computed(() => tournamentState.value === 'published');
+
+async function loadTournament(): Promise<void> {
+  try {
+    const record = await apiFetch<{ state: string }>(`/admin/tournaments/${tournamentId.value}`);
+    tournamentState.value = record.state;
+  } catch {
+    tournamentState.value = null; // Unknown: the generate control stays hidden.
+  }
+}
+
 async function load(): Promise<void> {
   loading.value = true;
   try {
+    await loadTournament();
     const view = await getAdminCompetition(tournamentId.value);
     competition.value = view.competition;
     matches.value = view.matches;
@@ -230,9 +252,13 @@ function confirmRollback(): void {
     <template v-else-if="notGenerated">
       <StateBlock
         variant="empty"
-        :message="t('competitionOps.notGenerated')"
+        :message="canGenerate ? t('competitionOps.notGenerated') : t('competitionOps.publishFirst')"
+        data-testid="competition-empty"
       />
+      <!-- Offered only when it can actually succeed: generating for an unpublished
+           tournament is refused by the server. -->
       <button
+        v-if="canGenerate"
         type="button"
         class="primary"
         data-testid="generate"
@@ -240,6 +266,14 @@ function confirmRollback(): void {
       >
         {{ t('competitionOps.generate') }}
       </button>
+      <RouterLink
+        v-else
+        class="btn btn-secondary"
+        :to="`${prefix}/admin/tournaments`"
+        data-testid="back-to-publish"
+      >
+        {{ t('competitionOps.goPublish') }}
+      </RouterLink>
     </template>
 
     <template v-else-if="competition">

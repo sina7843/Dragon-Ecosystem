@@ -33,6 +33,26 @@ export function getCheckout(id: string): Promise<CheckoutView> {
   return apiFetch(`/checkouts/${encodeURIComponent(id)}`);
 }
 
+/** The caller's own checkouts, newest first. */
+export function listCheckouts(): Promise<{ items: CheckoutView[]; nextCursor: string | null }> {
+  return apiFetch('/checkouts?limit=50');
+}
+
+/** States a checkout can still be carried forward from; anything else is finished. */
+const RESUMABLE: readonly CheckoutState[] = ['awaiting_payment', 'awaiting_confirmation'];
+
+/**
+ * The caller's unfinished checkout for one tournament, if any.
+ *
+ * A payment that is still settling leaves a real seat reserved (`pending_payment`), so
+ * returning to the page must show that rather than offering to start again — a second
+ * attempt is rejected by the server as a duplicate anyway.
+ */
+export async function findOpenCheckout(tournamentId: string): Promise<CheckoutView | null> {
+  const page = await listCheckouts();
+  return page.items.find((c) => c.tournamentId === tournamentId && RESUMABLE.includes(c.state)) ?? null;
+}
+
 export function confirmCheckout(id: string): Promise<CheckoutView> {
   return apiFetch(`/checkouts/${encodeURIComponent(id)}/confirm`, { method: 'POST' });
 }

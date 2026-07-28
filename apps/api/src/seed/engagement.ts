@@ -5,11 +5,140 @@
  * is ever sent (gated off); recipients stay masked; recovery approval stays disabled.
  * Ownership is tracked only in the demo registry — never as a marker on a domain row.
  */
+import { buildNotifications } from '../server.ts';
 import type { SeedSummary } from './harness.ts';
 import { demoRef } from './harness.ts';
 import type { DemoRegistry } from './registry.ts';
 import type { UserRegistry } from './users.ts';
 import { accountContext, sysContext, type Services } from './wiring.ts';
+
+const SMS_TEMPLATES: readonly { key: string; fa: string; en: string }[] = [
+  { key: 'registration_approved', fa: 'ثبت‌نام شما در مسابقه تأیید شد.', en: 'Your tournament registration has been approved.' },
+  { key: 'registration_confirmed', fa: 'ثبت‌نام شما نهایی شد.', en: 'Your tournament registration is confirmed.' }
+];
+
+/** Approved SMS templates, without which every delivery settles as `no_template`. */
+async function seedNotificationTemplates(services: Services, summary: SeedSummary): Promise<void> {
+  let created = 0;
+  let reused = 0;
+  for (const t of SMS_TEMPLATES) {
+    const existing = await services.db
+      .collection('notification_templates')
+      .findOne({ templateKey: t.key, channel: 'sms', status: 'approved' } as never);
+    if (existing !== null) {
+      reused += 1;
+      continue;
+    }
+    const draft = await services.notifications.createTemplate(sysContext(), {
+      templateKey: t.key,
+      channel: 'sms',
+      category: 'transactional',
+      locales: { fa: { subject: 'دراگون', body: t.fa }, en: { subject: 'Dragon', body: t.en } }
+    });
+    await services.notifications.approveTemplate(sysContext(), draft._id);
+    created += 1;
+  }
+  summary.record('notification templates', created, reused);
+}
+
+/** Deliveries deliberately left in the gated state so it stays visible beside the sent ones. */
+const KEEP_SUPPRESSED = 6;
+
+/**
+ * Gives the delivery log more than one outcome to show.
+ *
+ * Both notification channels are gated off by default, so every delivery the demo produced
+ * settled as `suppressed / channel_disabled` — correct fail-closed behaviour, but it left
+ * the admin delivery view with a single uniform status and nothing to compare. This step
+ * settles all but the oldest few through a second notifications instance whose channel
+ * gates are on, so the log shows delivered and gated side by side.
+ *
+ * That instance is pinned to the MOCK provider regardless of configuration: the mock
+ * derives its outcome from the recipient and performs no network call, so the seeder can
+ * never send a real message even if a live SMS provider is configured here.
+ *
+ * The gated slice is re-established rather than merely preserved, because an earlier run
+ * settled every delivery. That is a demo-shaping write on a log the application only
+ * appends to, and it is confined to this development-only step.
+ */
+async function seedDeliveryOutcomes(services: Services, summary: SeedSummary): Promise<void> {
+  await seedNotificationTemplates(services, summary);
+  const deliveries = services.db.collection('notification_deliveries');
+  const all = (await deliveries
+    .find({}, { projection: { _id: 1, status: 1 } })
+    .sort({ createdAt: 1, _id: 1 })
+    .toArray()) as unknown as Array<{ _id: string; status: string }>;
+  if (all.length === 0) return;
+
+  const gate = all.slice(0, KEEP_SUPPRESSED).filter((d) => d.status !== 'suppressed').map((d) => d._id);
+  const send = all.slice(KEEP_SUPPRESSED).filter((d) => d.status === 'suppressed').map((d) => d._id);
+  if (gate.length > 0) {
+    await deliveries.updateMany({ _id: { $in: gate } } as never, { $set: { status: 'suppressed', suppressedReason: 'channel_disabled', lastError: null } });
+  }
+  if (send.length === 0) {
+    summary.record('notification deliveries', 0, all.length);
+    return;
+  }
+  const requeued = await deliveries.updateMany(
+    { _id: { $in: send } } as never,
+    { $set: { status: 'pending', suppressedReason: null, nextAttemptAt: new Date().toISOString() } }
+  );
+  const mockOnly = {
+    ...services.config,
+    notificationsSmsEnabled: true,
+    notificationsEmailEnabled: true,
+    sms: { provider: 'mock' as const, kavenegar: null }
+  };
+  const notifier = buildNotifications(services.database, mockOnly).service;
+  // Retries are backed off, so several passes are needed to reach the dead-letter state.
+  let sent = 0;
+  for (let pass = 0; pass < 4; pass += 1) {
+    const result = await notifier.processDeliveries(sysContext(), { limit: 200 });
+    sent += result.sent;
+    if (result.sent === 0 && result.failed === 0 && result.dead === 0) break;
+    // Bring the backed-off retries forward so the seeder does not have to wait for them.
+    await deliveries.updateMany({ status: 'pending' }, { $set: { nextAttemptAt: new Date().toISOString() } });
+  }
+  summary.record('notification deliveries', sent, requeued.modifiedCount - sent);
+}
+
+/**
+ * Configuration keys, so the versioned-settings console has something to show.
+ *
+ * The propose/approve workflow existed with no data at all: every key list was empty, so
+ * neither an active value nor the dual-control path was reviewable. This seeds one of
+ * each — a low-risk key that activates on proposal, and a high-risk one that stays
+ * `pending_approval` because approving it requires a *different* operator, which is
+ * exactly the state a reviewer needs to see.
+ *
+ * The proposals go through the real service, so the risk classification, versioning, and
+ * audit trail are the genuine ones. Guarded on the key already existing, so a rerun adds
+ * no version.
+ */
+const CONFIG_SEED: readonly { key: string; value: unknown; reason: string }[] = [
+  { key: 'platform.support_hours', value: '09:00-18:00 Asia/Tehran', reason: 'Demo: published support window.' },
+  { key: 'tournaments.default_capacity', value: 16, reason: 'Demo: default field size for a new tournament.' },
+  // High-risk prefix (finance.), so this one is stored awaiting a second operator.
+  { key: 'finance.max_refund_toman', value: 5_000_000, reason: 'Demo: proposed refund ceiling, awaiting approval.' }
+];
+
+async function seedConfiguration(services: Services, summary: SeedSummary, users: UserRegistry): Promise<void> {
+  const proposer = users.get('op-finance') ?? users.get('admin-super');
+  if (proposer === undefined) return;
+  const actor = { context: accountContext(proposer.accountId, ['finance_operator']), isSuperAdmin: false };
+  let created = 0;
+  let reused = 0;
+  for (const entry of CONFIG_SEED) {
+    const existing = await services.db.collection('configuration_versions').findOne({ key: entry.key } as never);
+    if (existing !== null) {
+      reused += 1;
+      continue;
+    }
+    await services.admin.proposeConfiguration(actor, entry);
+    created += 1;
+  }
+  summary.record('configuration keys', created, reused);
+}
 
 export async function seedEngagement(services: Services, registry: DemoRegistry, summary: SeedSummary, users: UserRegistry): Promise<void> {
   const db = services.db;
@@ -24,6 +153,9 @@ export async function seedEngagement(services: Services, registry: DemoRegistry,
   // Only mark read when new notifications arrived, so a rerun writes nothing.
   if (reader !== undefined && after > before) await services.notifications.markAllRead(accountContext(reader.accountId), reader.accountId);
   summary.record('notifications', Math.max(0, after - before), after - Math.max(0, after - before));
+
+  await seedDeliveryOutcomes(services, summary);
+  await seedConfiguration(services, summary, users);
 
   // 2. Moderation — one open case per subject (user/content/tournament), collapsed.
   const contentDoc = await db.collection('content_items').findOne({ 'slugs.en': 'weekly-recap' } as never);

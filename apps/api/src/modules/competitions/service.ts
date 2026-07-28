@@ -43,6 +43,13 @@ import {
  */
 
 const DUPLICATE_KEY = 11000;
+
+/**
+ * Upper bound on a whole-bracket read. A 1000-entrant double elimination is under 2000
+ * matches, so this clears the largest field the platform allows (MAX_CAPACITY) with room
+ * to spare while still refusing to load an unbounded collection.
+ */
+const MAX_MATCHES_PER_COMPETITION = 4000;
 function isDuplicateKey(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: number }).code === DUPLICATE_KEY;
 }
@@ -607,8 +614,21 @@ export class CompetitionsService {
     return this.#competitions().findOne({ tournamentId });
   }
 
+  /**
+   * The whole bracket in one read, for a caller that genuinely needs it (the demo seeder
+   * advancing a competition). Bounded by a tripwire rather than a page size: a partial
+   * bracket would let a caller act on a match list it believes is complete. Anything that
+   * only needs to *display* matches should use {@link listMatchesPage} (DB-002).
+   */
   async listMatches(competitionId: EntityId): Promise<MatchRecord[]> {
-    return this.#matches().find({ competitionId }).sort({ round: 1, index: 1 }).toArray();
+    const rows = await this.#matches().find({ competitionId }).sort({ round: 1, index: 1 }).limit(MAX_MATCHES_PER_COMPETITION + 1).toArray();
+    if (rows.length > MAX_MATCHES_PER_COMPETITION) {
+      throw new ConflictError(
+        'COMPETITION_TOO_LARGE',
+        `This competition has more than ${String(MAX_MATCHES_PER_COMPETITION)} matches; page through them instead of loading the whole bracket.`
+      );
+    }
+    return rows;
   }
 
   /** Paginated, (round, index)-ordered match read (load-safe; never loads the whole bracket at once). */

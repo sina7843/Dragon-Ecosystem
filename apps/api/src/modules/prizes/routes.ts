@@ -56,6 +56,12 @@ export function registerPrizesRoutes(app: FastifyInstance, deps: PrizesDeps): vo
     deps.prizes.allocate(request.requestContext, (request.params as { id: string }).id)
   );
 
+  // The finance queue: everything awaiting a decision, regardless of tournament.
+  app.get('/admin/entitlements', { ...financeManage(), schema: { tags: ['prizes'], summary: 'List cash entitlements across tournaments (finance).', querystring: { type: 'object', additionalProperties: false, properties: { state: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
+    const page = await deps.prizes.listEntitlements(request.query as { state?: string; cursor?: string; limit?: number });
+    return { items: page.items.map(financeView), nextCursor: page.nextCursor };
+  });
+
   app.get('/admin/tournaments/:id/entitlements', { ...financeManage(), schema: { tags: ['prizes'], summary: 'List a tournament\'s cash entitlements (finance).', params: idParam, querystring: { type: 'object', additionalProperties: false, properties: { state: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
     const page = await deps.prizes.listTournamentEntitlements((request.params as { id: string }).id, request.query as { state?: string; cursor?: string; limit?: number });
     return { items: page.items.map(financeView), nextCursor: page.nextCursor };

@@ -2,9 +2,20 @@ import { apiFetch } from '../api.ts';
 
 /**
  * Public competition reads (DRAGON-09c): current standings and a paginated bracket
- * for a published tournament. Participants are identified by seed number (names are
- * later presentation polish).
+ * for a publicly readable tournament (published, completed, or cancelled).
+ *
+ * Seed number is the join key inside a bracket or standings row; `participants` carries
+ * the display identity for each seed. A name is null when the entrant's profile is
+ * private, and the caller falls back to the seed label — the server resolves that, so
+ * privacy is never decided here.
  */
+
+export interface ParticipantIdentity {
+  seed: number;
+  name: string | null;
+  username: string | null;
+  teamSlug: string | null;
+}
 
 export interface StandingsRowView {
   seed: number | null;
@@ -22,6 +33,7 @@ export interface StandingsView {
   status: 'final' | 'provisional' | 'partial';
   calculationVersion: number;
   lockState: 'open' | 'correction_limited' | 'locked';
+  participants: ParticipantIdentity[];
   rows: StandingsRowView[];
 }
 
@@ -38,6 +50,7 @@ export interface BracketMatchView {
 export interface BracketView {
   format: string;
   lockState: string;
+  participants: ParticipantIdentity[];
   items: BracketMatchView[];
   nextCursor: string | null;
 }
@@ -46,9 +59,16 @@ export function getStandings(tournamentId: string): Promise<StandingsView> {
   return apiFetch(`/tournaments/${encodeURIComponent(tournamentId)}/standings`);
 }
 
+/**
+ * A bracket is assembled by paging until the cursor is exhausted, so request the
+ * endpoint's maximum page size: a 256-player field needs 3 round trips instead of ~13.
+ */
+const BRACKET_PAGE_SIZE = 100;
+
 export function getBracket(tournamentId: string, cursor?: string): Promise<BracketView> {
-  const q = cursor === undefined ? '' : `?cursor=${encodeURIComponent(cursor)}`;
-  return apiFetch(`/tournaments/${encodeURIComponent(tournamentId)}/bracket${q}`);
+  const params = new URLSearchParams({ limit: String(BRACKET_PAGE_SIZE) });
+  if (cursor !== undefined) params.set('cursor', cursor);
+  return apiFetch(`/tournaments/${encodeURIComponent(tournamentId)}/bracket?${params.toString()}`);
 }
 
 /**

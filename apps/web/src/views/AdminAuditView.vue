@@ -8,7 +8,7 @@ import { apiFetch } from '../api.ts';
 import { useAdmin } from '../composables/useAdmin.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
 import { useToasts } from '../composables/useToasts.ts';
-import { formatDateTime } from '../i18n/format.ts';
+import { formatDateTime, formatRelativeTime } from '../i18n/format.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 
 /**
@@ -24,6 +24,8 @@ interface AuditEventView {
   emergency: boolean;
   occurredAt: string;
   actor: { accountId: string | null };
+  /** Resolved server-side; null when the actor has no profile or is the system. */
+  actorName: { username: string; displayName: string } | null;
 }
 interface AuditPage {
   items: AuditEventView[];
@@ -53,20 +55,56 @@ const columns: TableColumn[] = [
 ];
 
 const search = ref('');
-const rows = computed(() =>
+
+/** First segment of a UUID: enough to tell two rows apart, short enough to read. */
+function shortId(id: string): string {
+  return id.length <= 8 ? id : `${id.slice(0, 8)}…`;
+}
+
+/**
+ * Who acted, in that order of preference: their display name, their username, then the
+ * raw account id. The console exists to answer "who did this", and a UUID does not.
+ * The full id stays in the cell's `title` so it is still copyable for a support ticket.
+ */
+function actorLabel(event: AuditEventView): string {
+  if (event.actor.accountId === null) return t('admin.audit.system');
+  if (event.actorName !== null) return event.actorName.displayName || event.actorName.username;
+  return shortId(event.actor.accountId);
+}
+
+/**
+ * Each event as its displayed cells plus the exact values behind the shortened ones.
+ * They are built together and filtered together so a row can never drift away from its
+ * own tooltips.
+ */
+const entries = computed(() =>
   events.value.map((event) => ({
-    occurredAt: formatDateTime(event.occurredAt, activeLocale.value, 'Asia/Tehran'),
-    action: event.action,
-    resource: `${event.resourceType}:${event.resourceId}`,
-    actor: event.actor.accountId ?? t('admin.audit.system'),
-    emergency: event.emergency ? t('admin.audit.yes') : t('admin.audit.no')
+    row: {
+      // Relative reads at a glance; the exact time lives in the title beside it.
+      occurredAt: formatRelativeTime(event.occurredAt, activeLocale.value),
+      action: event.action,
+      resource: `${event.resourceType} · ${shortId(event.resourceId)}`,
+      actor: actorLabel(event),
+      emergency: event.emergency ? t('admin.audit.yes') : t('admin.audit.no')
+    },
+    title: {
+      occurredAt: formatDateTime(event.occurredAt, activeLocale.value, 'Asia/Tehran'),
+      resource: `${event.resourceType}:${event.resourceId}`,
+      actor: event.actor.accountId ?? t('admin.audit.system')
+    }
   }))
 );
-const filteredRows = computed(() => {
+const filtered = computed(() => {
   const q = search.value.trim().toLowerCase();
-  if (q === '') return rows.value;
-  return rows.value.filter((r) => `${r.action} ${r.resource} ${r.actor}`.toLowerCase().includes(q));
+  if (q === '') return entries.value;
+  // The exact values are searched too, so pasting a full UUID still finds its row even
+  // though the cell shows a truncated one.
+  return entries.value.filter((e) =>
+    `${e.row.action} ${e.row.resource} ${e.row.actor} ${e.title.resource} ${e.title.actor}`.toLowerCase().includes(q)
+  );
 });
+const filteredRows = computed(() => filtered.value.map((e) => e.row));
+const filteredTitles = computed(() => filtered.value.map((e) => e.title));
 
 async function load(cursor?: string): Promise<void> {
   loading.value = true;
@@ -168,6 +206,7 @@ async function exportAudit(): Promise<void> {
           :caption="t('admin.audit.caption')"
           :columns="columns"
           :rows="filteredRows"
+          :titles="filteredTitles"
           :empty-message="search.trim() === '' ? t('admin.audit.empty') : t('search.noResults')"
           dense
         />

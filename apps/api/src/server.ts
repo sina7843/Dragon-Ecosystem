@@ -342,11 +342,14 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
                 registrations: deps.registrations.service
               });
             }
-            if (deps.competitions !== undefined) {
+            // Competitions join bracket seeds onto participant names, so the public
+            // bracket/standings routes need the registrations service too.
+            if (deps.competitions !== undefined && deps.registrations !== undefined) {
               registerCompetitionsRoutes(api, {
                 identity: deps.identity.service,
                 authorization: deps.admin.authorization,
                 tournaments: deps.tournaments.service,
+                registrations: deps.registrations.service,
                 competitions: deps.competitions.service
               });
             }

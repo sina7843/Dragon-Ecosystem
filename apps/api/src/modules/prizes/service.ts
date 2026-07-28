@@ -192,6 +192,19 @@ export class PrizesService {
   async listAccountEntitlements(accountId: EntityId, query: { cursor?: string; limit?: number } = {}): Promise<Page<PrizeEntitlementRecord>> {
     return this.#page({ accountId }, query);
   }
+  /**
+   * The whole cash-entitlement queue, across tournaments.
+   *
+   * A finance operator works a queue, not one tournament at a time: the question is
+   * "what is waiting on me", and per-tournament listing cannot answer it without knowing
+   * every tournament first.
+   */
+  async listEntitlements(query: { state?: string; cursor?: string; limit?: number } = {}): Promise<Page<PrizeEntitlementRecord>> {
+    const filter: Record<string, unknown> = {};
+    if (query.state !== undefined && query.state !== '') filter['state'] = query.state;
+    return this.#page(filter, query);
+  }
+
   async listTournamentEntitlements(tournamentId: EntityId, query: { state?: string; cursor?: string; limit?: number } = {}): Promise<Page<PrizeEntitlementRecord>> {
     const filter: Record<string, unknown> = { tournamentId };
     if (query.state !== undefined && query.state !== '') filter['state'] = query.state;

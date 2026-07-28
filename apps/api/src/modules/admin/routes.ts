@@ -61,6 +61,30 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     preHandler: [guards.requireSession, perm(permission)]
   });
 
+  /**
+   * Adds the acting account's display identity to a page of audit events.
+   *
+   * The audit console's whole purpose is answering "who did this", and it was answering
+   * with a raw account UUID that an operator had to look up by hand. Resolution is a
+   * single batched query over the page (the same `getIdentitySummaries` the teams module
+   * uses), and the raw `actor` is left untouched so filtering and export are unaffected.
+   * An account with no profile, or a deleted one, resolves to null and the client falls
+   * back to the id — the log never invents an identity it cannot prove.
+   */
+  async function withActorNames<T extends { items: readonly { actor: { accountId?: string | null } }[] }>(
+    page: T
+  ): Promise<T & { items: unknown[] }> {
+    const accountIds = [...new Set(page.items.map((e) => e.actor.accountId).filter((id): id is string => typeof id === 'string' && id !== ''))];
+    const names = await deps.identity.getIdentitySummaries(accountIds);
+    return {
+      ...page,
+      items: page.items.map((event) => {
+        const resolved = event.actor.accountId === undefined || event.actor.accountId === null ? undefined : names.get(event.actor.accountId);
+        return { ...event, actorName: resolved === undefined ? null : { username: resolved.username, displayName: resolved.displayName } };
+      })
+    };
+  }
+
   // Capability list drives the admin navigation from effective permissions (section 9.4).
   app.get(
     '/admin/capabilities',
@@ -254,6 +278,25 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
   // --- Configuration ---
 
   app.get(
+    '/admin/configuration',
+    {
+      ...gate(PERMISSIONS.configRead),
+      schema: {
+        tags: ['admin'],
+        summary: 'Every configuration key with its active value and any pending proposal.',
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async () => ({
+      items: (await deps.admin.listConfigurationKeys()).map((entry) => ({
+        key: entry.key,
+        active: entry.active === null ? null : presentId(entry.active),
+        pending: entry.pending === null ? null : presentId(entry.pending)
+      }))
+    })
+  );
+
+  app.get(
     '/admin/configuration/:key',
     {
       ...gate(PERMISSIONS.configRead),
@@ -346,7 +389,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
         response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
       }
     },
-    async (request) => deps.admin.searchAudit(request.query as Record<string, never>)
+    async (request) => withActorNames(await deps.admin.searchAudit(request.query as Record<string, never>))
   );
 
   app.get(
@@ -362,7 +405,7 @@ export function registerAdminRoutes(app: FastifyInstance, deps: AdminDeps): void
     },
     async (request) => {
       const query = request.query as { cursor?: string; limit?: number };
-      return deps.admin.searchAudit({ ...query, emergency: true });
+      return withActorNames(await deps.admin.searchAudit({ ...query, emergency: true }));
     }
   );
 

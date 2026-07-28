@@ -2,7 +2,6 @@
 import { computed, onMounted, ref } from 'vue';
 import { useI18n } from 'vue-i18n';
 import AppThumb from '../components/AppThumb.vue';
-import PartnersStrip from '../components/PartnersStrip.vue';
 import { listGames, listContent, type GameCard, type ContentCard } from '../composables/useContentApi.ts';
 import { listTournaments, type TournamentCard } from '../composables/useTournamentsApi.ts';
 import { isLocale, type Locale } from '../i18n/locale.ts';
@@ -39,6 +38,14 @@ function tStatus(card: TournamentCard): { key: string; tone: string } {
   if (end !== null && now > end) return { key: 'statusFinished', tone: 'neutral' };
   if (now >= start && (end === null || now <= end)) return { key: 'statusLive', tone: 'success' };
   return { key: 'statusUpcoming', tone: 'accent' };
+}
+
+// The API's format vocabulary; anything outside it would render as a raw i18n key.
+const KNOWN_FORMATS = new Set(['single_elimination', 'double_elimination', 'round_robin', 'swiss', 'custom']);
+function tFormat(card: TournamentCard): string {
+  return KNOWN_FORMATS.has(card.format)
+    ? t(`tournaments.format.${card.format}`)
+    : t('home.heroKicker');
 }
 
 function fmtDate(value: string | null): string {
@@ -85,37 +92,107 @@ onMounted(async () => {
 
 <template>
   <div class="portal">
-    <!-- Featured banner: the marquee tournament, image-forward. -->
+    <!-- Featured banner: the marquee tournament, image-forward.
+
+         The page keeps its own <h1> even when the banner is showing. The banner's title
+         is the tournament, not the page, so promoting it to <h1> made the top-level
+         heading change with the data and left the site heading absent entirely. The h1
+         stays visually hidden here so the image-forward design is unchanged. -->
+    <h1
+      v-if="featured"
+      class="visually-hidden"
+    >
+      {{ t('home.heading') }}
+    </h1>
     <section
       v-if="featured"
       class="feature"
     >
-      <RouterLink
-        class="feature-link"
-        :to="`${prefix}/tournaments/${encodeURIComponent(featured.slug)}`"
-      >
+      <div class="feature-art">
         <AppThumb
           class="feature-thumb"
           :src="featured.coverImageUrl"
           :label="featured.name"
           :ratio="21 / 9"
         />
-        <div class="feature-body">
-          <span
-            class="status-pill"
-            :class="`status-pill-${tStatus(featured).tone}`"
-          >{{ t(`home.${tStatus(featured).key}`) }}</span>
-          <h1 class="feature-title">{{ featured.name }}</h1>
-          <p class="feature-summary">{{ featured.summary }}</p>
-          <div class="feature-meta">
-            <span class="badge badge-neutral">{{ t(`tournaments.feeKind.${featured.feeKind}`) }}</span>
-            <span class="meta-dot" aria-hidden="true" />
-            <span class="numeric">{{ fmtDate(featured.startAt) }}</span>
-            <span class="meta-dot" aria-hidden="true" />
-            <span class="numeric">{{ featured.capacity }} {{ t('tournaments.field.capacity') }}</span>
-          </div>
+
+        <span
+          class="status-pill feature-status"
+          :class="`status-pill-${tStatus(featured).tone}`"
+        >{{ t(`home.${tStatus(featured).key}`) }}</span>
+
+        <!-- The bracket seam, drawn at full scale: an eight-entrant ladder
+             converging on a single lit node. Decorative — the tournament's real
+             state is in the status pill and the readout below. -->
+        <svg
+          class="bracket"
+          viewBox="0 0 200 220"
+          fill="none"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <g
+            stroke="currentColor"
+            stroke-width="1.5"
+          >
+            <path d="M8 12h52M8 40h52M8 68h52M8 96h52M8 124h52M8 152h52M8 180h52M8 208h52" />
+            <path d="M60 12v28M60 68v28M60 124v28M60 180v28" />
+            <path d="M60 26h58M60 82h58M60 138h58M60 194h58" />
+            <path d="M118 26v56M118 138v56" />
+            <path d="M118 54h58M118 166h58" />
+            <path d="M176 54v112" />
+            <path d="M176 110h16" />
+          </g>
+          <circle
+            class="bracket-node"
+            cx="194"
+            cy="110"
+            r="5"
+            fill="currentColor"
+          />
+        </svg>
+
+      </div>
+
+      <!-- The banner is not one giant link: a screen reader would have to hear
+           the whole summary as link text. The title and the action are the two
+           targets, and both go to the same place. -->
+      <div class="feature-body">
+        <!-- The eyebrow names the format, not the platform: how the bracket
+             runs is the first thing an entrant needs to know. -->
+        <p class="eyebrow feature-eyebrow">
+          {{ tFormat(featured) }}
+        </p>
+        <h2 class="feature-title">
+          <RouterLink
+            class="feature-link"
+            :to="`${prefix}/tournaments/${encodeURIComponent(featured.slug)}`"
+          >{{ featured.name }}</RouterLink>
+        </h2>
+        <p class="feature-summary">{{ featured.summary }}</p>
+        <div class="feature-foot">
+          <dl class="readout">
+            <div class="readout-cell">
+              <dt>{{ t('tournaments.field.feeKind') }}</dt>
+              <dd>{{ t(`tournaments.feeKind.${featured.feeKind}`) }}</dd>
+            </div>
+            <div class="readout-cell">
+              <dt>{{ t('tournaments.field.startAt') }}</dt>
+              <dd class="numeric">{{ fmtDate(featured.startAt) }}</dd>
+            </div>
+            <div class="readout-cell">
+              <dt>{{ t('tournaments.field.capacity') }}</dt>
+              <dd class="numeric">{{ featured.capacity }}</dd>
+            </div>
+          </dl>
+          <RouterLink
+            class="btn btn-primary"
+            :to="`${prefix}/tournaments/${encodeURIComponent(featured.slug)}`"
+          >
+            {{ t('home.ctaFeatured') }}
+          </RouterLink>
         </div>
-      </RouterLink>
+      </div>
     </section>
 
     <!-- Fallback hero when no tournaments exist yet. -->
@@ -252,10 +329,11 @@ onMounted(async () => {
             class="tile"
             :to="`${prefix}/games/${encodeURIComponent(game.slug)}`"
           >
+            <!-- Same 21/9 as the games catalogue and the game page. -->
             <AppThumb
               :src="game.coverImageUrl"
               :label="game.name"
-              :ratio="4 / 3"
+              :ratio="21 / 9"
             />
             <h3 class="game-name">{{ game.name }}</h3>
           </RouterLink>
@@ -263,16 +341,8 @@ onMounted(async () => {
       </ul>
     </section>
 
-    <!-- Partners and supporters (همراهان و حامیان) -->
-    <section
-      v-reveal
-      class="partners-section"
-    >
-      <div class="section-header">
-        <h2>{{ t('partners.heading') }}</h2>
-      </div>
-      <PartnersStrip />
-    </section>
+    <!-- Partners and supporters live in the footer on every page, so the landing
+         no longer repeats the same strip two screens above it. -->
 
     <!-- Closing CTA -->
     <section
@@ -338,45 +408,104 @@ onMounted(async () => {
   padding: 0;
 }
 
-/* ---- Featured banner ---- */
-/* Hero container: glass over the ambient field, at the design's largest radius. */
+/* ---- Featured banner ----
+   The hero is the deepest plate on the site: a chamfered lapis frame around the
+   marquee tournament, with the bracket ladder converging over the artwork. */
 .feature {
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-2xl);
-  overflow: hidden;
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-md);
+  --hud-cut: var(--hud-cut-xl);
+  position: relative;
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--shadow-lg);
 }
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .feature {
-    background-color: var(--glass-bg);
-    border-color: var(--glass-border);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
-  }
+.feature-art {
+  position: relative;
 }
 .feature-link {
-  display: block;
-  position: relative;
   color: inherit;
   text-decoration: none;
+}
+.feature-link:hover {
+  color: var(--color-primary-bright);
 }
 .feature-thumb {
   border-radius: 0;
 }
+
+/* Live/upcoming tag rides the artwork, the way a broadcast bug does. */
+.feature-status {
+  position: absolute;
+  inset-block-start: var(--space-4);
+  inset-inline-start: var(--space-4);
+  z-index: 2;
+  /* Opaque, so the tone stays legible over whatever the cover art is doing. */
+  background-color: var(--color-surface);
+}
+
+/* ---- The bracket: an eight-entrant ladder resolving to one node ---- */
+.bracket {
+  position: absolute;
+  inset-block-start: 8%;
+  inset-inline-end: clamp(var(--space-5), 5vw, var(--space-8));
+  z-index: 1;
+  inline-size: clamp(9rem, 15vw, 14rem);
+  block-size: auto;
+  color: var(--color-accent);
+  opacity: 0.55;
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 100%);
+  mask-image: linear-gradient(to bottom, transparent, #000 22%, #000 100%);
+}
+/* RTL mirrors the ladder so it still converges toward the reading edge. */
+[dir='rtl'] .bracket {
+  transform: scaleX(-1);
+}
+/* The champion node is the only thing on the page that pulses. */
+.bracket-node {
+  animation: node-pulse 2.6s var(--motion-ease) infinite;
+}
+@keyframes node-pulse {
+  0%,
+  100% {
+    r: 4;
+    opacity: 0.7;
+  }
+  50% {
+    r: 6.5;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bracket-node {
+    animation: none;
+  }
+}
+
 .feature-body {
   position: absolute;
   inset-block-end: 0;
   inset-inline: 0;
-  padding: var(--space-6);
+  z-index: 2;
+  padding: clamp(var(--space-4), 3vw, var(--space-7));
   background: var(--gradient-hero);
 }
+.feature-eyebrow {
+  margin: 0;
+  color: var(--color-primary-bright);
+}
 .feature-title {
-  margin: var(--space-2) 0;
-  font-size: var(--text-4xl);
-  line-height: 1.05;
-  letter-spacing: var(--tracking-tight);
+  margin: var(--space-2) 0 var(--space-3);
+  font-size: clamp(1.75rem, 6vw, 3.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
   color: #ffffff;
 }
 [lang='fa'] .feature-title {
@@ -384,24 +513,54 @@ onMounted(async () => {
   letter-spacing: normal;
 }
 .feature-summary {
-  margin: 0 0 var(--space-3);
-  max-inline-size: 60ch;
+  margin: 0 0 var(--space-4);
+  max-inline-size: 52ch;
   color: rgb(255 255 255 / 82%);
 }
-.feature-meta {
+
+/* ---- HUD readout strip: the three facts that decide whether you enter ---- */
+.feature-foot {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-3);
-  color: rgb(255 255 255 / 88%);
-  font-size: var(--text-sm);
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: var(--space-4) var(--space-5);
+  padding-block-start: var(--space-4);
+  border-block-start: 1px solid rgb(255 255 255 / 18%);
 }
-.meta-dot {
-  inline-size: 0.25rem;
-  block-size: 0.25rem;
-  border-radius: var(--radius-full);
-  background-color: currentColor;
-  opacity: 0.6;
+.readout {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-5);
+  margin: 0;
+}
+.readout-cell dt {
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+  color: rgb(255 255 255 / 62%);
+}
+[lang='fa'] .readout-cell dt {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.readout-cell dd {
+  margin: var(--space-1) 0 0;
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  font-variant-numeric: tabular-nums;
+  text-align: start;
+  color: #ffffff;
+}
+[lang='fa'] .readout-cell dd {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
 }
 
 /* ---- Text hero fallback ---- */
@@ -409,17 +568,19 @@ onMounted(async () => {
   padding-block: var(--space-7) var(--space-6);
 }
 .text-hero h1 {
-  font-size: var(--text-4xl);
-  letter-spacing: var(--tracking-tight);
+  font-size: clamp(2.25rem, 7vw, 3.75rem);
+  line-height: 0.98;
+  letter-spacing: -0.02em;
   max-inline-size: 16ch;
   margin-block-end: var(--space-4);
 }
 [lang='fa'] .text-hero h1 {
+  line-height: 1.25;
   letter-spacing: normal;
 }
 .text-hero-lead {
   font-size: var(--text-lg);
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
   max-inline-size: 46ch;
   margin-block-end: var(--space-5);
 }
@@ -429,34 +590,59 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-/* ---- Section headers ---- */
-/* The design leads each section with a plain heading and a quiet outlined
-   "view all" action — no rules, no uppercasing (which Persian cannot render). */
+/* Section headers come from components.css, seam and all; only the trailing
+   "view all" action is local. It reads as a HUD affordance: mono, tracked, with
+   a chevron that steps outward on hover. */
 .section-header {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
   margin-block-end: var(--space-5);
-}
-.section-header h2 {
-  margin: 0;
 }
 .see-all {
   display: inline-flex;
   align-items: center;
+  gap: var(--space-2);
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  font-weight: var(--weight-semibold);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-soft);
   text-decoration: none;
+  transition:
+    color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+}
+[lang='fa'] .see-all {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
+.see-all::after {
+  content: '';
+  inline-size: 0.45rem;
+  block-size: 0.45rem;
+  /* Physical edges on purpose: the arrow is rotated per direction below, so a
+     logical border would flip the shape twice and point the wrong way. */
+  border-top: 2px solid currentColor;
+  border-right: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform var(--motion-fast) var(--motion-ease);
+}
+[dir='rtl'] .see-all::after {
+  transform: rotate(-135deg);
 }
 .see-all:hover {
   color: var(--color-accent);
-  border-color: var(--color-border-strong);
+  border-color: var(--color-accent);
+}
+.see-all:hover::after {
+  transform: rotate(45deg) translate(2px, -2px);
+}
+[dir='rtl'] .see-all:hover::after {
+  transform: rotate(-135deg) translate(2px, -2px);
 }
 
 /* ---- Shared tile ---- */
@@ -469,11 +655,30 @@ onMounted(async () => {
 }
 .tile-title {
   margin: var(--space-2) 0 0;
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: 1.15;
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+[lang='fa'] .tile-title {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
   font-size: var(--text-md);
-  line-height: 1.3;
+  line-height: 1.5;
 }
 .tile:hover .tile-title {
   color: var(--color-accent);
+}
+/* The artwork lifts toward the viewer on hover; the plate itself stays put. */
+.tile :deep(.thumb) {
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--color-border);
+  transition: border-color var(--motion-base) var(--motion-ease);
+}
+.tile:hover :deep(.thumb) {
+  border-color: var(--color-accent);
 }
 .tile-summary {
   margin: var(--space-1) 0 0;
@@ -554,6 +759,7 @@ onMounted(async () => {
   inset-block-start: var(--space-2);
   inset-inline-start: var(--space-2);
   font-size: var(--text-xs);
+  background-color: var(--color-surface);
 }
 .tile-meta {
   display: flex;
@@ -591,37 +797,56 @@ onMounted(async () => {
   gap: var(--space-4);
   grid-template-columns: repeat(auto-fill, minmax(min(100%, 11rem), 1fr));
 }
+/* Auto-fill drops to a single column on a phone, which wastes the whole width on
+   one cover; pin two instead. */
+@media (max-width: 560px) {
+  .games {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
 .game-name {
   margin: var(--space-2) 0 0;
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
   font-size: var(--text-md);
+  font-weight: var(--weight-bold);
+  transition: color var(--motion-fast) var(--motion-ease);
+}
+[lang='fa'] .game-name {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
 }
 .game-card .tile:hover .game-name {
   color: var(--color-accent);
 }
 
-/* ---- Partners section ---- */
-.partners-section {
-  margin-block-start: var(--space-2);
-}
-
-/* ---- CTA band ---- */
+/* ---- Closing band ----
+   The final plate closes the bracket: the same chamfer, the seam capping its top
+   edge, and the ember gradient reserved for this one moment on the page. */
 .cta-band {
+  --hud-cut: var(--hud-cut-lg);
   position: relative;
-  overflow: hidden;
   padding: clamp(var(--space-5), 3vw, var(--space-7));
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-xl);
-  background-color: var(--color-surface);
-  box-shadow: var(--shadow-sm);
+  border-radius: var(--radius-sm);
+  clip-path: polygon(
+    0 0,
+    100% 0,
+    100% calc(100% - var(--hud-cut)),
+    calc(100% - var(--hud-cut)) 100%,
+    var(--hud-cut) 100%,
+    0 calc(100% - var(--hud-cut))
+  );
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--glass-highlight), var(--shadow-md);
 }
-/* Lit leading edge — the design's closing-band signature. */
 .cta-band::before {
   content: '';
   position: absolute;
-  inset-block: 0;
-  inset-inline-start: 0;
-  inline-size: 3px;
-  background-color: var(--color-primary);
+  inset-block-start: 0;
+  inset-inline: 0;
+  block-size: 3px;
+  background: var(--gradient-brand);
 }
 .cta-inner {
   display: flex;
@@ -631,12 +856,12 @@ onMounted(async () => {
   gap: var(--space-4) var(--space-6);
 }
 .cta-heading {
-  margin: 0 0 var(--space-1);
-  font-size: var(--text-xl);
+  margin: 0 0 var(--space-2);
+  font-size: clamp(1.5rem, 3vw, 2.125rem);
 }
 .cta-body {
   margin: 0;
-  color: var(--color-text-muted);
+  color: var(--color-text-soft);
 }
 .cta-actions {
   display: flex;
@@ -644,38 +869,67 @@ onMounted(async () => {
   gap: var(--space-3);
 }
 
-/* Quiet status line */
+/* Platform telemetry, set as a monospaced readout rather than a sentence. */
 .status-line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-sm);
+  font-family: var(--font-mono);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-muted);
 }
+[lang='fa'] .status-line {
+  font-family: var(--font-sans);
+  font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
+}
 .status-dot {
-  inline-size: 0.5rem;
-  block-size: 0.5rem;
-  border-radius: var(--radius-full);
+  inline-size: 0.4rem;
+  block-size: 0.75rem;
   background-color: var(--color-border-strong);
 }
 .status-dot[data-state='online'] {
   background-color: var(--color-success-text);
 }
 .status-dot[data-state='unavailable'] {
-  background-color: var(--color-danger);
+  background-color: var(--color-danger-text);
 }
 .status-sep {
   color: var(--color-border-strong);
 }
 
-@media (max-width: 640px) {
-  .feature-title {
-    font-size: var(--text-2xl);
-  }
+/* Narrow screens stop overlaying the copy on the artwork — with the readout and
+   the action in it, the panel is taller than the 21/9 image it would sit on. */
+@media (max-width: 767px) {
   .feature-body {
-    padding: var(--space-4);
+    position: static;
+    background: var(--color-surface-raised);
+    border-block-start: 1px solid var(--color-border);
+  }
+  .feature-title,
+  .readout-cell dd {
+    color: var(--color-text);
+  }
+  .feature-summary {
+    color: var(--color-text-soft);
+  }
+  .feature-foot {
+    border-block-start-color: var(--color-border);
+  }
+  .readout-cell dt {
+    color: var(--color-text-muted);
+  }
+  /* The ladder needs room to read; below this it would sit under the copy. */
+  .bracket {
+    display: none;
+  }
+  .readout {
+    gap: var(--space-4);
   }
 }
 </style>

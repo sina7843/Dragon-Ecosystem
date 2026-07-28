@@ -99,18 +99,21 @@ for (const { locale, direction, stateOpen, severityLow } of LOCALES) {
     await expect(modPage.getByTestId('moderation-forbidden')).toHaveCount(0);
 
     // Exactly one queue row references this tournament — the two reports collapsed.
-    const row = modPage.getByRole('row', { name: new RegExp(id) });
+    // The subject is rendered as `type · short-id` (SEC-001), so the row is matched on the
+    // truncated identifier that is actually shown.
+    const row = modPage.getByRole('row', { name: new RegExp(id.slice(0, 8)) });
     await expect(row).toHaveCount(1);
     // Expected state and severity are shown, localized (not raw enum tokens or i18n keys).
     await expect(row).toContainText(stateOpen);
     await expect(row).toContainText(severityLow);
 
     // No leaked internal identifier: the queue never renders a correlation id, reporter id,
-    // or the raw case document id, and no raw translation key leaks.
+    // the raw case document id, or a full subject UUID, and no raw translation key leaks.
     const body = await modPage.locator('body').innerText();
     expect(body).not.toMatch(RAW_KEY_PATTERN);
     expect(body.toLowerCase()).not.toContain('correlationid');
     expect(body).not.toContain('reporterId');
+    expect(body).not.toContain(id);
   });
 
   test(`a signed-in user without moderation permission cannot access the queue (${locale})`, async ({ page }) => {

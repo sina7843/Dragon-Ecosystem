@@ -91,12 +91,12 @@ function onInput(event: Event): void {
   gap: var(--space-2);
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
   transition: border-color var(--motion-fast) var(--motion-ease);
 }
 .field:focus-within {
-  border-color: var(--color-primary);
+  border-color: var(--color-accent);
 }
 .icon {
   flex: none;

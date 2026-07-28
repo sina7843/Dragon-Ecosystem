@@ -16,8 +16,17 @@ import { dirname, join } from 'node:path';
 
 const assetsDir = join(dirname(fileURLToPath(import.meta.url)), '..', 'dist', 'assets');
 
-// Measured entry ≈ 272 KB raw; budget allows ~15% headroom. Meaningful regression only.
-const ENTRY_BUDGET_BYTES = 320 * 1024;
+/**
+ * Raised from 320 KB once the entry legitimately outgrew it. Nothing had leaked: the split
+ * assertions below still hold, and the growth is the public team/player directories (which
+ * are crawlable, so they belong in the first-paint bundle) plus the accumulated UI strings.
+ *
+ * Both locale files ship to every visitor and are ~100 KB of source between them, so they
+ * dominate this number. Loading only the active locale is the real lever if the entry keeps
+ * growing — that would roughly halve their contribution — and is the change to make before
+ * raising this again.
+ */
+const ENTRY_BUDGET_BYTES = 344 * 1024;
 
 test('production bundle respects the entry budget and keeps admin/account code split out', { skip: existsSync(assetsDir) ? false : 'no dist/ build present' }, () => {
   const files = readdirSync(assetsDir);

@@ -63,9 +63,34 @@ export function registerModerationRoutes(app: FastifyInstance, deps: ModerationD
   });
 
   // --- Moderation (moderation.manage) ---
+  /**
+   * Adds display names for the accounts a page of cases references.
+   *
+   * A moderator was reading `user:192be49a-…` for the subject and a bare UUID for the
+   * assignee, which is unusable and puts more join-keys than necessary into every
+   * screenshot. Only `user` subjects resolve — a content or tournament subject is not an
+   * account — and resolution is one batched query for the whole page. The raw ids stay in
+   * the payload because the client still needs them to link and to filter.
+   */
+  async function withAccountNames<T extends { subjectType?: string; subjectId?: string; assignedTo?: string | null }>(
+    cases: readonly T[]
+  ): Promise<Array<T & { subjectName: { username: string; displayName: string } | null; assigneeName: { username: string; displayName: string } | null }>> {
+    const ids = new Set<string>();
+    for (const c of cases) {
+      if (c.subjectType === 'user' && typeof c.subjectId === 'string') ids.add(c.subjectId);
+      if (typeof c.assignedTo === 'string' && c.assignedTo !== '') ids.add(c.assignedTo);
+    }
+    const names = await deps.identity.getIdentitySummaries([...ids]);
+    return cases.map((c) => ({
+      ...c,
+      subjectName: c.subjectType === 'user' && typeof c.subjectId === 'string' ? names.get(c.subjectId) ?? null : null,
+      assigneeName: typeof c.assignedTo === 'string' ? names.get(c.assignedTo) ?? null : null
+    }));
+  }
+
   app.get('/admin/moderation/cases', { ...modGate(), schema: { tags: ['moderation'], summary: 'Search moderation cases.', querystring: { type: 'object', additionalProperties: false, properties: { state: { type: 'string' }, severity: { type: 'string' }, subjectType: { type: 'string' }, subjectId: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
     const page = await deps.moderation.listCases(request.query as { state?: string; severity?: string; subjectType?: string; subjectId?: string; cursor?: string; limit?: number });
-    return { items: page.items.map(caseView), nextCursor: page.nextCursor };
+    return { items: await withAccountNames(page.items.map(caseView)), nextCursor: page.nextCursor };
   });
 
   app.get('/admin/moderation/cases/:id', { ...modGate(), schema: { tags: ['moderation'], summary: 'Get a moderation case with its reports.', params: idParam, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {

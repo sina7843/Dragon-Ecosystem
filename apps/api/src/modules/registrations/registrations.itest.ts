@@ -328,6 +328,50 @@ describe('team registration (TOURN-009, TOURN-010)', () => {
   });
 });
 
+describe('public participant list is bounded (DB-002)', () => {
+  test('pages through a roster instead of returning it all at once', async () => {
+    const tid = await publishedTournament(await publishedGame(), { participantsPublic: true });
+    for (let i = 0; i < 5; i += 1) {
+      const user = await registerUser();
+      const res = await register(user.cookie, tid);
+      assert.equal(res.statusCode, 201, res.body);
+    }
+
+    // A small page returns exactly that many entries plus a cursor to continue from.
+    const first = await app.inject({ method: 'GET', url: `/api/v1/tournaments/${tid}/participants?limit=2` });
+    assert.equal(first.statusCode, 200, first.body);
+    const firstPage = first.json<{ items: Array<{ registrationId: string }>; nextCursor: string | null }>();
+    assert.equal(firstPage.items.length, 2, 'the page size is honoured');
+    assert.ok(firstPage.nextCursor !== null, 'more entries are reported as available');
+
+    // Following the cursor continues the roster without repeating an entry.
+    const second = await app.inject({
+      method: 'GET',
+      url: `/api/v1/tournaments/${tid}/participants?limit=2&cursor=${encodeURIComponent(firstPage.nextCursor as string)}`
+    });
+    assert.equal(second.statusCode, 200, second.body);
+    const secondPage = second.json<{ items: Array<{ registrationId: string }> }>();
+    assert.equal(secondPage.items.length, 2);
+    const firstIds = new Set(firstPage.items.map((p) => p.registrationId));
+    assert.ok(!secondPage.items.some((p) => firstIds.has(p.registrationId)), 'pages do not overlap');
+
+    // Walking every page reaches the whole roster exactly once.
+    const seen = new Set<string>();
+    let cursor: string | null = null;
+    for (let guard = 0; guard < 10; guard += 1) {
+      const suffix: string = cursor === null ? '' : `&cursor=${encodeURIComponent(cursor)}`;
+      const url: string = `/api/v1/tournaments/${tid}/participants?limit=2${suffix}`;
+      const page: { items: Array<{ registrationId: string }>; nextCursor: string | null } = (
+        await app.inject({ method: 'GET', url })
+      ).json();
+      for (const item of page.items) seen.add(item.registrationId);
+      cursor = page.nextCursor;
+      if (cursor === null) break;
+    }
+    assert.equal(seen.size, 5, 'every participant is reachable by paging');
+  });
+});
+
 describe('outbox events', () => {
   test('a registration emits a domain event in the same transaction', async () => {
     const tid = await publishedTournament(await publishedGame());

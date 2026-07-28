@@ -164,13 +164,14 @@ for (const testCase of LOCALE_CASES) {
       await page.locator('#sample-email').fill('player@example.com');
       await page.getByTestId('form-submit').click();
 
-      // The live role is per-toast now (DRAGON-16a): a routine success notice is a polite
-      // status, while danger/warning toasts announce assertively. The container is a
-      // labelled region, not itself a live region, so its label is not re-read each time.
+      // The container is a labelled region, not itself a live region, so its label is not
+      // re-read each time. The announcement comes from two always-mounted live regions
+      // (A11Y-001) rather than from the toast element: a routine success notice goes to
+      // the polite one, leaving the assertive one for danger and warning.
       await expect(page.getByTestId('toast-region')).toHaveAttribute('role', 'region');
-      const toast = page.getByTestId('toast');
-      await expect(toast).toHaveCount(1);
-      await expect(toast).toHaveAttribute('aria-live', 'polite');
+      await expect(page.getByTestId('toast')).toHaveCount(1);
+      await expect(page.getByTestId('toast-live-polite')).toContainText(/\S/);
+      await expect(page.getByTestId('toast-live-assertive')).toHaveText('');
     });
 
     test('the table exposes a caption and pagination works from the keyboard', async ({ page }) => {

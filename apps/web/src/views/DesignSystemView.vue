@@ -301,6 +301,12 @@ const dialogOpen = ref(false);
 </template>
 
 <style scoped>
+/* The page is one long section of stacked demos; give each heading room to
+   separate from the specimen above it. */
+h2 {
+  margin-block-start: var(--space-7);
+}
+
 .states {
   display: grid;
   gap: var(--space-4);

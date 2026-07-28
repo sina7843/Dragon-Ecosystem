@@ -2,22 +2,32 @@
 import { useI18n } from 'vue-i18n';
 import { useToasts } from '../composables/useToasts.ts';
 
+import { computed } from 'vue';
+
 /**
  * One controlled status region for transient notifications (A11Y-016).
- * Polite live updates so announcements never interrupt the user mid-task.
+ *
+ * Announcements come from two live regions that are mounted for the lifetime of the app
+ * and start empty. Assistive technology only reliably announces text inserted *into* an
+ * existing live region; a region added to the DOM together with its text is commonly
+ * missed, which is what happened when `aria-live` sat on each toast element. The visible
+ * toasts are therefore `aria-hidden` decoration, and the two mirrors below carry the
+ * announcement: polite for routine notices, assertive for urgent ones.
  */
 const { t } = useI18n();
 const { toasts, dismiss } = useToasts();
 
-// An urgent tone interrupts (assertive alert); routine notices are polite. The live
-// role lives on each toast, not the container, so the container's label is not re-read
-// with every announcement and each toast is announced exactly once on insertion.
-function toneRole(tone: string): 'alert' | 'status' {
-  return tone === 'danger' || tone === 'warning' ? 'alert' : 'status';
+function isUrgent(tone: string): boolean {
+  return tone === 'danger' || tone === 'warning';
 }
-function toneLive(tone: string): 'assertive' | 'polite' {
-  return tone === 'danger' || tone === 'warning' ? 'assertive' : 'polite';
-}
+
+/** Announcement text, split by urgency so each lands in the right live region. */
+const politeText = computed(() =>
+  toasts.value.filter((x) => !isUrgent(x.tone)).map((x) => `${t(`toast.tone.${x.tone}`)}: ${x.message}`).join('. ')
+);
+const assertiveText = computed(() =>
+  toasts.value.filter((x) => isUrgent(x.tone)).map((x) => `${t(`toast.tone.${x.tone}`)}: ${x.message}`).join('. ')
+);
 </script>
 
 <template>
@@ -27,17 +37,42 @@ function toneLive(tone: string): 'assertive' | 'polite' {
     :aria-label="t('toast.region')"
     data-testid="toast-region"
   >
+    <!-- Always-mounted, initially empty live regions. Text is inserted into them, which
+         is the only reliably announced pattern. -->
+    <div
+      class="visually-hidden"
+      role="status"
+      aria-live="polite"
+      data-testid="toast-live-polite"
+    >
+      {{ politeText }}
+    </div>
+    <div
+      class="visually-hidden"
+      role="alert"
+      aria-live="assertive"
+      data-testid="toast-live-assertive"
+    >
+      {{ assertiveText }}
+    </div>
+
+    <!-- Visible presentation only; the announcement is handled above, so these are
+         hidden from assistive technology to avoid reading each toast twice. The dismiss
+         control stays reachable because it lives outside the hidden subtree. -->
     <div
       v-for="toast in toasts"
       :key="toast.id"
       :class="['toast', toast.tone]"
-      :role="toneRole(toast.tone)"
-      :aria-live="toneLive(toast.tone)"
       data-testid="toast"
     >
-      <!-- The tone is stated in text, so colour is never the only carrier of meaning. -->
-      <span class="tone">{{ t(`toast.tone.${toast.tone}`) }}</span>
-      <span class="message">{{ toast.message }}</span>
+      <span
+        class="toast-text"
+        aria-hidden="true"
+      >
+        <!-- The tone is stated in text, so colour is never the only carrier of meaning. -->
+        <span class="tone">{{ t(`toast.tone.${toast.tone}`) }}</span>
+        <span class="message">{{ toast.message }}</span>
+      </span>
       <button
         type="button"
         class="dismiss"
@@ -65,21 +100,41 @@ function toneLive(tone: string): 'assertive' | 'polite' {
   pointer-events: none;
 }
 
+/* A notification is a plate with a lit leading edge in its own tone, so the tone
+   is legible from shape and position before the colour registers. */
 .toast {
   pointer-events: auto;
   display: flex;
   align-items: center;
   gap: var(--space-2);
   padding: var(--space-3);
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-md);
+  border: 1px solid currentColor;
+  border-inline-start-width: 4px;
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-lg);
   background-color: var(--color-surface-raised);
 }
 
+.toast-text {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1;
+  min-inline-size: 0;
+}
+
 .tone {
-  font-weight: 700;
+  font-family: var(--font-mono);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-xs);
+  letter-spacing: var(--tracking-eyebrow);
+  text-transform: uppercase;
+}
+[lang='fa'] .tone {
+  font-family: var(--font-sans);
   font-size: var(--text-sm);
+  letter-spacing: normal;
+  text-transform: none;
 }
 
 .message {

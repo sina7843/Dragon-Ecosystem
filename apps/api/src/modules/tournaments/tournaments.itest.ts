@@ -281,15 +281,56 @@ describe('public discovery (published only)', () => {
     assert.equal(empty.json<{ items: unknown[] }>().items.length, 0);
   });
 
-  test('a cancelled tournament is no longer public', async () => {
+  // A finished or cancelled event stays publicly readable: the result is the permanent
+  // record, and a called-off event has to say so rather than disappear. Neither is listed
+  // in the default directory, which still leads with what is open or running.
+  /** Publishes a tournament, moves it to `to`, and returns its public slug. */
+  async function publishThen(to: 'completed' | 'cancelled'): Promise<{ slug: string; gameId: string }> {
     const admin = await loginAs('tournament_administrator');
     const gameId = await publishedGame();
     const draft = await createDraft(admin.cookie, gameId);
     await publish(admin.cookie, draft.id);
     const full = await app.inject({ method: 'GET', url: `/api/v1/admin/tournaments/${draft.id}`, ...auth(admin.cookie) });
     const slug = full.json<{ slug: string }>().slug;
-    const cancel = await app.inject({ method: 'POST', url: `/api/v1/admin/tournaments/${draft.id}/transition`, ...auth(admin.cookie), payload: { to: 'cancelled', reason: 'called off' } });
-    assert.equal(cancel.statusCode, 200, cancel.body);
+    if (to === 'cancelled') {
+      const cancel = await app.inject({ method: 'POST', url: `/api/v1/admin/tournaments/${draft.id}/transition`, ...auth(admin.cookie), payload: { to, reason: 'called off' } });
+      assert.equal(cancel.statusCode, 200, cancel.body);
+    } else {
+      // `completed` is reserved for the competition engine and is deliberately absent from
+      // the admin transition enum, so the terminal state is set the way the engine leaves it.
+      await fixture.database.db
+        .collection(TOURNAMENTS_COLLECTIONS.tournaments)
+        .updateOne({ _id: draft.id } as never, { $set: { state: 'completed' } });
+    }
+    return { slug, gameId };
+  }
+
+  for (const to of ['completed', 'cancelled'] as const) {
+    test(`a ${to} tournament stays publicly readable but leaves the default list`, async () => {
+      const { slug, gameId } = await publishThen(to);
+
+      const detail = await app.inject({ method: 'GET', url: `/api/v1/tournaments/${slug}?locale=en` });
+      assert.equal(detail.statusCode, 200, detail.body);
+      assert.equal(detail.json<{ state: string }>().state, to, 'the public payload names the state');
+
+      const live = await app.inject({ method: 'GET', url: `/api/v1/tournaments?locale=en&game=${gameId}` });
+      assert.ok(!live.json<{ items: { slug: string }[] }>().items.some((i) => i.slug === slug), 'absent from the default list');
+
+      const archive = await app.inject({ method: 'GET', url: `/api/v1/tournaments?locale=en&game=${gameId}&state=${to}` });
+      assert.ok(archive.json<{ items: { slug: string }[] }>().items.some((i) => i.slug === slug), 'found by asking for that state');
+    });
+  }
+
+  test('an archived tournament is not public', async () => {
+    const admin = await loginAs('tournament_administrator');
+    const gameId = await publishedGame();
+    const draft = await createDraft(admin.cookie, gameId);
+    await publish(admin.cookie, draft.id);
+    const full = await app.inject({ method: 'GET', url: `/api/v1/admin/tournaments/${draft.id}`, ...auth(admin.cookie) });
+    const slug = full.json<{ slug: string }>().slug;
+    await app.inject({ method: 'POST', url: `/api/v1/admin/tournaments/${draft.id}/transition`, ...auth(admin.cookie), payload: { to: 'cancelled', reason: 'called off' } });
+    const archive = await app.inject({ method: 'POST', url: `/api/v1/admin/tournaments/${draft.id}/transition`, ...auth(admin.cookie), payload: { to: 'archived', reason: 'withdrawn' } });
+    assert.equal(archive.statusCode, 200, archive.body);
     assert.equal((await app.inject({ method: 'GET', url: `/api/v1/tournaments/${slug}?locale=en` })).statusCode, 404);
   });
 });

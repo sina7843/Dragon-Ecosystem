@@ -18,6 +18,10 @@ export interface ModerationCaseView {
   reportCount: number;
   createdAt: string;
   version: number;
+  /** Resolved server-side. Null unless the subject is a user with a profile. */
+  subjectName: { username: string; displayName: string } | null;
+  /** Resolved server-side. Null when the case is unassigned or the assignee has no profile. */
+  assigneeName: { username: string; displayName: string } | null;
 }
 
 export interface ReportView {

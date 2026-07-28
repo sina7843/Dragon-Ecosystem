@@ -85,6 +85,10 @@ test('a participant registers for an automatic-approval tournament and is approv
   await signInWithProfile(page);
   await page.goto(`/en/tournaments/${slug}`);
   await expect(page.getByTestId('registration-panel')).toBeVisible();
+  // Entry now goes through a dialog, so the whole form (paged when the organizer built
+  // one) is one focused step rather than a block on the page.
+  await page.getByTestId('open-register-form').click();
+  await expect(page.getByTestId('register-form')).toBeVisible();
   await page.getByTestId('register').click();
   await expect(page.getByTestId('registration-status')).toHaveAttribute('data-state', 'approved');
 
@@ -106,6 +110,8 @@ test('a manual-approval registration flows through the admin queue', async ({ pa
   // Participant registers → pending.
   await signInWithProfile(page);
   await page.goto(`/en/tournaments/${slug}`);
+  await page.getByTestId('open-register-form').click();
+  await expect(page.getByTestId('register-form')).toBeVisible();
   await page.getByTestId('register').click();
   await expect(page.getByTestId('registration-status')).toHaveAttribute('data-state', 'pending');
 

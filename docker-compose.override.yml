@@ -12,6 +12,17 @@ services:
       ENABLE_DEV_ROUTES: "false"
       # Deterministic mock payment provider (never a live provider) so demo purchases work.
       PAYMENTS_MOCK_ENABLED: "true"
+      # Paid tournament entry (OD-007). Development only, and only meaningful alongside the
+      # mock provider above — production stays off unless it is set there deliberately
+      # (.env.example ships it as false). Without it, checkout, the Dragon-Coin hold, and
+      # the pending-payment registration state have no data to review.
+      PAID_TOURNAMENTS_ENABLED: "true"
       # Match the web client's 20 MB image cap so a large PNG isn't rejected by an opaque
       # body-limit 413 before the service can validate it. The service still enforces this cap.
       MEDIA_MAX_BYTES: "20000000"
+      # Demo and local review sign in as the same handful of accounts repeatedly, which
+      # exhausts the production-shaped per-mobile OTP budget within minutes. Raised here
+      # only — production keeps the default — matching what the browser suite already does
+      # in playwright.config.ts. The limiter itself is unchanged and still enforced.
+      OTP_REQUESTS_PER_MOBILE: "50"
+      OTP_RESEND_SECONDS: "5"

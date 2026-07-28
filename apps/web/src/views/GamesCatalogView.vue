@@ -126,11 +126,13 @@ function submitSearch(): void {
           :to="`${prefix}/games/${encodeURIComponent(game.slug)}`"
           :data-testid="`game-card-${game.slug}`"
         >
+          <!-- 21/9 everywhere a cover appears, matching the detail hero, so the same
+               artwork is not cropped differently between the list and the page. -->
           <AppThumb
             class="card-thumb"
             :src="game.coverImageUrl"
             :label="game.name"
-            :ratio="4 / 3"
+            :ratio="21 / 9"
           />
           <h2 class="card-title">
             {{ game.name }}

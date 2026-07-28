@@ -59,9 +59,9 @@ function isActive(candidate: Locale): boolean {
   gap: var(--space-1);
   padding-inline: var(--space-2);
   block-size: 2.625rem;
-  border: 1px solid var(--color-border);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-overlay);
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
 }
 
 .globe {
@@ -80,9 +80,12 @@ function isActive(candidate: Locale): boolean {
   block-size: 1.875rem;
   border-radius: var(--radius-sm);
   text-decoration: none;
+  /* Language codes are data, so they take the utility face. */
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
   font-weight: var(--weight-bold);
-  letter-spacing: 0.02em;
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   color: var(--color-text-muted);
   transition:
     color var(--motion-fast) var(--motion-ease),

@@ -84,11 +84,23 @@ function onKeydown(event: KeyboardEvent): void {
   align-items: center;
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
-  background-color: var(--color-surface-overlay);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-sunken);
   color: var(--color-text);
-  font-weight: var(--weight-semibold);
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-weight: var(--weight-bold);
+  font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   cursor: pointer;
+}
+[lang='fa'] .toggle {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--text-md);
 }
 
 .list {
@@ -108,19 +120,10 @@ function onKeydown(event: KeyboardEvent): void {
   z-index: var(--z-drawer);
   min-inline-size: 13rem;
   padding: var(--space-3);
-  border: 1px solid var(--glass-border);
-  border-radius: var(--radius-lg);
-  background-color: var(--color-surface-overlay);
-  box-shadow: var(--shadow-lg);
-}
-
-@supports ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .list[data-expanded='true'] {
-    background-color: var(--glass-bg);
-    -webkit-backdrop-filter: blur(var(--glass-blur));
-    backdrop-filter: blur(var(--glass-blur));
-    box-shadow: var(--glass-highlight), var(--shadow-lg);
-  }
+  border: 1px solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  background-color: var(--color-surface-raised);
+  box-shadow: var(--glass-highlight), var(--shadow-lg);
 }
 
 .list a {
@@ -128,12 +131,16 @@ function onKeydown(event: KeyboardEvent): void {
   align-items: center;
   padding: var(--space-2) var(--space-3);
   border: 1px solid transparent;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   text-decoration: none;
   /* Nav links are text-coloured; the accent is reserved for the active item. */
   color: var(--color-text-soft);
-  font-weight: var(--weight-semibold);
+  font-family: var(--font-display);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-weight: var(--weight-bold);
   font-size: var(--text-sm);
+  letter-spacing: var(--tracking-wide);
+  text-transform: uppercase;
   /* Keeps the touch target adequate on mobile (A11Y-012). */
   min-block-size: var(--target-min);
   transition:
@@ -142,19 +149,27 @@ function onKeydown(event: KeyboardEvent): void {
     border-color var(--motion-fast) var(--motion-ease);
 }
 
+/* Tracking and casing break Arabic connected script — reset both (17.5). */
+[lang='fa'] .list a {
+  font-family: var(--font-sans);
+  font-variation-settings: normal;
+  letter-spacing: normal;
+  text-transform: none;
+  font-size: var(--text-md);
+}
+
 .list a:hover {
   color: var(--color-text);
   background-color: var(--color-surface-sunken);
 }
 
-/* The design marks the current item with a soft violet fill and a lit edge. */
+/* The current item takes a soft gold fill and a lit edge. */
 .list a.router-link-active {
-  font-weight: var(--weight-black);
   color: var(--color-accent);
   background-color: var(--color-primary-soft);
   border-color: var(--color-border-strong);
   /* Non-colour cue: an inset marker on the leading edge (section 23.2). */
-  box-shadow: inset 0.2rem 0 0 var(--color-primary);
+  box-shadow: inset 0.2rem 0 0 var(--color-accent);
 }
 
 /* Tablet and wider: the disclosure disappears and the links sit inline. */
@@ -175,9 +190,9 @@ function onKeydown(event: KeyboardEvent): void {
     min-inline-size: 0;
   }
 
-  /* Inline pills keep the soft fill; the non-colour cue moves to an underline. */
+  /* Inline items keep the soft fill; the non-colour cue moves to a lit underline. */
   .list a.router-link-active {
-    box-shadow: inset 0 -2px 0 var(--color-primary);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
   }
 
   .app-nav.dense .list a {

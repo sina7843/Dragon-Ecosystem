@@ -7,7 +7,7 @@ import { ConflictError, NotFoundError, ValidationError } from '../../shared/erro
 import { utcNow } from '../../shared/events.ts';
 import { newId, type EntityId } from '../../shared/ids.ts';
 import { clampLimit, decodeCursor, toPage, type Page } from '../../shared/pagination.ts';
-import type { TournamentRecord } from '../tournaments/index.ts';
+import { MAX_CAPACITY, type TournamentRecord } from '../tournaments/index.ts';
 import { REGISTRATIONS_COLLECTIONS } from './collections.ts';
 import {
   canRegistrationTransition,
@@ -54,6 +54,8 @@ function ageFrom(birthDate: string | undefined, now: Date): number | null {
 
 export interface TournamentAccess {
   getById(id: EntityId): Promise<TournamentRecord | null>;
+  /** Whether a visitor may read a tournament in this state (published, completed, cancelled). */
+  isPubliclyReadable(state: TournamentRecord['state']): boolean;
 }
 export interface ProfileAccess {
   getProfile(accountId: EntityId): Promise<{ birthDate: string } | null>;
@@ -536,11 +538,27 @@ export class RegistrationsService {
    * Only approved entries may enter a competition; each carries its immutable
    * registration-time roster snapshot for a team entry (TOURN-010).
    */
+  /**
+   * Every approved entrant, for bracket generation.
+   *
+   * This one deliberately does **not** paginate: generation needs the complete field, and
+   * a silently truncated read would build a wrong bracket that looks correct. The cap is
+   * therefore a tripwire rather than a page size — a tournament cannot exceed
+   * {@link MAX_CAPACITY} approved seats, so exceeding it means the seat counter and the
+   * registrations disagree, and failing loudly is the only safe outcome (DB-002).
+   */
   async listApprovedParticipants(tournamentId: string): Promise<Array<{ registrationId: string; participantType: 'individual' | 'team'; teamId: string | null; rosterSnapshotId: string | null }>> {
     const rows = await this.#registrations()
       .find({ tournamentId, state: 'approved' })
       .sort({ createdAt: 1, _id: 1 })
+      .limit(MAX_CAPACITY + 1)
       .toArray();
+    if (rows.length > MAX_CAPACITY) {
+      throw new ConflictError(
+        'PARTICIPANTS_EXCEED_CAPACITY',
+        `This tournament has more than ${String(MAX_CAPACITY)} approved participants, which should be impossible. Reconcile the seat counter before generating a bracket.`
+      );
+    }
     return rows.map((r) => ({ registrationId: r._id, participantType: r.participantType, teamId: r.teamId, rosterSnapshotId: r.rosterSnapshotId }));
   }
 
@@ -548,6 +566,18 @@ export class RegistrationsService {
    * Resolves display names for a set of registrations in two batched lookups (one per
    * participant kind), so an admin queue or a public list never issues a query per row.
    */
+  /**
+   * The identity fields of specific registrations, for a caller that already holds their
+   * ids — the competitions module joins bracket seeds onto participant names this way.
+   * Returns only what {@link resolveNames} consumes, never the private answer set.
+   */
+  async listByIds(registrationIds: readonly EntityId[]): Promise<Array<Pick<RegistrationRecord, '_id' | 'participantType' | 'accountId' | 'teamId'>>> {
+    if (registrationIds.length === 0) return [];
+    return this.#registrations()
+      .find({ _id: { $in: [...new Set(registrationIds)] } }, { projection: { _id: 1, participantType: 1, accountId: 1, teamId: 1 } })
+      .toArray();
+  }
+
   async resolveNames(rows: readonly Pick<RegistrationRecord, '_id' | 'participantType' | 'accountId' | 'teamId'>[]): Promise<Map<EntityId, ParticipantName>> {
     const accountIds = rows.filter((r) => r.participantType === 'individual').map((r) => r.accountId);
     const teamIds = rows.filter((r) => r.participantType === 'team' && r.teamId !== null).map((r) => r.teamId as EntityId);
@@ -574,17 +604,54 @@ export class RegistrationsService {
    * list public. Any other case is indistinguishable from a missing tournament (404),
    * so a private list never leaks its existence or its members.
    */
-  async listPublicParticipants(tournamentId: string): Promise<ParticipantName[]> {
+  async listPublicParticipants(tournamentId: string, query: { cursor?: string; limit?: number } = {}): Promise<Page<ParticipantName>> {
     const tournament = await this.#tournaments.getById(tournamentId);
-    if (tournament === null || tournament.state !== 'published' || tournament.participantsPublic !== true) {
+    // Readable for as long as the tournament itself is: the roster of a finished event is
+    // part of its permanent record. The organizer's visibility switch still gates it.
+    if (tournament === null || !this.#tournaments.isPubliclyReadable(tournament.state) || tournament.participantsPublic !== true) {
       throw new NotFoundError('Unknown tournament.');
     }
+    // Paginated (DB-002): a 512-entrant field previously came back as one unbounded
+    // payload, and the name resolution behind it ran over the whole roster at once.
+    const limit = clampLimit(query.limit);
+    const filter: Record<string, unknown> = { tournamentId, state: 'approved' };
+    const cursor = decodeCursor(query.cursor);
+    if (cursor !== null) {
+      filter['$or'] = [{ createdAt: { $gt: cursor.sortValue } }, { createdAt: cursor.sortValue, _id: { $gt: cursor.id } }];
+    }
     const rows = await this.#registrations()
-      .find({ tournamentId, state: 'approved' }, { projection: { _id: 1, participantType: 1, accountId: 1, teamId: 1, createdAt: 1 } })
+      .find(filter, { projection: { _id: 1, participantType: 1, accountId: 1, teamId: 1, createdAt: 1 } })
       .sort({ createdAt: 1, _id: 1 })
+      .limit(limit + 1)
       .toArray();
-    const names = await this.resolveNames(rows);
-    return rows.map((r) => names.get(r._id) as ParticipantName);
+    const page = toPage(rows.map((r) => ({ ...r, sortValue: r.createdAt, id: r._id })), limit);
+    // Names are resolved for the page only, so the two batched lookups stay bounded.
+    const names = await this.resolveNames(page.items);
+    return { items: page.items.map((r) => names.get(r._id) as ParticipantName), nextCursor: page.nextCursor };
+  }
+
+  /**
+   * Registration counts by state for several tournaments at once.
+   *
+   * The organizer workspace shows a row per event with "N awaiting review"; asking per
+   * tournament would be a query per row. One grouped aggregation answers the whole page,
+   * and the id list is capped by the caller's route so it cannot be used to scan.
+   */
+  async countsByState(tournamentIds: readonly string[]): Promise<Map<string, Record<string, number>>> {
+    if (tournamentIds.length === 0) return new Map();
+    const rows = await this.#registrations()
+      .aggregate<{ _id: { tournamentId: string; state: string }; n: number }>([
+        { $match: { tournamentId: { $in: [...new Set(tournamentIds)] } } },
+        { $group: { _id: { tournamentId: '$tournamentId', state: '$state' }, n: { $sum: 1 } } }
+      ])
+      .toArray();
+    const out = new Map<string, Record<string, number>>();
+    for (const row of rows) {
+      const entry = out.get(row._id.tournamentId) ?? {};
+      entry[row._id.state] = row.n;
+      out.set(row._id.tournamentId, entry);
+    }
+    return out;
   }
 
   /** Current occupancy for a tournament (admin summary; capacity comes from the tournament). */

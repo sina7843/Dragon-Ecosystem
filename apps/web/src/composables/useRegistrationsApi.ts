@@ -5,7 +5,12 @@ import { apiFetch } from '../api.ts';
  * eligibility, capacity, and authorization rule; these calls only shape requests.
  */
 
-export type RegistrationState = 'pending' | 'approved' | 'waitlisted' | 'rejected' | 'cancelled';
+/**
+ * Mirrors the server's registration lifecycle. `pending_payment` is the seat a paid
+ * checkout reserves while the payment settles — it was missing here, so the client could
+ * not even name the state the API returns for an entry mid-checkout.
+ */
+export type RegistrationState = 'pending_payment' | 'pending' | 'approved' | 'waitlisted' | 'rejected' | 'cancelled';
 
 export interface RegistrationStatus {
   id: string;

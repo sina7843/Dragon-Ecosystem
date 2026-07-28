@@ -27,7 +27,16 @@
       "adminGames": "Games",
       "adminTournaments": "Tournaments",
       "wallet": "Wallet",
-      "notifications": "Notifications"
+      "notifications": "Notifications",
+      "players": "Players",
+      "search": "Search",
+      "adminMedia": "Media",
+      "adminConfiguration": "Configuration",
+      "adminNotifications": "Notifications",
+      "adminFinance": "Finance",
+      "adminSupport": "Support",
+      "adminOperations": "Operations",
+      "adminOrganizer": "Organizer"
     }
   },
   "player": {
@@ -61,7 +70,9 @@
     "gamingIdentities": "Gaming identities",
     "tournaments": "Tournaments",
     "wallet": "Wallet",
-    "notifications": "Notifications"
+    "notifications": "Notifications",
+    "teamsDirectory": "Teams",
+    "playersDirectory": "Players"
   },
   "theme": {
     "label": "Theme",
@@ -105,7 +116,8 @@
     "apiLabel": "API service",
     "localeLabel": "Active language",
     "statusOnline": "Online",
-    "apiUnavailable": "The API service did not respond. Refresh the page or try again shortly."
+    "apiUnavailable": "The API service did not respond. Refresh the page or try again shortly.",
+    "ctaFeatured": "View tournament"
   },
   "auth": {
     "heading": "Sign in",
@@ -219,7 +231,13 @@
       "content": "Content",
       "games": "Games",
       "tournaments": "Tournaments",
-      "moderation": "Moderation"
+      "moderation": "Moderation",
+      "media": "Media library",
+      "notifications": "Notifications",
+      "finance": "Finance",
+      "support": "Support",
+      "operations": "Operations",
+      "organizer": "Organizer workspace"
     },
     "users": {
       "heading": "Users",
@@ -286,7 +304,245 @@
         "actioned": "Actioned",
         "dismissed": "Dismissed",
         "all": "All"
+      },
+      "subjectType": {
+        "user": "User",
+        "content": "Content",
+        "tournament": "Tournament"
       }
+    },
+    "media": {
+      "heading": "Media library",
+      "intro": "Review uploaded assets, correct their alternative text, publish staged files, and remove what nothing uses.",
+      "stateFilter": "State",
+      "state": {
+        "staged": "Staged",
+        "published": "Published"
+      },
+      "altFa": "Alt text (Persian)",
+      "altEn": "Alt text (English)",
+      "altDecorative": "Leave empty if decorative",
+      "saveAlt": "Save alt text",
+      "altSaved": "Alternative text saved.",
+      "publish": "Publish",
+      "published": "Asset published.",
+      "open": "Open",
+      "delete": "Delete",
+      "deleted": "Asset deleted.",
+      "confirmDelete": "Delete this asset? Anything still pointing at it will be refused by the server.",
+      "empty": "No media assets yet.",
+      "loadMore": "Load more",
+      "kb": "KB",
+      "mb": "MB"
+    },
+    "config": {
+      "heading": "Configuration",
+      "intro": "Versioned settings. Finance, security, and payout keys are high-risk and need a second operator to approve them.",
+      "proposeHeading": "Propose a value",
+      "highRiskNote": "A high-risk key is stored as a proposal until a different operator approves it. Everything else takes effect immediately.",
+      "key": "Key",
+      "value": "Value",
+      "reason": "Reason",
+      "propose": "Propose",
+      "proposing": "Proposing…",
+      "activated": "The value is active.",
+      "awaitingApproval": "Proposed. It needs approval from a different operator.",
+      "approve": "Approve",
+      "approved": "Approved and activated.",
+      "approveReasonPrompt": "Reason for approving this change:",
+      "active": "Active",
+      "proposed": "Proposed",
+      "noActive": "No active value.",
+      "pending": "Awaiting approval",
+      "pendingCount": "{count} awaiting approval.",
+      "highRisk": "High risk",
+      "showHistory": "History",
+      "hideHistory": "Hide history",
+      "empty": "No configuration keys yet.",
+      "state": {
+        "active": "Active",
+        "pending_approval": "Awaiting approval",
+        "superseded": "Superseded",
+        "rejected": "Rejected"
+      }
+    },
+    "notifications": {
+      "heading": "Notifications",
+      "intro": "Message templates and the delivery log. Recipients are masked and never shown in full.",
+      "templates": "Templates",
+      "noTemplates": "No templates yet.",
+      "draftCount": "{count} awaiting approval.",
+      "approveTemplate": "Approve",
+      "templateApproved": "Template approved.",
+      "templateStatus": {
+        "draft": "Draft",
+        "approved": "Approved"
+      },
+      "deliveries": "Deliveries",
+      "deliveriesCaption": "Delivery attempts, newest first",
+      "noDeliveries": "No deliveries yet.",
+      "statusFilter": "Status",
+      "time": "When",
+      "template": "Template",
+      "channel": "Channel",
+      "recipient": "Recipient",
+      "status": "Status",
+      "attempts": "Attempts",
+      "channelValue": {
+        "sms": "SMS",
+        "email": "Email"
+      },
+      "statusValue": {
+        "pending": "Pending",
+        "sent": "Sent",
+        "failed": "Failed",
+        "dead": "Dead-lettered",
+        "suppressed": "Suppressed"
+      },
+      "suppressed": {
+        "no_contact": "no verified contact",
+        "channel_disabled": "channel disabled",
+        "no_consent": "no consent",
+        "no_template": "no approved template"
+      },
+      "process": "Run a delivery pass",
+      "processed": "Delivery pass complete.",
+      "loadMore": "Load more"
+    },
+    "finance": {
+      "heading": "Finance",
+      "intro": "Dragon Coin holds and cash prize entitlements. Every action is recorded with a reason.",
+      "holds": "Holds",
+      "holdsCaption": "Dragon Coin holds, newest first",
+      "noHolds": "No holds match this filter.",
+      "entitlements": "Prize entitlements",
+      "noEntitlements": "No entitlements match this filter.",
+      "when": "When",
+      "purpose": "Purpose",
+      "owner": "Account",
+      "remaining": "Remaining",
+      "state": "State",
+      "capture": "Capture",
+      "captured": "Hold captured.",
+      "captureAmountPrompt": "Amount to capture (Dragon Coin):",
+      "captureReasonPrompt": "Reason for capturing this hold:",
+      "release": "Release",
+      "released": "Hold released.",
+      "releaseReasonPrompt": "Reason for releasing this hold:",
+      "expireDue": "Expire due holds",
+      "expired": "Due holds expired.",
+      "approve": "Approve",
+      "approved": "Entitlement approved.",
+      "approveReasonPrompt": "Reason for approving this entitlement:",
+      "pay": "Mark paid",
+      "paid": "Entitlement marked paid.",
+      "payReasonPrompt": "Reason for this payout:",
+      "evidencePrompt": "Settlement evidence (reference from the payment record):",
+      "evidence": "Settlement evidence",
+      "markFailed": "Mark failed",
+      "failed": "Entitlement marked failed.",
+      "failReasonPrompt": "Reason this entitlement failed:",
+      "rank": "Rank {rank}",
+      "dualControlNote": "Marking an entitlement paid and force-releasing a hold both require the finance-approver permission, which your account does not hold. You can capture holds, approve entitlements, and mark them failed.",
+      "holdState": {
+        "active": "Active",
+        "captured": "Captured",
+        "released": "Released",
+        "expired": "Expired",
+        "partially_captured": "Partly captured",
+        "cancelled": "Cancelled"
+      },
+      "purposeValue": {
+        "tournament_checkout": "Tournament entry",
+        "admin_correction": "Administrative correction"
+      }
+    },
+    "support": {
+      "heading": "Support",
+      "intro": "The support case queue and account-recovery triage.",
+      "cases": "Cases",
+      "noCases": "No support cases match this filter.",
+      "state": "State",
+      "stateValue": {
+        "open": "Open",
+        "assigned": "Assigned",
+        "resolved": "Resolved",
+        "closed": "Closed"
+      },
+      "category": {
+        "account": "Account",
+        "payment": "Payment",
+        "other": "Other"
+      },
+      "assign": "Take case",
+      "assigned": "Case assigned to you.",
+      "resolve": "Resolve",
+      "resolved": "Case resolved.",
+      "resolveNotePrompt": "Resolution note:",
+      "close": "Close",
+      "closed": "Case closed.",
+      "resolution": "Resolution",
+      "recovery": "Account recovery",
+      "recoveryNote": "Triage only: a request can be recorded as reviewed or rejected. Restoring access is not available from this screen by design.",
+      "noRecovery": "No recovery requests.",
+      "markReviewed": "Mark reviewed",
+      "reject": "Reject",
+      "recoveryReviewed": "Recovery request triaged.",
+      "recoveryNotePrompt": "Triage note:",
+      "recoveryState": {
+        "pending": "Pending",
+        "reviewed": "Reviewed",
+        "rejected": "Rejected"
+      }
+    },
+    "ops": {
+      "heading": "Operations",
+      "intro": "Alerts, background job runs, and the current metrics snapshot.",
+      "metrics": "Metrics",
+      "alerts": "Alerts",
+      "noAlerts": "No alerts match this filter.",
+      "openAlerts": "{count} open.",
+      "acknowledge": "Acknowledge",
+      "acknowledged": "Alert acknowledged.",
+      "status": "Status",
+      "alertStatus": {
+        "open": "Open",
+        "acknowledged": "Acknowledged"
+      },
+      "severity": {
+        "info": "Info",
+        "warning": "Warning",
+        "critical": "Critical"
+      },
+      "jobs": "Job runs",
+      "jobsCaption": "Recent background job executions",
+      "noJobs": "No job runs recorded.",
+      "when": "When",
+      "job": "Job",
+      "detail": "Detail",
+      "jobStatus": {
+        "succeeded": "Succeeded",
+        "failed": "Failed",
+        "running": "Running"
+      },
+      "runJobs": "Run jobs",
+      "jobsRan": "Job pass complete.",
+      "healthCheck": "Health check",
+      "healthChecked": "Health check complete."
+    },
+    "organizer": {
+      "heading": "Organizer workspace",
+      "intro": "Your events, what is waiting on you, and a direct route into each one.",
+      "allTournaments": "All tournaments",
+      "empty": "You have not created any tournaments yet.",
+      "pendingTotal": "Entries awaiting your review: {count}",
+      "seats": "Seats",
+      "pending": "Awaiting review",
+      "waitlisted": "Waitlisted",
+      "starts": "Starts",
+      "reviewEntries": "Review entries",
+      "competition": "Competition",
+      "viewPublic": "View public page"
     }
   },
   "designSystem": {
@@ -505,7 +761,25 @@
     "placeholder": "Search…",
     "submit": "Search",
     "clear": "Clear search",
-    "noResults": "No results match your search."
+    "noResults": "No results match your search.",
+    "activeFilters": "Active filters",
+    "clearFilter": "Remove filter: {filter}",
+    "filteredByTerm": "Matching “{q}”",
+    "global": {
+      "heading": "Search",
+      "intro": "Search tournaments, games, articles, teams, and players at once.",
+      "prompt": "Enter a search term to begin.",
+      "empty": "Nothing matches “{q}”.",
+      "summary": "Results for “{q}”",
+      "seeAll": "See all",
+      "group": {
+        "tournaments": "Tournaments",
+        "games": "Games",
+        "content": "Articles",
+        "teams": "Teams",
+        "players": "Players"
+      }
+    }
   },
   "content": {
     "type": {
@@ -520,9 +794,11 @@
       "heading": "Content",
       "intro": "News, articles, guides, and announcements.",
       "filterLabel": "Filter by type",
+      "filteredByGame": "Showing content for {game}",
       "all": "All",
       "empty": "No content published yet.",
-      "loadMore": "Load more"
+      "loadMore": "Load more",
+      "filteredByType": "Type: {type}"
     }
   },
   "games": {
@@ -699,6 +975,12 @@
       "roster": "Roster",
       "empty": "No public members to show.",
       "notFound": "This team is not available."
+    },
+    "directory": {
+      "heading": "Teams",
+      "intro": "Public teams competing across the platform.",
+      "empty": "No public team matches this search.",
+      "filteredByGame": "Showing teams for {game}"
     }
   },
   "gamingIdentities": {
@@ -711,6 +993,14 @@
     "saved": "Your gaming identity was saved."
   },
   "tournaments": {
+    "filteredByGame": "Showing tournaments for {game}",
+    "cancelledNotice": "This tournament was cancelled. It is kept here as a record; no further entries are accepted.",
+    "shelf": {
+      "label": "Tournament status",
+      "published": "Open and live",
+      "completed": "Results archive",
+      "cancelled": "Cancelled"
+    },
     "hub": {
       "heading": "Tournaments",
       "intro": "Upcoming and open competitions.",
@@ -768,7 +1058,8 @@
       "cancelled": "Cancelled",
       "completed": "Completed",
       "archived": "Archived"
-    }
+    },
+    "filteredByParticipant": "Entry: {type}"
   },
   "adminTournaments": {
     "heading": "Tournaments",
@@ -811,7 +1102,17 @@
       "rejected": "Rejected",
       "cancelled": "Cancelled",
       "pending_payment": "Awaiting payment"
-    }
+    },
+    "formTitle": "Tournament registration",
+    "stepOf": "Step {current} of {total}",
+    "next": "Next",
+    "back": "Back",
+    "cancel": "Cancel",
+    "noQuestions": "This tournament asks no questions. Submit to register.",
+    "choosePrompt": "Choose…",
+    "requiredField": "Required",
+    "answerRequired": "This question requires an answer.",
+    "fileAttached": "File attached."
   },
   "standings": {
     "heading": "Standings",
@@ -884,7 +1185,8 @@
       "hint": "When public, approved participants are shown by name on the tournament page.",
       "nowPublic": "The participant list is now public.",
       "nowPrivate": "The participant list is now private."
-    }
+    },
+    "notPublished": "This tournament is not published yet, so it cannot receive entries. Publish it to open registration."
   },
   "participants": {
     "heading": "Participants",
@@ -957,7 +1259,9 @@
     "results": "Results",
     "rollback": "Roll back",
     "rolledBack": "Rolled back to the selected version.",
-    "rollbackImpact": "Restore version {v} as a new active version. The current bracket is archived first."
+    "rollbackImpact": "Restore version {v} as a new active version. The current bracket is archived first.",
+    "publishFirst": "A competition can only be generated once the tournament is published and entries have been approved.",
+    "goPublish": "Back to the tournament"
   },
   "wallet": {
     "heading": "Dragon Coin wallet",
@@ -974,7 +1278,7 @@
     "simulateFailure": "Fail payment",
     "succeeded": "Payment verified — coins credited.",
     "history": "Purchase history",
-    "noHistory": "You have no purchases yet.",
+    "noHistory": "No purchases yet — buy Dragon Coin above to get started.",
     "package": "Package",
     "coins": "Dragon Coin",
     "price": "Price",
@@ -992,7 +1296,7 @@
     "held": "Held",
     "available": "Available",
     "holds": "Holds",
-    "noHolds": "You have no holds.",
+    "noHolds": "Nothing on hold. A hold appears while a paid registration is settling, and is released when it completes.",
     "holdPurpose": "Purpose",
     "holdPurposeLabel": {
       "admin_correction": "Administrative correction",
@@ -1008,7 +1312,7 @@
       "cancelled": "Cancelled"
     },
     "prizes": "Prizes",
-    "noPrizes": "You have no prize entitlements.",
+    "noPrizes": "No prize entitlements yet. Cash prizes from a tournament you place in appear here.",
     "prizeRank": "Placement",
     "entitlementState": {
       "pending": "Pending",
@@ -1036,7 +1340,7 @@
   },
   "notifications": {
     "heading": "Notifications",
-    "empty": "You have no notifications.",
+    "empty": "No notifications yet. Approvals, confirmations, and completed purchases arrive here.",
     "markRead": "Mark read",
     "markAllRead": "Mark all read",
     "allRead": "All notifications marked read.",
@@ -1045,7 +1349,8 @@
       "registration_confirmed": "Your paid tournament registration is confirmed.",
       "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
       "prize_paid": "Your cash prize has been marked paid."
-    }
+    },
+    "open": "Open"
   },
   "moderation": {
     "report": {
@@ -1056,6 +1361,43 @@
       "sending": "Sending…",
       "cancel": "Cancel",
       "sent": "Your report was received."
+    }
+  },
+  "players": {
+    "directory": {
+      "heading": "Players",
+      "intro": "Players who have made their profile public.",
+      "empty": "No public profile matches this search."
+    }
+  },
+  "formBuilder": {
+    "legend": "Registration form",
+    "hint": "Questions entrants answer when they register. Leave it empty to ask nothing.",
+    "page": "Page {n}",
+    "onPage": "Page",
+    "emptyPage": "No questions on this page yet.",
+    "addQuestion": "Add question",
+    "addPage": "Add page",
+    "removeQuestion": "Remove",
+    "promptFa": "Question (Persian)",
+    "promptEn": "Question (English)",
+    "type": "Answer type",
+    "required": "Required",
+    "optionFa": "Option {n} (Persian)",
+    "optionEn": "Option {n} (English)",
+    "addOption": "Add option",
+    "removeOption": "Remove option",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "typeValue": {
+      "short_text": "Short text",
+      "long_text": "Long text",
+      "number": "Number",
+      "national_id": "National ID",
+      "single_choice": "Choose one",
+      "multi_choice": "Choose several",
+      "file": "File upload",
+      "image": "Image upload"
     }
   }
 }

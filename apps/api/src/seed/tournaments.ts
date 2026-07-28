@@ -34,19 +34,33 @@ interface TournamentSpec {
   readonly capacity: number;
   readonly phase: Phase;
   readonly approvalMode: 'automatic' | 'manual';
+  /** Whether the approved participant list is shown publicly (organizer display setting). */
+  readonly participantsPublic: boolean;
+  /**
+   * Entry fee. A priced tournament is only *reviewable* when `PAID_TOURNAMENTS_ENABLED`
+   * is on — the definition is always seeded, but checkout is gated (see seedPaidCheckouts).
+   */
+  readonly fee?: { kind: 'toman'; tomanAmount: number } | { kind: 'dragon_coin'; dragonCoinAmount: number };
 }
 
 const DAY = 86_400_000;
 
+// Participant visibility is deliberately mixed: most events publish their roster (the
+// public list and its player/team links only render when they do), while two keep it
+// private so the "participants are not public" state is reviewable too.
 const SPECS: readonly TournamentSpec[] = [
-  { slug: 'nova-open-cup', nameFa: 'جام باز نوا', nameEn: 'Nova Open Cup', game: 'nova-strike', organizerKey: 'organizer-01', participantType: 'individual', format: 'single_elimination', capacity: 16, phase: 'reg_open', approvalMode: 'automatic' },
-  { slug: 'dragon-team-clash', nameFa: 'نبرد تیمی اژدها', nameEn: 'Dragon Team Clash', game: 'dragon-arena', organizerKey: 'organizer-02', participantType: 'team', format: 'single_elimination', capacity: 8, phase: 'reg_open', approvalMode: 'manual' },
-  { slug: 'astro-grand-prix', nameFa: 'گرندپری فضایی', nameEn: 'Astro Grand Prix', game: 'astro-racers', organizerKey: 'organizer-03', participantType: 'individual', format: 'round_robin', capacity: 6, phase: 'upcoming', approvalMode: 'automatic' },
-  { slug: 'rune-masters', nameFa: 'اساتید رون', nameEn: 'Rune Masters', game: 'rune-tactics', organizerKey: 'organizer-01', participantType: 'individual', format: 'swiss', capacity: 16, phase: 'active', approvalMode: 'automatic' },
-  { slug: 'pixel-championship', nameFa: 'قهرمانی پیکسل', nameEn: 'Pixel Championship', game: 'pixel-league', organizerKey: 'organizer-02', participantType: 'individual', format: 'single_elimination', capacity: 8, phase: 'completed', approvalMode: 'automatic' },
-  { slug: 'shadow-invitational', nameFa: 'دعوتی سایه', nameEn: 'Shadow Invitational', game: 'shadow-duel', organizerKey: 'organizer-03', participantType: 'individual', format: 'double_elimination', capacity: 8, phase: 'cancelled', approvalMode: 'automatic' },
-  { slug: 'orbit-qualifier', nameFa: 'مقدماتی مداری', nameEn: 'Orbit Qualifier', game: 'orbit-blitz', organizerKey: 'organizer-01', participantType: 'individual', format: 'single_elimination', capacity: 4, phase: 'reg_open', approvalMode: 'manual' },
-  { slug: 'nova-draft-cup', nameFa: 'جام پیش‌نویس نوا', nameEn: 'Nova Draft Cup', game: 'nova-strike', organizerKey: 'organizer-02', participantType: 'individual', format: 'single_elimination', capacity: 16, phase: 'draft', approvalMode: 'automatic' }
+  { slug: 'nova-open-cup', nameFa: 'جام باز نوا', nameEn: 'Nova Open Cup', game: 'nova-strike', organizerKey: 'organizer-01', participantType: 'individual', format: 'single_elimination', capacity: 16, phase: 'reg_open', approvalMode: 'automatic', participantsPublic: true },
+  { slug: 'dragon-team-clash', nameFa: 'نبرد تیمی اژدها', nameEn: 'Dragon Team Clash', game: 'dragon-arena', organizerKey: 'organizer-02', participantType: 'team', format: 'single_elimination', capacity: 8, phase: 'reg_open', approvalMode: 'manual', participantsPublic: true },
+  { slug: 'astro-grand-prix', nameFa: 'گرندپری فضایی', nameEn: 'Astro Grand Prix', game: 'astro-racers', organizerKey: 'organizer-03', participantType: 'individual', format: 'round_robin', capacity: 6, phase: 'upcoming', approvalMode: 'automatic', participantsPublic: false },
+  { slug: 'rune-masters', nameFa: 'اساتید رون', nameEn: 'Rune Masters', game: 'rune-tactics', organizerKey: 'organizer-01', participantType: 'individual', format: 'swiss', capacity: 16, phase: 'active', approvalMode: 'automatic', participantsPublic: true },
+  { slug: 'pixel-championship', nameFa: 'قهرمانی پیکسل', nameEn: 'Pixel Championship', game: 'pixel-league', organizerKey: 'organizer-02', participantType: 'individual', format: 'single_elimination', capacity: 8, phase: 'completed', approvalMode: 'automatic', participantsPublic: true },
+  { slug: 'shadow-invitational', nameFa: 'دعوتی سایه', nameEn: 'Shadow Invitational', game: 'shadow-duel', organizerKey: 'organizer-03', participantType: 'individual', format: 'double_elimination', capacity: 8, phase: 'cancelled', approvalMode: 'automatic', participantsPublic: true },
+  { slug: 'orbit-qualifier', nameFa: 'مقدماتی مداری', nameEn: 'Orbit Qualifier', game: 'orbit-blitz', organizerKey: 'organizer-01', participantType: 'individual', format: 'single_elimination', capacity: 4, phase: 'reg_open', approvalMode: 'manual', participantsPublic: true },
+  { slug: 'nova-draft-cup', nameFa: 'جام پیش‌نویس نوا', nameEn: 'Nova Draft Cup', game: 'nova-strike', organizerKey: 'organizer-02', participantType: 'individual', format: 'single_elimination', capacity: 16, phase: 'draft', approvalMode: 'automatic', participantsPublic: false },
+  // Priced entries, one per fee currency. Free events cannot exercise checkout, the
+  // Dragon-Coin hold, or the pending-payment registration state, so both are seeded.
+  { slug: 'nova-premier-cup', nameFa: 'جام ویژه نوا', nameEn: 'Nova Premier Cup', game: 'nova-strike', organizerKey: 'organizer-01', participantType: 'individual', format: 'single_elimination', capacity: 8, phase: 'reg_open', approvalMode: 'automatic', participantsPublic: true, fee: { kind: 'toman', tomanAmount: 150_000 } },
+  { slug: 'dragon-coin-clash', nameFa: 'نبرد سکه اژدها', nameEn: 'Dragon Coin Clash', game: 'dragon-arena', organizerKey: 'organizer-03', participantType: 'individual', format: 'single_elimination', capacity: 8, phase: 'reg_open', approvalMode: 'automatic', participantsPublic: true, fee: { kind: 'dragon_coin', dragonCoinAmount: 250 } }
 ];
 
 /** Registration + schedule windows (ISO) that render as each phase relative to now. */
@@ -99,6 +113,7 @@ export async function seedTournaments(
           format: s.format,
           capacity: s.capacity,
           approvalMode: s.approvalMode,
+          ...(s.fee === undefined ? {} : { fee: s.fee }),
           registration: w.registration,
           schedule: w.schedule,
           ruleProfile: { text: { fa: 'قوانین نمونه برای نمایش محلی.', en: 'Fictional demo rules.' } },
@@ -121,6 +136,17 @@ export async function seedTournaments(
     );
     if (wasReused) reused += 1;
     else created += 1;
+
+    // Participant visibility is a display setting an organizer flips at any time, so it is
+    // applied after creation and works on an already-published event. The service is a
+    // no-op when the value already matches, which keeps a rerun silent.
+    const saved = (await db.collection('tournaments').findOne({ _id: id } as never)) as unknown as
+      | { version: number; participantsPublic?: boolean }
+      | null;
+    if (saved !== null && (saved.participantsPublic === true) !== s.participantsPublic) {
+      await services.tournaments.setParticipantsVisibility(ctx(), id, s.participantsPublic, saved.version);
+    }
+
     tournamentRegistry.set(s.slug, { key: s.slug, id, participantType: s.participantType, capacity: s.capacity });
   }
   summary.record('tournaments', created, reused);
@@ -147,7 +173,9 @@ export async function seedRegistrations(
   // Only registration-open individual tournaments accept registrations right now.
   const plan: { tournamentSlug: string; approve: boolean; count: number; waitlistExtra: number; manual: boolean }[] = [
     { tournamentSlug: 'nova-open-cup', approve: true, count: 10, waitlistExtra: 0, manual: false },
-    { tournamentSlug: 'orbit-qualifier', approve: true, count: 4, waitlistExtra: 2, manual: true } // capacity 4 -> full + waitlist
+    // Capacity 4 -> full, plus three waitlisted; one of those is rejected below, leaving
+    // two on the waitlist so both states stay visible.
+    { tournamentSlug: 'orbit-qualifier', approve: true, count: 4, waitlistExtra: 3, manual: true }
   ];
 
   for (const p of plan) {
@@ -206,6 +234,37 @@ export async function seedRegistrations(
         registered += 1;
       } catch {
         // Team eligibility (roster/game identity) may reject; acceptable for demo.
+      }
+    }
+  }
+
+  // One explicit rejection example — the only registration state the demo never reached,
+  // so the rejected badge, the admin decision reason, and the player's own view of a
+  // refused entry all had nothing to render. Rejection is terminal and only reachable from
+  // pending/waitlisted, so the last waitlisted entry is used.
+  const rejectT = tournaments.get('orbit-qualifier');
+  const rejectAdmin = users.get('admin-super');
+  const alreadyRejected =
+    rejectT === undefined ? 1 : await db.collection('registrations').countDocuments({ tournamentId: rejectT.id, state: 'rejected' });
+  if (rejectT !== undefined && rejectAdmin !== undefined && alreadyRejected === 0) {
+    const waitlisted = (await db
+      .collection('registrations')
+      .find({ tournamentId: rejectT.id, state: 'waitlisted' } as never)
+      .sort({ waitlistSeq: -1 })
+      .limit(1)
+      .toArray()) as unknown as Array<{ _id: string }>;
+    const last = waitlisted[0];
+    if (last !== undefined) {
+      try {
+        await services.registrations.reject(
+          accountContext(rejectAdmin.accountId, ['tournament_organizer', 'tournament_administrator']),
+          rejectAdmin.accountId,
+          rejectT.id,
+          last._id,
+          'demo seed: entry did not meet the published eligibility rules'
+        );
+      } catch {
+        // Terminal-state race: leave the record as-is.
       }
     }
   }

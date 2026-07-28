@@ -1,10 +1,10 @@
 import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { NotFoundError } from '../../shared/errors.ts';
 import { PERMISSIONS } from '../../shared/authz/permissions.ts';
-import { createSessionGuards, type IdentityService } from '../identity/index.ts';
+import { createSessionGuards, requireIdentity, type IdentityService } from '../identity/index.ts';
 import { requirePermission, type AuthorizationService } from '../admin/index.ts';
 import type { TournamentsService } from './service.ts';
-import type { Locale, TournamentRecord, TournamentState } from './state.ts';
+import { questionPageCount, type Locale, type TournamentRecord, type TournamentState } from './state.ts';
 
 /**
  * Tournament HTTP surface: a public discovery side (published tournaments only)
@@ -53,7 +53,10 @@ function publicCard(t: TournamentRecord, locale: Locale) {
     startAt: t.schedule.startAt,
     endAt: t.schedule.endAt,
     capacity: t.capacity,
-    coverImageUrl: t.coverImageUrl ?? null
+    coverImageUrl: t.coverImageUrl ?? null,
+    // Public because a finished or cancelled event now stays readable, and a viewer has
+    // to be able to tell an archived result from a live event at a glance.
+    state: t.state
   };
 }
 
@@ -83,8 +86,11 @@ function publicDetail(t: TournamentRecord, locale: Locale) {
       prompt: q.prompt[locale],
       type: q.type,
       required: q.required,
-      options: q.options.map((o) => o[locale])
+      options: q.options.map((o) => o[locale]),
+      page: q.page ?? 1
     })),
+    /** How many steps the entry form has; 1 for a form that is not paged. */
+    questionPages: questionPageCount(t.questionSet),
     publishedAt: t.publishedAt
   };
 }
@@ -110,6 +116,8 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
             game: { type: 'string' },
             participantType: { type: 'string', enum: ['individual', 'team'] },
             format: { type: 'string' },
+            // Defaults to the live directory; `completed`/`cancelled` open the archive.
+            state: { type: 'string', enum: ['published', 'completed', 'cancelled'] },
             q: { type: 'string', maxLength: 100 },
             cursor: { type: 'string' },
             limit: { type: 'integer', minimum: 1, maximum: 100 }
@@ -119,17 +127,55 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
       }
     },
     async (request) => {
-      const q = request.query as { game?: string; participantType?: string; format?: string; q?: string; cursor?: string; limit?: number };
+      const q = request.query as { game?: string; participantType?: string; format?: string; state?: TournamentState; q?: string; cursor?: string; limit?: number };
       const locale = localeOf(request);
       const page = await deps.tournaments.listPublished({
         ...(q.game === undefined ? {} : { gameId: q.game }),
         ...(q.participantType === undefined ? {} : { participantType: q.participantType }),
         ...(q.format === undefined ? {} : { format: q.format }),
+        ...(q.state === undefined ? {} : { state: q.state }),
         ...(q.q === undefined ? {} : { q: q.q, locale }),
         ...(q.cursor === undefined ? {} : { cursor: q.cursor }),
         ...(q.limit === undefined ? {} : { limit: q.limit })
       });
       return { items: page.items.map((t) => publicCard(t, locale)), nextCursor: page.nextCursor };
+    }
+  );
+
+  /**
+   * Resolves tournament ids to their public slugs, in batch.
+   *
+   * Domain events carry ids, so anything built from them — a notification, an audit
+   * entry — knows *which* tournament but cannot link to it, because the public detail
+   * route is addressed by slug. Rather than teach every such surface to scan the whole
+   * directory, this answers the one question they all have. It returns only tournaments
+   * a visitor may already read, so it exposes nothing the detail route would not.
+   */
+  app.get(
+    '/tournament-slugs',
+    {
+      schema: {
+        tags: ['tournaments'],
+        summary: 'Resolve tournament ids to public slugs (batch).',
+        querystring: {
+          type: 'object',
+          required: ['ids'],
+          additionalProperties: false,
+          properties: { locale: localeQuery, ids: { type: 'string', maxLength: 2000 } }
+        },
+        response: { 200: { type: 'object', additionalProperties: true }, 400: { $ref: 'ErrorResponse#' } }
+      }
+    },
+    async (request) => {
+      const { ids } = request.query as { ids: string };
+      const locale = localeOf(request);
+      const wanted = [...new Set(ids.split(',').map((id) => id.trim()).filter((id) => id !== ''))].slice(0, 50);
+      const found = await Promise.all(wanted.map((id) => deps.tournaments.getById(id)));
+      return {
+        items: found
+          .filter((t): t is TournamentRecord => t !== null && deps.tournaments.isPubliclyReadable(t.state))
+          .map((t) => ({ id: t._id, slug: t.slug, name: t.translations[locale].name }))
+      };
     }
   );
 
@@ -161,7 +207,7 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
     {
       schema: {
         tags: ['tournaments'],
-        summary: 'Published tournament detail by slug. Draft/cancelled/archived return 404.',
+        summary: 'Public tournament detail by slug (published, completed, or cancelled). Draft/archived return 404.',
         params: { type: 'object', required: ['slug'], additionalProperties: false, properties: { slug: { type: 'string' } } },
         querystring: { type: 'object', additionalProperties: false, properties: { locale: localeQuery } },
         response: { 200: { type: 'object', additionalProperties: true }, 404: { $ref: 'ErrorResponse#' } }
@@ -186,14 +232,18 @@ export function registerTournamentsRoutes(app: FastifyInstance, deps: Tournament
         querystring: {
           type: 'object',
           additionalProperties: false,
-          properties: { state: { type: 'string' }, game: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } }
+          // `mine` narrows the list to the caller's own events (the organizer workspace).
+          // It never widens access: the permission gate above already decided that.
+          properties: { state: { type: 'string' }, game: { type: 'string' }, mine: { type: 'boolean' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } }
         },
         response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
       }
     },
     async (request) => {
-      const q = request.query as { state?: TournamentState; game?: string; cursor?: string; limit?: number };
+      const q = request.query as { state?: TournamentState; game?: string; mine?: boolean; cursor?: string; limit?: number };
+      const organizerId = q.mine === true ? requireIdentity(request).account._id : undefined;
       const page = await deps.tournaments.listForAdmin({
+        ...(organizerId === undefined ? {} : { organizerId }),
         ...(q.state === undefined ? {} : { state: q.state }),
         ...(q.game === undefined ? {} : { gameId: q.game }),
         ...(q.cursor === undefined ? {} : { cursor: q.cursor }),

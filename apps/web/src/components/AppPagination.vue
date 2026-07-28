@@ -89,14 +89,17 @@ button {
   min-inline-size: var(--target-min);
   padding-inline: var(--space-3);
   border: 1px solid var(--color-border-strong);
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface);
   color: var(--color-text);
+  font-variant-numeric: tabular-nums;
   cursor: pointer;
 }
 
 button:hover:not(:disabled) {
-  background-color: var(--color-surface-raised);
+  border-color: var(--color-accent);
+  color: var(--color-accent);
+  background-color: var(--color-primary-soft);
 }
 
 button:disabled {
@@ -106,9 +109,14 @@ button:disabled {
 
 /* Selected state carries weight and a border, not colour alone (section 23.2). */
 button[aria-current='page'] {
-  background-color: var(--color-accent);
-  color: var(--color-accent-text);
-  font-weight: 700;
-  border-color: var(--color-accent);
+  background-color: var(--color-primary);
+  color: var(--color-primary-text);
+  font-weight: var(--weight-bold);
+  border-color: var(--color-primary);
+}
+button[aria-current='page']:hover {
+  background-color: var(--color-primary-strong);
+  color: var(--color-primary-text);
+  border-color: var(--color-primary-strong);
 }
 </style>

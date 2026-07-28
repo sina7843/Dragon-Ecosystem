@@ -32,6 +32,12 @@ const account = ref<AccountView | null>(null);
 const profileComplete = ref(false);
 const profile = ref<ProfileName | null>(null);
 const loaded = ref(false);
+/**
+ * The shell and the active view both refresh on mount, and both fire before `loaded`
+ * flips. Sharing the in-flight promise collapses those into a single round trip
+ * (previously `/auth/session` and `/account/profile` were each requested twice per load).
+ */
+let inFlight: Promise<void> | null = null;
 
 export function useAuth(): {
   account: Ref<AccountView | null>;
@@ -44,7 +50,15 @@ export function useAuth(): {
   refresh: () => Promise<void>;
   signOut: () => Promise<void>;
 } {
-  async function refresh(): Promise<void> {
+  function refresh(): Promise<void> {
+    // Concurrent callers share one request; a later call starts a fresh one.
+    inFlight ??= load().finally(() => {
+      inFlight = null;
+    });
+    return inFlight;
+  }
+
+  async function load(): Promise<void> {
     try {
       const session = await apiFetch<SessionResponse>('/auth/session');
       account.value = session.authenticated ? (session.account ?? null) : null;

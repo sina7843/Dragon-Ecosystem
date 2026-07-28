@@ -20,11 +20,15 @@ const failed = ref(false);
 const showImage = computed(() => Boolean(props.src) && !failed.value);
 const ratio = computed(() => props.ratio ?? 16 / 9);
 
-// Deterministic hue from the label so a given game/tournament keeps its colour.
+/**
+ * Deterministic hue from the label so a given game/tournament keeps its colour,
+ * constrained to the lapis band (212°–267°). An unconstrained hue produced tiles
+ * in every colour of the wheel, which fought the palette on every grid.
+ */
 const hue = computed(() => {
   let h = 0;
   for (const ch of props.label) h = (h * 31 + ch.charCodeAt(0)) % 360;
-  return h;
+  return 212 + (h % 56);
 });
 const initial = computed(() => (props.label.trim()[0] ?? '?').toUpperCase());
 </script>
@@ -51,7 +55,7 @@ const initial = computed(() => (props.label.trim()[0] ?? '?').toUpperCase());
       :style="{
         '--h': hue,
         backgroundImage:
-          `radial-gradient(120% 120% at 100% 0%, hsl(var(--h) 55% 30%), hsl(calc(var(--h) + 30) 45% 14%))`
+          `radial-gradient(140% 140% at 88% 0%, hsl(var(--h) 48% 32%), hsl(calc(var(--h) - 14) 55% 12%))`
       }"
     >
       <span
@@ -67,7 +71,7 @@ const initial = computed(() => (props.label.trim()[0] ?? '?').toUpperCase());
   position: relative;
   inline-size: 100%;
   overflow: hidden;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-sm);
   background-color: var(--color-surface-sunken);
 }
 
@@ -83,17 +87,36 @@ const initial = computed(() => (props.label.trim()[0] ?? '?').toUpperCase());
   object-fit: cover;
 }
 
+/**
+ * Artwork is missing far more often than the design would like, so the fallback
+ * has to hold a whole grid without shouting. It is a lapis plate with the same
+ * diagonal hatch the page uses, and the initial sits behind it as a watermark
+ * rather than a poster letter.
+ */
 .thumb-fallback {
   display: grid;
   place-items: center;
 }
 
+.thumb-fallback::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background-image: repeating-linear-gradient(
+    115deg,
+    rgb(255 255 255 / 6%) 0 1px,
+    transparent 1px 14px
+  );
+}
+
 .thumb-initial {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-variation-settings: 'wdth' var(--display-width);
+  font-size: clamp(3rem, 9vw, 6rem);
   font-weight: var(--weight-bold);
-  color: rgb(255 255 255 / 80%);
+  color: rgb(255 255 255 / 20%);
   letter-spacing: var(--tracking-tight);
+  line-height: 1;
 }
 </style>
 
