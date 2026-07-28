@@ -28,6 +28,7 @@ import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferenc
 import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, type Locale as SeoLocale } from './modules/seo/index.ts';
 import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPubliclyReadableStream, type StreamAlerts } from './modules/streams/index.ts';
 import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStreamAccess } from './modules/chat/index.ts';
+import { EducationService, registerEducationRoutes } from './modules/education/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { utcNow } from './shared/events.ts';
@@ -102,6 +103,7 @@ export interface ServerDependencies {
   readonly seo?: { service: SeoService };
   readonly streams?: { service: StreamsService };
   readonly chat?: { service: ChatService };
+  readonly education?: { service: EducationService };
 }
 
 declare module 'fastify' {
@@ -339,6 +341,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               identity: deps.identity.service,
               authorization: deps.admin.authorization,
               streams: deps.streams.service
+            });
+          }
+          // Education reuses identity, media, and the shared holds/ledger boundary; it has
+          // no dependency on tournaments, so it registers independently.
+          if (deps.education !== undefined) {
+            registerEducationRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              education: deps.education.service
             });
           }
           // Chat rooms exist only for streams, so the module is registered alongside them.
@@ -704,6 +715,16 @@ export function buildChat(
   return { service: new ChatService(database, streamAccess, cases) };
 }
 
+/**
+ * Wires the education module.
+ *
+ * The paid path reaches money only through the shared holds service, which itself posts
+ * through the ledger — so there is no education-specific balance anywhere (EDU-010).
+ */
+export function buildEducation(database: Database, config: AppConfig, holds: { service: HoldsService }): { service: EducationService } {
+  return { service: new EducationService(database, { paidCoursesEnabled: config.paidCoursesEnabled }, holds.service) };
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -779,7 +800,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     media: buildMedia(database, config),
     seo: buildSeo(database, config),
     streams,
-    chat: buildChat(database, streams, moderation)
+    chat: buildChat(database, streams, moderation),
+    education: buildEducation(database, config, holds)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

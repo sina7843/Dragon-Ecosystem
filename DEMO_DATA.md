@@ -226,6 +226,11 @@ The demo reflects Phase-1 fail-closed behavior:
   scheduled and live. Archiving and takedown stay refused while
   `STREAM_RIGHTS_POLICY_APPROVED` is off (OD-014), and the provider is always the
   deterministic local stub (OD-013) — no video ever leaves the machine.
+- **Courses (DRAGON-20)**: the seeder creates no courses, so `/academy` is empty on a fresh
+  demo database. As an `education_manager`, create a coach profile and approve it, then
+  create a course and its lessons from `/admin/courses` and move it review → published.
+  Paid courses stay refused while `PAID_COURSES_ENABLED` is off (OD-015), and quiz or
+  exercise lessons are refused outright (OD-016).
 - **Live chat (DRAGON-19)**: a stream has no chat room until one is opened. As a
   `live_chat_moderator`, open it from `/admin/chat` (or `POST /api/v1/admin/chat/rooms`
   with the stream id); the watch page then shows the chat panel. The same console applies

@@ -30,8 +30,43 @@
 - Phase 1 release decision and acceptance closure: DRAGON-17c **implementation complete — decision recorded in `RELEASE_DECISION.md`: GO WITH CONDITIONS for the local/test RC at `09b1af5`; production NOT authorized; final Phase 1 acceptance withheld; awaiting authorized human sign-off** — not committed
 - Phase 2 stream catalog and provider adapter boundary: complete (DRAGON-18) — implemented and verified, not yet committed
 - Phase 2 moderated live chat and release closure: complete (DRAGON-19) — implemented and verified, not yet committed. **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
-- Active prompt: DRAGON-19 (Phase 2 live chat, moderation, and release); **parent DRAGON-17 remains open pending authorized human sign-off, and Phase 2 release is blocked by unresolved external decisions**
-- Latest verified checkpoint: DRAGON-19 live chat and Phase 2 closure, 2026-07-28
+- Phase 3 courses, enrolment, and progress: complete (DRAGON-20) — implemented and verified, not yet committed
+- Active prompt: DRAGON-20 (Phase 3 courses, enrolment, and progress); **parent DRAGON-17 remains open pending authorized human sign-off, and Phase 2 release is blocked by unresolved external decisions**
+- Latest verified checkpoint: DRAGON-20 courses and enrolment, 2026-07-29
+
+## DRAGON-20 — Phase 3 courses, enrolment, and progress
+
+- **Education module (`apps/api/src/modules/education/`).** Course lifecycle exactly per section 12.10 (draft → review → published → unpublished → archived), enrolment per its two documented paths (free `pending → active → completed`, paid `pending_payment → active → completed`, with revoked/refunded/cancelled). Migration `026-education` creates six collections and their constraints.
+- **Access (BR-024).** Lesson content needs *both* an access-granting enrolment and, for a paid course, a live entitlement. A locked lesson is returned without its body or `mediaUrl`, so the lock is a property of the payload rather than of the client (MEDIA-012).
+- **Progress and completion (EDU-006, EDU-007).** Progress is idempotent and monotonic per learner/lesson — a replay changes nothing and a stale device never lowers what was recorded. Completion is a pure function of stored required-lesson progress, asserted stable under repeated evaluation.
+- **Paid enrolment (EDU-002, EDU-010).** The price is reserved as a Dragon Coin hold at enrolment and captured on activation, both through the shared holds service, which posts through the ledger. No education-specific balance exists. Activation is exactly-once, proven against ledger balances rather than against a mock.
+- **Publication (EDU-009).** Refused until both locales have a title and summary, the curriculum has at least one required lesson with localized titles, and an **approved** coach owns the course. Every missing item is reported together.
+- **Gates held closed.** OD-015: `PAID_COURSES_ENABLED` ships `false`, so a course cannot be priced or paid for; a Toman price is refused outright (Dragon Coin is non-redeemable, so it raises none of the ownership/refund/payout questions the decision governs). OD-016: quiz and exercise lesson types are refused by name.
+- **Not implemented, deliberately.** PAGE-033 (coach page — its content depends on the commercial relationship OD-015 governs; the coach's approved fields are shown unlinked on the course detail rather than as a dead link), ANALYTICS-004 (course revenue cannot reconcile while paid enrolment is gated), and EDU-012 certification/accreditation/payout, which has no endpoint, field, or promise anywhere.
+
+### DRAGON-20 focused security review
+
+One independent `test-reviewer` pass over the education surface (money correctness, entitlement/access, IDOR, prerequisite bypass, gate integrity, publication/ownership, data leakage, concurrency, test honesty). **Verdict: APPROVE — no Critical or High finding.**
+
+- **Medium (fixed):** a concurrent duplicate enrolment could strand a Dragon Coin reservation. Two requests could both pass the existence check and both reserve; only one enrolment won the unique index, and the loser silently discarded its hold, leaving the learner's balance reserved until the hold's TTL. The losing attempt now releases its own reservation, and any other post-reservation failure does the same. A test asserts exactly one active hold survives a race.
+- **Medium (fixed):** a `pending_payment` enrolment had no exit. `POST /me/enrollments/{id}/cancel` now releases the reservation and cancels the enrolment, so a learner who changes their mind gets their balance back immediately instead of waiting out the TTL.
+
+### DRAGON-20 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — 2 errors, **both pre-existing in `apps/web/src/views/TournamentDetailView.vue`**. The new views add two `vue/no-v-html` warnings, matching the established pattern in `GameDetailView.vue` and `ContentDetailView.vue`: the bodies are sanitised at the server write boundary.
+- `npm test` (workspaces) — 391 tests: 390 passed, 1 failed (api 346: 345 pass; web 45: 45 pass). The single failure is the pre-existing `compose-topology.test.ts` "nginx remains the public entry point on 8080", caused by the uncommitted `docker-compose.yml` change. Adds 33 education unit tests.
+- `npm run test:integration` (api) — 385 passed, 0 failed. Adds 28 education integration tests covering every TEST-022 area: free and paid entitlement, progress, completion, and revocation — plus authorization, publication completeness, prerequisite locks, coach privacy, review eligibility, the OD-015/OD-016 gates, cancellation, and the concurrency race.
+- `npm run build` — pass · `npm run test:budget` — pass
+- `npm run e2e` — **332 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 8 academy browser tests. (An earlier run hit the tracked intermittent `teams.spec.ts:58` (C6/R-FLAKE) under full-parallel contention; it passed on an isolated re-run and on the final full run.)
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+- Migrations against the disposable test DB — `026-education` applies cleanly.
+
+**Environment note.** The browser suite could not start at all until the API host port was moved: Windows/WinNAT had reserved 2969-3068, which contains the default 3000, and a reserved port fails to bind with a permissions error even though nothing is listening. Because the test environment logs at `silent`, the API exited 1 with no output. `E2E_API_PORT` / `E2E_WEB_PORT` now provide the same escape hatch `WEB_PORT` already gives Compose; the defaults are unchanged.
+
+### Phase 3 traceability
+
+38 Phase-3 requirement rows added (EDU-001..012, API-077..082, PAGE-030..033, PAGE-054, DATA-050..055, ROLE-014/015/023, FORM-017, BR-024, MEDIA-012, TEST-022, ANALYTICS-004). Nine are honestly Gated, Partial, Deferred, or Not applicable rather than claimed complete.
 
 ## DRAGON-19 — Phase 2 moderated live chat and release closure
 

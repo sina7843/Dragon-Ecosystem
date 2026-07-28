@@ -140,6 +140,12 @@ export interface AppConfig {
    */
   readonly devRoutesEnabled: boolean;
   readonly streaming: StreamingConfig;
+  /**
+   * OD-015 gate for paid course enrolment. Fail-closed: while false a course cannot be
+   * priced or paid for, so no commercial course flow is reachable until course ownership,
+   * refund, and any coach commercial terms are approved. Free courses are unaffected.
+   */
+  readonly paidCoursesEnabled: boolean;
 }
 
 /** Safe non-secret default used only outside production. */
@@ -401,6 +407,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     devRoutesEnabled: env !== 'production' && (source['ENABLE_DEV_ROUTES'] ?? '').toLowerCase() === 'true',
     // OD-007 fail-closed: paid tournament checkout is off unless explicitly enabled.
     paidTournamentsEnabled: (source['PAID_TOURNAMENTS_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-015 fail-closed: paid course enrolment is off unless explicitly enabled.
+    paidCoursesEnabled: (source['PAID_COURSES_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-008 / OD-003 fail-closed: notification SMS and email channels are off unless explicitly enabled.
     notificationsSmsEnabled: (source['NOTIFICATIONS_SMS_ENABLED'] ?? '').toLowerCase() === 'true',
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',

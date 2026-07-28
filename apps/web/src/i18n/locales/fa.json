@@ -39,7 +39,9 @@
       "adminOrganizer": "برگزارکننده",
       "streams": "پخش زنده",
       "adminStreams": "پخش زنده",
-      "adminChat": "نظارت بر گفت‌وگو"
+      "adminChat": "نظارت بر گفت‌وگو",
+      "academy": "آکادمی",
+      "adminCourses": "دوره‌ها"
     }
   },
   "player": {
@@ -76,7 +78,8 @@
     "notifications": "اعلان‌ها",
     "teamsDirectory": "تیم‌ها",
     "playersDirectory": "بازیکنان",
-    "streams": "پخش زنده"
+    "streams": "پخش زنده",
+    "academy": "آکادمی"
   },
   "theme": {
     "label": "پوسته",
@@ -243,7 +246,8 @@
       "operations": "عملیات",
       "organizer": "میز کار برگزارکننده",
       "streams": "عملیات پخش زنده",
-      "chat": "نظارت بر گفت‌وگو"
+      "chat": "نظارت بر گفت‌وگو",
+      "courses": "دوره‌ها"
     },
     "users": {
       "heading": "کاربران",
@@ -1407,6 +1411,70 @@
       "provider": "ارائه‌شده توسط سرویس {provider}.",
       "notPlaying": "این پخش هم‌اکنون در حال اجرا نیست.",
       "retry": "تلاش دوباره"
+    }
+  },
+  "academy": {
+    "hub": {
+      "heading": "آکادمی",
+      "intro": "دوره‌های ساختاریافته از مربیان تأییدشده.",
+      "empty": "هنوز دوره‌ای با این نما مطابقت ندارد."
+    },
+    "accessFilter": "نوع دسترسی",
+    "free": "رایگان",
+    "paid": "پولی",
+    "required": "الزامی",
+    "enroll": "ثبت‌نام",
+    "enrollPaid": "رزرو جایگاه",
+    "enrolled": "ثبت‌نام شما انجام شد.",
+    "activate": "پرداخت {price} و شروع",
+    "activated": "جایگاه شما نهایی شد.",
+    "continue": "ادامهٔ یادگیری",
+    "enrolmentBlocked": "این ثبت‌نام دیگر دسترسی به دوره نمی‌دهد.",
+    "courseCompleted": "این دوره را به پایان رساندید.",
+    "completionNote": "برای پایان دوره باید {percent}٪ درس‌های الزامی را کامل کنید.",
+    "detail": {
+      "notFound": "این دوره وجود ندارد یا منتشر نشده است.",
+      "about": "دربارهٔ این دوره",
+      "curriculum": "سرفصل‌ها",
+      "reviews": "نظرها"
+    },
+    "player": {
+      "lessons": "درس‌ها",
+      "locked": "قفل",
+      "done": "انجام‌شده",
+      "progress": "{done} از {total} درس کامل شده",
+      "completed": "پایان‌یافته",
+      "markComplete": "علامت‌زدن درس به‌عنوان کامل",
+      "selectLesson": "برای شروع یک درس را انتخاب کنید.",
+      "openMaterial": "بازکردن محتوای درس",
+      "backToCatalog": "بازگشت به آکادمی",
+      "noAccess": "شما به این دوره دسترسی ندارید."
+    }
+  },
+  "adminCourses": {
+    "heading": "دوره‌ها",
+    "intro": "ساخت دوره و سرفصل‌ها، و انتشار پس از کامل‌شدن محتوای دوزبانه و تعیین مربی مالک.",
+    "createHeading": "دورهٔ تازه",
+    "create": "ساخت دوره",
+    "created": "دوره ساخته شد.",
+    "empty": "هنوز دوره‌ای ثبت نشده است.",
+    "paidGated": "دوره‌های پولی تا تأیید سیاست غیرفعال است",
+    "moveTo": "انتقال به {state}",
+    "stateChanged": "وضعیت دوره به‌روزرسانی شد.",
+    "stateReason": "از کنسول آموزش به {state} منتقل شد.",
+    "state": {
+      "draft": "پیش‌نویس",
+      "review": "در بازبینی",
+      "published": "منتشرشده",
+      "unpublished": "از انتشار خارج‌شده",
+      "archived": "بایگانی‌شده"
+    },
+    "field": {
+      "titleEn": "عنوان انگلیسی",
+      "titleFa": "عنوان فارسی",
+      "slug": "نشانی کوتاه",
+      "updatedAt": "به‌روزرسانی",
+      "completion": "آستانهٔ تکمیل"
     }
   },
   "chat": {

@@ -42,6 +42,10 @@ export const PERMISSIONS = {
   // scope-limited: a live-chat moderator acts inside assigned rooms and holds no platform
   // moderation power, so it can never suspend an account.
   chatModerate: 'chat.moderate',
+  // Education administration (DRAGON-20): courses, lessons, coaches, enrolments, reviews.
+  // ROLE-023 is explicitly "no unrelated platform administration", so this is its own
+  // permission rather than an extension of content or moderation.
+  educationManage: 'education.manage',
   // Domain bundles enforced by their modules in later prompts
   tournamentManage: 'tournament.manage',
   financeManage: 'finance.manage',
@@ -110,6 +114,8 @@ export const ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> =
   streaming_operator: [PERMISSIONS.adminAccess, PERMISSIONS.streamManage],
   tournament_administrator: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
   tournament_organizer: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
+  // ROLE-023: courses, coaches, education moderation and reports — and nothing else.
+  education_manager: [PERMISSIONS.adminAccess, PERMISSIONS.educationManage],
   // ROLE-013: timeout, ban, remove messages, and review reports inside assigned rooms.
   // Deliberately holds no `moderation.manage`, so it cannot suspend an account or act on
   // a case outside chat — the scope limit is the point of the role.

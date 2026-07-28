@@ -39,7 +39,9 @@
       "adminOrganizer": "Organizer",
       "streams": "Streams",
       "adminStreams": "Streams",
-      "adminChat": "Chat moderation"
+      "adminChat": "Chat moderation",
+      "academy": "Academy",
+      "adminCourses": "Courses"
     }
   },
   "player": {
@@ -76,7 +78,8 @@
     "notifications": "Notifications",
     "teamsDirectory": "Teams",
     "playersDirectory": "Players",
-    "streams": "Streams"
+    "streams": "Streams",
+    "academy": "Academy"
   },
   "theme": {
     "label": "Theme",
@@ -243,7 +246,8 @@
       "operations": "Operations",
       "organizer": "Organizer workspace",
       "streams": "Stream operations",
-      "chat": "Chat moderation"
+      "chat": "Chat moderation",
+      "courses": "Courses"
     },
     "users": {
       "heading": "Users",
@@ -1407,6 +1411,70 @@
       "provider": "Delivered by the {provider} provider.",
       "notPlaying": "This stream is not playing right now.",
       "retry": "Try again"
+    }
+  },
+  "academy": {
+    "hub": {
+      "heading": "Academy",
+      "intro": "Structured courses from approved coaches.",
+      "empty": "No courses match this view yet."
+    },
+    "accessFilter": "Access",
+    "free": "Free",
+    "paid": "Paid",
+    "required": "Required",
+    "enroll": "Enroll",
+    "enrollPaid": "Reserve a place",
+    "enrolled": "You are enrolled.",
+    "activate": "Pay {price} and start",
+    "activated": "Your place is confirmed.",
+    "continue": "Continue learning",
+    "enrolmentBlocked": "This enrolment no longer gives access to the course.",
+    "courseCompleted": "You have completed this course.",
+    "completionNote": "Complete {percent}% of the required lessons to finish this course.",
+    "detail": {
+      "notFound": "This course does not exist or is not published.",
+      "about": "About this course",
+      "curriculum": "Curriculum",
+      "reviews": "Reviews"
+    },
+    "player": {
+      "lessons": "Lessons",
+      "locked": "Locked",
+      "done": "Done",
+      "progress": "{done} of {total} lessons complete",
+      "completed": "Completed",
+      "markComplete": "Mark lesson complete",
+      "selectLesson": "Choose a lesson to begin.",
+      "openMaterial": "Open the lesson material",
+      "backToCatalog": "Back to the academy",
+      "noAccess": "You do not have access to this course."
+    }
+  },
+  "adminCourses": {
+    "heading": "Courses",
+    "intro": "Author courses and their curriculum, then publish once the localized content and owning coach are in place.",
+    "createHeading": "New course",
+    "create": "Create course",
+    "created": "Course created.",
+    "empty": "No courses yet.",
+    "paidGated": "Paid courses are disabled pending approval",
+    "moveTo": "Move to {state}",
+    "stateChanged": "Course state updated.",
+    "stateReason": "Moved to {state} from the education console.",
+    "state": {
+      "draft": "Draft",
+      "review": "In review",
+      "published": "Published",
+      "unpublished": "Unpublished",
+      "archived": "Archived"
+    },
+    "field": {
+      "titleEn": "English title",
+      "titleFa": "Persian title",
+      "slug": "Slug",
+      "updatedAt": "Updated",
+      "completion": "Completion threshold"
     }
   },
   "chat": {

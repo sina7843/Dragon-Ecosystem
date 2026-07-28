@@ -128,6 +128,26 @@ export const router = createRouter({
       component: () => import('./views/StreamDetailView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.streams' }
     },
+    // Academy: the catalog and course detail are crawlable; the player is a personalized
+    // surface and is never indexed. All lazy, like the other non-landing routes.
+    {
+      path: '/:locale(fa|en)/academy',
+      name: 'academy',
+      component: () => import('./views/AcademyCatalogView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.academy' }
+    },
+    {
+      path: '/:locale(fa|en)/academy/courses/:slug',
+      name: 'course-detail',
+      component: () => import('./views/CourseDetailView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.academy' }
+    },
+    {
+      path: '/:locale(fa|en)/academy/learn/:enrollmentId',
+      name: 'course-player',
+      component: () => import('./views/CoursePlayerView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.academy' }
+    },
     {
       // Global search is a utility surface, not a landing page: it must not be indexed,
       // and for the same reason it is not part of the first-paint bundle — an anonymous
@@ -221,6 +241,12 @@ export const router = createRouter({
       name: 'admin-moderation',
       component: () => import('./views/AdminModerationView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/courses',
+      name: 'admin-courses',
+      component: () => import('./views/AdminCoursesView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminCourses' }
     },
     {
       path: '/:locale(fa|en)/admin/chat',

@@ -1,7 +1,14 @@
 import { defineConfig, devices } from '@playwright/test';
 
-const WEB_PORT = 4173;
-const API_PORT = 3000;
+/**
+ * Host ports for the suite. They stay 4173/3000 unless the environment says otherwise,
+ * which is the escape hatch when the host has already reserved one: on Windows, WinNAT
+ * claims dynamic ranges (2969-3068 and 7984-8083 have both been seen) and the bind then
+ * fails with a permissions error even though nothing is listening. `netsh interface ipv4
+ * show excludedportrange protocol=tcp` lists the current reservations.
+ */
+const WEB_PORT = Number(process.env['E2E_WEB_PORT'] ?? 4173);
+const API_PORT = Number(process.env['E2E_API_PORT'] ?? 3000);
 const isCi = process.env['CI'] !== undefined;
 
 /**
@@ -69,7 +76,9 @@ export default defineConfig({
       command: `npm run preview -- --port ${WEB_PORT} --strictPort`,
       url: `http://127.0.0.1:${WEB_PORT}/en`,
       reuseExistingServer: !isCi,
-      timeout: 60_000
+      timeout: 60_000,
+      // The preview proxy must follow the API onto whichever port it was moved to.
+      env: { API_PROXY_TARGET: `http://127.0.0.1:${String(API_PORT)}` }
     }
   ]
 });
