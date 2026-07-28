@@ -792,6 +792,14 @@ export class EducationService {
       );
       if (result.matchedCount === 0) return enrollment; // a concurrent update won; not an error
       uow.audit({ action: 'course.completed', resourceType: 'course_enrollment', resourceId: enrollmentId, before: { state: 'active' }, after: { state: 'completed' }, reason: 'Completion rule met.' });
+      // Published through the shared outbox, so the notifications module owns delivery and
+      // records every attempt; education keeps no notification table (NOTIF-010).
+      uow.publish({
+        eventName: 'course.completed',
+        eventVersion: 1,
+        aggregateId: enrollmentId,
+        payload: { accountId: learnerId, courseId: course._id, courseSlug: course.slug }
+      });
       return { ...enrollment, state: 'completed' as const, completedAt, updatedAt: completedAt, version: enrollment.version + 1 };
     });
     return { progress: record, enrollment: updated };

@@ -1359,7 +1359,8 @@
       "registration_confirmed": "ثبت‌نام پولی شما در مسابقه نهایی شد.",
       "coins_added": "{dragonCoin} دراگون‌کوین به موجودی شما افزوده شد.",
       "prize_paid": "جایزهٔ نقدی شما پرداخت‌شده علامت خورد.",
-      "stream_schedule_changed": "زمان‌بندی پخش {streamSlug} تغییر کرد."
+      "stream_schedule_changed": "زمان‌بندی پخش {streamSlug} تغییر کرد.",
+      "course_completed": "دورهٔ {courseSlug} را به پایان رساندید."
     },
     "open": "مشاهده"
   },

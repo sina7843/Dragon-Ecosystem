@@ -697,6 +697,87 @@ describe('lesson types under OD-016', () => {
   });
 });
 
+describe('Phase 3 closure evidence (DRAGON-21)', () => {
+  test('a captured course price reconciles against the shared ledger', async () => {
+    const manager = await loginAs('education_manager');
+    const { courseId } = await publishedCourse(paidApp, manager.cookie, { accessModel: 'paid', dragonCoinAmount: 250 });
+    const learner = await loginAs();
+    await creditCoins(learner.accountId, 1000);
+
+    const enrollment = (await paidApp.inject({ method: 'POST', url: `/api/v1/courses/${courseId}/enrollments`, ...auth(learner.cookie) })).json<{ id: string }>();
+    await paidApp.inject({ method: 'POST', url: `/api/v1/me/enrollments/${enrollment.id}/activate`, ...auth(learner.cookie) });
+
+    // Every ledger transaction the course capture produced must balance to zero, and the
+    // learner's stored balance must equal the sum of their entries — the reconciliation
+    // property the shared ledger guarantees, asserted over education's own postings.
+    const account = await ledger.getAccount({ kind: 'user', ownerId: learner.accountId, accountType: 'user_dragon_coin' });
+    assert.ok(account);
+    const entries = await fixture.database.db
+      .collection<{ transactionId: string; accountId: string; amount: number }>('ledger_entries')
+      .find({})
+      .toArray();
+    const byTransaction = new Map<string, number>();
+    for (const entry of entries) byTransaction.set(entry.transactionId, (byTransaction.get(entry.transactionId) ?? 0) + entry.amount);
+    for (const [transactionId, total] of byTransaction) {
+      assert.equal(total, 0, `transaction ${transactionId} does not balance to zero`);
+    }
+    const learnerTotal = entries.filter((e) => e.accountId === account._id).reduce((sum, e) => sum + e.amount, 0);
+    const balance = await ledger.getBalanceByRef({ kind: 'user', ownerId: learner.accountId, accountType: 'user_dragon_coin' });
+    assert.equal(balance?.balance, learnerTotal, 'the stored balance must equal the sum of the entries');
+    assert.equal(balance?.balance, 750);
+    assert.equal(balance?.heldAmount, 0, 'nothing stays held after capture');
+  });
+
+  test('completing a course publishes a notification event through the shared outbox', async () => {
+    const manager = await loginAs('education_manager');
+    const { courseId, lessonIds } = await publishedCourse(app, manager.cookie, { lessonCount: 1 });
+    const learner = await loginAs();
+    const enrollment = (await app.inject({ method: 'POST', url: `/api/v1/courses/${courseId}/enrollments`, ...auth(learner.cookie) })).json<{ id: string }>();
+    await fixture.database.db.collection('domain_event_outbox').deleteMany({});
+
+    await app.inject({
+      method: 'PUT',
+      url: `/api/v1/me/enrollments/${enrollment.id}/lessons/${lessonIds[0] as string}/progress`,
+      payload: { percent: 100 },
+      ...auth(learner.cookie)
+    });
+
+    // NOTIF-010: education registers its event through the shared service and keeps no
+    // notification table of its own.
+    const events = await fixture.database.db
+      .collection<{ event: { eventName: string; payload: { accountId: string; courseSlug: string } } }>('domain_event_outbox')
+      .find({ 'event.eventName': 'course.completed' })
+      .toArray();
+    assert.equal(events.length, 1);
+    assert.equal(events[0]?.event.payload.accountId, learner.accountId);
+    assert.ok(events[0]?.event.payload.courseSlug);
+    assert.equal(await fixture.database.db.listCollections({ name: 'course_notifications' }).toArray().then((c) => c.length), 0);
+  });
+
+  test('with the OD-015 gate off, no course anywhere carries a price or a paid access model', async () => {
+    const { cookie } = await loginAs('education_manager');
+    await publishedCourse(app, cookie);
+    const config = await app.inject({ method: 'GET', url: '/api/v1/admin/courses/config', ...auth(cookie) });
+    assert.equal(config.json<{ paidCoursesEnabled: boolean }>().paidCoursesEnabled, false);
+
+    // Nothing misleading is left in the data: no priced course, and no reservation.
+    assert.equal(await fixture.database.db.collection('courses').countDocuments({ accessModel: 'paid' }), 0);
+    assert.equal(await fixture.database.db.collection('courses').countDocuments({ price: { $ne: [] } }), 0);
+    assert.equal(await fixture.database.db.collection('dragon_coin_holds').countDocuments({ purpose: 'course_enrollment' }), 0);
+  });
+
+  test('with OD-016 unresolved, no lesson anywhere claims a quiz or exercise type', async () => {
+    const { cookie } = await loginAs('education_manager');
+    await publishedCourse(app, cookie, { lessonCount: 2 });
+    const stored = await fixture.database.db.collection<{ type: string }>('course_lessons').find({}).toArray();
+    assert.ok(stored.length > 0);
+    for (const lesson of stored) {
+      assert.ok(['text', 'video', 'file'].includes(lesson.type), `unexpected lesson type ${lesson.type}`);
+    }
+    assert.equal(await fixture.database.db.collection('course_lessons').countDocuments({ type: { $in: ['quiz', 'exercise'] } }), 0);
+  });
+});
+
 describe('audit trail (AUDIT-001)', () => {
   test('authoring and enrolment changes are audited with the acting account', async () => {
     const manager = await loginAs('education_manager');

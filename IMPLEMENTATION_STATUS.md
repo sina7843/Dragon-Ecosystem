@@ -28,11 +28,40 @@
 - Requirement/decision closure (traceability reconciliation, deterministic integrity + full Phase-1 coverage): complete (DRAGON-17a) — reconciled, verified, and committed (`09b1af5`)
 - Phase 1 release-candidate verification and release evidence: complete (DRAGON-17b) — committed (`45272f1`, doc-only on top of `09b1af5`)
 - Phase 1 release decision and acceptance closure: DRAGON-17c **implementation complete — decision recorded in `RELEASE_DECISION.md`: GO WITH CONDITIONS for the local/test RC at `09b1af5`; production NOT authorized; final Phase 1 acceptance withheld; awaiting authorized human sign-off** — not committed
-- Phase 2 stream catalog and provider adapter boundary: complete (DRAGON-18) — implemented and verified, not yet committed
-- Phase 2 moderated live chat and release closure: complete (DRAGON-19) — implemented and verified, not yet committed. **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
-- Phase 3 courses, enrolment, and progress: complete (DRAGON-20) — implemented and verified, not yet committed
-- Active prompt: DRAGON-20 (Phase 3 courses, enrolment, and progress); **parent DRAGON-17 remains open pending authorized human sign-off, and Phase 2 release is blocked by unresolved external decisions**
-- Latest verified checkpoint: DRAGON-20 courses and enrolment, 2026-07-29
+- Phase 2 stream catalog and provider adapter boundary: complete (DRAGON-18) — committed (`9a2873a`)
+- Phase 2 moderated live chat and release closure: complete (DRAGON-19) — committed (`9a2873a`). **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
+- Phase 3 courses, enrolment, and progress: complete (DRAGON-20) — committed (`c9cc9ec`)
+- Phase 3 education release closure: complete (DRAGON-21) — implemented and verified, not yet committed. **Phase 3 release decision: NO-GO** (`RELEASE_DECISION_PHASE3.md`), blocked by OD-015 + OD-016; no implementation failure outstanding
+- Active prompt: DRAGON-21 (Phase 3 education release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and both the Phase 2 and Phase 3 releases are blocked by unresolved external decisions**
+- Latest verified checkpoint: DRAGON-21 Phase 3 closure, 2026-07-29
+
+## DRAGON-21 — Phase 3 education release closure
+
+Hardening and evidence, not new product surface. Four gaps left by DRAGON-20 were closed.
+
+- **Paid course journey now runs end to end** (`academy-paid.spec.ts`, fa + en). The browser environment sets `PAID_COURSES_ENABLED=true` — mirroring `PAID_TOURNAMENTS_ENABLED`, already enabled in the same file — so the criterion "run the paid journey" is actually run rather than asserted around. The gate stays fail-closed in `.env.example` and is asserted off by integration tests, so both states are covered. The money half goes through the shared mock provider and the Dragon Coin ledger, which is what makes **payment failure** and a **duplicate provider callback** real cases here instead of education-specific inventions.
+- **Notifications closed.** Completing a course publishes `course.completed` through the shared outbox with an `in_app` template in both locales. Education keeps no notification table (NOTIF-010), asserted directly.
+- **Shared-ledger reconciliation.** An integration test proves every transaction a course capture produces balances to zero and that the learner's stored balance equals the sum of their entries — the ledger's own invariant, asserted over education's postings.
+- **Responsive and accessible lesson consumption.** The player is verified at the 320px floor with zero horizontal overflow, and its lesson list is asserted to be a real `navigation` landmark with reachable controls.
+
+**Gate honesty, asserted rather than claimed.** Integration tests assert that with OD-015 off no course anywhere carries a paid access model or a price and no `course_enrollment` hold exists, and that no stored lesson has a `quiz` or `exercise` type. The console's paid-gate badge is asserted against the server's reported config rather than against the test's own assumption — an earlier version of that test only proved it knew its fixture.
+
+### DRAGON-21 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — 2 errors, **both pre-existing in `apps/web/src/views/TournamentDetailView.vue`**
+- `npm test` (workspaces) — 391 tests: 390 passed, 1 failed. The failure is the pre-existing `compose-topology.test.ts` case caused by the uncommitted `docker-compose.yml` change.
+- `npm run test:integration` (api) — **389 passed, 0 failed** (education 32, adding ledger reconciliation, the notification event, and both gate-honesty assertions)
+- `npm run build` — pass · `npm run test:budget` — pass
+- `npm run e2e` — **353 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 7 paid-journey browser tests.
+- `npm run verify:persistence` — **PASS**: committed MongoDB data survived a Compose stop/start on the named volume
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+
+**Test-environment note.** `OTP_REQUESTS_PER_IP` was raised from 500 to 5000 for the browser suite only. The suite now runs 350+ tests across three viewports and every one signs in, so one run spends several hundred OTP requests from a single loopback address inside one fixed window; at 500, a second run within 15 minutes failed unrelated specs with sign-in errors that read as a regression and were not one. The limiter is unchanged and still enforced.
+
+### Phase 3 verdict
+
+**NO-GO**, recorded in `RELEASE_DECISION_PHASE3.md` with external blockers separated from implementation failures. OD-015 (ownership, refund, access revocation, coach commercial terms) and OD-016 (quiz/exercise scope) are both release-blockers and neither is resolvable by engineering. **No implementation failure blocks the release.**
 
 ## DRAGON-20 — Phase 3 courses, enrolment, and progress
 

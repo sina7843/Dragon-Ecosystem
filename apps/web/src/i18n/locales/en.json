@@ -1359,7 +1359,8 @@
       "registration_confirmed": "Your paid tournament registration is confirmed.",
       "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
       "prize_paid": "Your cash prize has been marked paid.",
-      "stream_schedule_changed": "The schedule for stream {streamSlug} changed."
+      "stream_schedule_changed": "The schedule for stream {streamSlug} changed.",
+      "course_completed": "You have completed the course {courseSlug}."
     },
     "open": "Open"
   },

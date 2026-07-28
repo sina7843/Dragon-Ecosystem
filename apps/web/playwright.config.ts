@@ -66,9 +66,19 @@ export default defineConfig({
         // Keep the browser suite from tripping the resend interval between tests.
         OTP_RESEND_SECONDS: '1',
         OTP_REQUESTS_PER_MOBILE: '50',
-        OTP_REQUESTS_PER_IP: '500',
+        // Every browser test signs in at least once, and the suite has grown past 300
+        // tests across three viewports — one run now spends several hundred OTP requests
+        // from a single loopback address inside one window. At 500 a second run in the
+        // same 15 minutes started failing unrelated specs with sign-in errors, which
+        // reads as a regression and is not one. The limiter itself is unchanged and
+        // still enforced; the browser suite is simply not the abuse case it exists for.
+        OTP_REQUESTS_PER_IP: '5000',
         // DRAGON-12: exercise the paid checkout flow behind its OD-007 gate.
         PAID_TOURNAMENTS_ENABLED: 'true',
+        // DRAGON-21: exercise the paid course journey behind its OD-015 gate. The gate is
+        // still fail-closed everywhere else — `.env.example` ships it false — but the
+        // Phase 3 acceptance criteria require the paid journey to be run end to end.
+        PAID_COURSES_ENABLED: 'true',
         PAYMENTS_CALLBACK_SECRET: 'e2e-only-payments-callback-secret-not-real'
       }
     },

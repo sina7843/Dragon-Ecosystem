@@ -17,6 +17,11 @@ services:
       # (.env.example ships it as false). Without it, checkout, the Dragon-Coin hold, and
       # the pending-payment registration state have no data to review.
       PAID_TOURNAMENTS_ENABLED: "true"
+      # OD-015 paid course enrolment (DRAGON-20). Development only, and only meaningful
+      # alongside the mock provider above — production stays off unless it is set there
+      # deliberately (.env.example ships it false). Without it a course cannot be priced,
+      # so the reservation, capture, and entitlement path have no data to review.
+      PAID_COURSES_ENABLED: "true"
       # Match the web client's 20 MB image cap so a large PNG isn't rejected by an opaque
       # body-limit 413 before the service can validate it. The service still enforces this cap.
       MEDIA_MAX_BYTES: "20000000"

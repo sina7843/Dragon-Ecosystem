@@ -254,8 +254,12 @@ test('the education console is guarded, and a manager sees the OD-015 gate', asy
   await managerPage.goto('/en/admin/courses');
   await expect(managerPage.getByTestId('admin-course-list')).toBeVisible();
   await expect(managerPage.getByTestId(`admin-course-${slug}`)).toBeVisible();
-  // OD-015 stays visibly gated.
-  await expect(managerPage.getByTestId('courses-paid-gate')).toBeVisible();
+
+  // The OD-015 badge must reflect the server's actual gate, never a guess: the browser
+  // environment turns paid courses on to exercise the paid journey, so asserting the
+  // badge is always present would only prove the test knows its own fixture.
+  const config = (await (await managerPage.request.get('/api/v1/admin/courses/config')).json()) as { paidCoursesEnabled: boolean };
+  await expect(managerPage.getByTestId('courses-paid-gate')).toHaveCount(config.paidCoursesEnabled ? 0 : 1);
 
   const main = await managerPage.locator('main').innerText();
   expect(main).not.toMatch(RAW_KEY_PATTERN);

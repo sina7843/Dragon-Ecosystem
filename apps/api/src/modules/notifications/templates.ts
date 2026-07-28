@@ -31,7 +31,11 @@ export const EVENT_TEMPLATES: readonly EventTemplate[] = [
   // STREAM-011: a moved or cancelled stream schedule reaches the assigned streamers. SMS
   // is a candidate channel, so it is only delivered where the OD-008 gate is on; the
   // in-app notification is always recorded, and every attempt is written either way.
-  { eventName: 'stream.schedule_changed', templateKey: 'stream_schedule_changed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['streamSlug', 'scheduledStartAt'] }
+  { eventName: 'stream.schedule_changed', templateKey: 'stream_schedule_changed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['streamSlug', 'scheduledStartAt'] },
+  // EDU/NOTIF-010: education registers its event through this shared map rather than
+  // keeping a notification table of its own. In-app only — a course completion is not
+  // urgent enough to justify an SMS under the OD-008 channel policy.
+  { eventName: 'course.completed', templateKey: 'course_completed', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['courseSlug'] }
 ];
 
 const BY_EVENT = new Map(EVENT_TEMPLATES.map((template) => [template.eventName, template]));
