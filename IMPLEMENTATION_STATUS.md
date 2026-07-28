@@ -28,8 +28,68 @@
 - Requirement/decision closure (traceability reconciliation, deterministic integrity + full Phase-1 coverage): complete (DRAGON-17a) — reconciled, verified, and committed (`09b1af5`)
 - Phase 1 release-candidate verification and release evidence: complete (DRAGON-17b) — committed (`45272f1`, doc-only on top of `09b1af5`)
 - Phase 1 release decision and acceptance closure: DRAGON-17c **implementation complete — decision recorded in `RELEASE_DECISION.md`: GO WITH CONDITIONS for the local/test RC at `09b1af5`; production NOT authorized; final Phase 1 acceptance withheld; awaiting authorized human sign-off** — not committed
-- Active prompt: DRAGON-17c (release decision and acceptance closure); **parent DRAGON-17 remains open pending authorized human sign-off**
-- Latest verified checkpoint: DRAGON-17c Phase 1 release decision, 2026-07-23
+- Phase 2 stream catalog and provider adapter boundary: complete (DRAGON-18) — implemented and verified, not yet committed
+- Phase 2 moderated live chat and release closure: complete (DRAGON-19) — implemented and verified, not yet committed. **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
+- Active prompt: DRAGON-19 (Phase 2 live chat, moderation, and release); **parent DRAGON-17 remains open pending authorized human sign-off, and Phase 2 release is blocked by unresolved external decisions**
+- Latest verified checkpoint: DRAGON-19 live chat and Phase 2 closure, 2026-07-28
+
+## DRAGON-19 — Phase 2 moderated live chat and release closure
+
+- **Chat module (`apps/api/src/modules/chat/`).** A room belongs to exactly one stream (unique index) and inherits that stream's access decision, so an unlinked room cannot exist and a sign-in-only stream has a sign-in-only room (CHAT-001). Migration `025-chat`.
+- **Ordering and delivery (CHAT-006).** A per-room sequence is allocated inside the write transaction, giving a total order independent of clock skew, and an aborted insert cannot leave a gap. Delivery is at-least-once: the feed re-reads a trailing window and the client folds pages by message id. That window is a correctness requirement, not an optimisation — polling strictly after the cursor would never deliver a *removal* of an already-rendered message.
+- **Duplicate protection.** A unique `(roomId, senderId, clientMessageId)` index plus a pre-check means a retried or concurrently-doubled send converges on the original message and consumes no rate-limit budget.
+- **Backpressure (CHAT-003, PERF-012).** Sending is rate limited per sender per room and refused with 429 rather than queued; the feed page size is capped and an oversize request is rejected.
+- **Timeouts and bans (CHAT-004).** Stored as room-scoped restriction records with a reason and (for a timeout) a bounded expiry. They never touch account state: a chat ban leaves the account active, which is the boundary this prompt required not to weaken.
+- **Evidence (CHAT-005).** Removing a message delivers a tombstone with no body to viewers while the body is retained for moderators, and a report snapshots the body into the shared moderation case independently — so evidence survives both public removal and any later purge.
+- **CHAT-008.** No direct-messaging route or client exists, and a route-registry guardrail asserts that against the registered Fastify surface rather than against documentation.
+- **Frontend.** Chat panel on the watch page (`role="log"`, polite live region, `dir="auto"` per message) and a `/admin/chat` moderation console, both fully bilingual.
+
+### DRAGON-19 verification, 2026-07-28, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — 2 errors, **both pre-existing in `apps/web/src/views/TournamentDetailView.vue`** and untouched by this work. No chat file produces an error or a warning.
+- `npm test` (workspaces) — 358 tests: 357 passed, 1 failed (api 313: 312 pass; web 45: 45 pass). The single failure is `compose-topology.test.ts` "nginx remains the public entry point on 8080", caused by the **pre-existing uncommitted `docker-compose.yml` change**, not by this work. Adds 6 chat unit tests (restriction effectiveness, room lifecycle, the CHAT-008 route guardrail) and 6 web unit tests for client deduplication.
+- `npm run test:integration` (api) — 357 passed, 0 failed. Adds 29 chat integration tests covering every TEST-021 case: ordering, duplicate delivery (including a concurrent race), rate limit, timeout, ban, and report evidence — plus access, scope, closed rooms, sanitisation, the identity-boundary check, and three cross-room IDOR regressions added after the review pass.
+- `npm run build` — pass · `npm run test:budget` — pass
+- `npm run e2e` — **308 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 24 chat browser tests.
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+- Migrations against the disposable test DB — `025-chat` applies cleanly.
+
+### DRAGON-19 focused security review
+
+One independent `test-reviewer` pass over the chat and streams surfaces (authorization/IDOR, access control, secret leakage, evidence integrity, privilege escalation, concurrency, rate-limit bypass, injection, and test honesty). **Verdict: APPROVE — no Critical or High finding.** All nine risk areas were reported as holding.
+
+- **Medium (resolved):** the cross-room IDOR logic on the *mutating* restriction routes was correct by inspection but had no regression test — the scope tests only covered a read route, and `timeouts`/`bans` take the room from the caller-controlled request body. Three integration tests were added: a room-A-scoped moderator is refused (403) on timeout/ban/remove/lift aimed at room B, is refused (404) when naming their own room while targeting room B's message or restriction, and still succeeds inside their own room.
+- **Low (recorded, not built):** the send budget is per room per sender, so a sender could spend a full budget in several rooms at once. Rooms are independent broadcasts, so that is the intended scope; a `ponytail:` comment in `chat/service.ts` names the ceiling and the upgrade path.
+- **Low (clarified):** the playback-access response necessarily carries the provider resource id, since that is what a player fetches. STREAM-001 constrains the *public* discovery and detail payloads, which carry no provider field at all; a comment in `streams/service.ts` now states that distinction.
+
+### Phase 2 traceability
+
+44 Phase-2 requirement rows added (CHAT-001..008, API-066..076, PAGE-027/028/029/052/053, DATA-042..047, ROLE-011/012/013/024, PERF-011/012, TEST-020/021, plus BR-023, CON-007, FORM-016, INT-004, MEDIA-011, NOTIF-010, ANALYTICS-003), each carrying an accepted cross-phase mapping or an explicit gate owner. Nine are honestly Deferred, Blocked, Gated, or Partial rather than claimed complete.
+
+## DRAGON-18 — Phase 2 stream catalog and provider adapter boundary
+
+Dragon owns stream identity, schedule, relationships, access policy, and lifecycle; the provider owns delivery only.
+
+- **Stream module (`apps/api/src/modules/streams/`).** Seven-state lifecycle enforced exactly per section 12.9 (draft → scheduled → live → ended → archived, with draft/scheduled → cancelled, scheduled/live → failed, and controlled recovery out of failed; cancelled and archived terminal). Relationships to games, tournaments, matches, channels, and streamers, each optional and each indexed for reverse resolution. Public/authenticated watch modes. Migration `024-streams`.
+- **Provider boundary (STREAM-002).** `StreamingProvider` interface plus a deterministic in-repository stub. Provider resource ids derive from the Dragon stream id, so provisioning converges on retry, and a unique partial index refuses a second resource. No public payload carries a provider identifier, which is what makes "provider replacement does not change public stream IDs" structurally true rather than a convention.
+- **Access (STREAM-005/006, BR-023).** Dragon decides access before any provider data exists: an anonymous caller on an authenticated-mode stream, a stream that is not playing, a taken-down stream, and a stream whose provider is unhealthy are all refused with no playable data in the response.
+- **Degraded state (STREAM-008).** A provider failure marks the stream unavailable, records a bounded message plus the correlation id (never the raw provider error), raises an operator alert through a narrow port, and surfaces an unavailable/retry state on the public page and the console.
+- **Frontend.** `/streams` discovery (URL-synced shelf, search, and relationship filters), `/streams/{slug}` watch page, `/admin/streams` operations console. Full fa/en copy; `stream.manage` is its own permission held only by `streaming_operator` (ROLE-024).
+- **Gates held closed.** OD-013: no Arvan-specific behaviour; `STREAMING_PROVIDER=arvan` fails startup naming the decision. OD-014: `STREAM_RIGHTS_POLICY_APPROVED` defaults false, so archiving and takedown are refused and a disabled archive creates no public VOD. Rights confirmation before scheduling is always required (section 27) and is not behind that gate.
+- **Not implemented, deliberately.** STREAM-010 highlights (source VOD is gated off, so the surface would have no reachable source) and STREAM-012 provider playback analytics (no contracted metric feed to separate first-party views from). API-071 provider webhook replaced by operator-triggered reconciliation, because a callback needs a contracted authentication scheme. Live chat (CHAT-*) belongs to DRAGON-19 and was not started.
+
+### DRAGON-18 verification, 2026-07-28, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — 2 errors, **both pre-existing in `apps/web/src/views/TournamentDetailView.vue`** and untouched by this work (an unused `toggleChoice`, and a parse error from mojibake introduced in commit `878bf24`). No stream file produces an error or a warning.
+- `npm test` (workspaces) — 345 passed / 1 failed. The single failure is `compose-topology.test.ts` "nginx remains the public entry point on 8080", caused by the **pre-existing uncommitted `docker-compose.yml` change** (`"${WEB_PORT:-8080}:8080"`), not by this work. Adds 28 stream unit tests (state machine, scheduling readiness, links, archive gate, adapter idempotency, secure-link scope binding) and 5 config-gate tests.
+- `npm run test:integration` (api) — 328 passed, 0 failed. Adds 29 stream integration tests: operator authorization, public visibility, lifecycle enforcement, watch access (including the STREAM-006 P2 acceptance case), provisioning idempotency, reconciliation, provider failure, the OD-014 archive/takedown gates, reverse relationship resolution, schedule notifications, and the audit trail.
+- `npm run build` — pass
+- `npm run test:budget` — pass
+- `npm run e2e` — **284 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 21 stream browser tests.
+- `npm run closure:check` — 14/14 pass · `npm run decision:check` — 12/12 pass
+- Migrations against the disposable test DB — `024-streams` applies cleanly.
 
 ## DRAGON-17b — Phase 1 release evidence
 

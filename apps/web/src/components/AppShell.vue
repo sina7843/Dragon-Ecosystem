@@ -37,6 +37,7 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '/content', key: 'nav.content' },
     { path: '/games', key: 'nav.games' },
     { path: '/tournaments', key: 'nav.tournaments' },
+    { path: '/streams', key: 'nav.streams' },
     // The team and player directories existed only as detail URLs until now; without a
     // nav entry nothing on the site linked to them at all.
     { path: '/teams', key: 'nav.teamsDirectory' },

@@ -33,7 +33,7 @@ export interface AnalyticsErrorRecord {
   createdAt: string;
 }
 
-export type AlertCategory = 'otp_mock' | 'payment_mock' | 'ledger' | 'bracket' | 'queue' | 'mongo';
+export type AlertCategory = 'otp_mock' | 'payment_mock' | 'ledger' | 'bracket' | 'queue' | 'mongo' | 'stream';
 export type AlertSeverity = 'warning' | 'critical';
 
 export interface AlertRecord {

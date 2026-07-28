@@ -220,6 +220,17 @@ The demo reflects Phase-1 fail-closed behavior:
 
 ## Not seeded (extension points)
 
+- **Streams (DRAGON-18)**: the seeder creates no streams, so `/streams` is empty on a fresh
+  demo database. Create one from the operations console at `/admin/streams` as a
+  `streaming_operator`: confirm rights, provision the provider resource, then move it to
+  scheduled and live. Archiving and takedown stay refused while
+  `STREAM_RIGHTS_POLICY_APPROVED` is off (OD-014), and the provider is always the
+  deterministic local stub (OD-013) — no video ever leaves the machine.
+- **Live chat (DRAGON-19)**: a stream has no chat room until one is opened. As a
+  `live_chat_moderator`, open it from `/admin/chat` (or `POST /api/v1/admin/chat/rooms`
+  with the stream id); the watch page then shows the chat panel. The same console applies
+  timeouts, bans, and message removals, all scoped to the room and audited. There is no
+  direct-messaging surface anywhere — CHAT-008 prohibits it.
 - **Paid checkout / prize settlement**: exercised only when `PAID_TOURNAMENTS_ENABLED=true`
   (left off by default, so demo tournaments are free). With the gate on, the checkout and
   prize services would seed payable/completed/failed/expired checkouts and entitlements.

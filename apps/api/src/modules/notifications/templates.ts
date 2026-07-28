@@ -27,7 +27,11 @@ export const EVENT_TEMPLATES: readonly EventTemplate[] = [
   { eventName: 'tournament.registration.approved', templateKey: 'registration_approved', category: 'transactional', recipientField: 'subjectId', channels: ['in_app', 'sms'], paramFields: ['tournamentId'] },
   { eventName: 'checkout.activated', templateKey: 'registration_confirmed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['tournamentId'] },
   { eventName: 'payment.purchase_succeeded', templateKey: 'coins_added', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['dragonCoin'] },
-  { eventName: 'prize.entitlement_paid', templateKey: 'prize_paid', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['tournamentId'] }
+  { eventName: 'prize.entitlement_paid', templateKey: 'prize_paid', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['tournamentId'] },
+  // STREAM-011: a moved or cancelled stream schedule reaches the assigned streamers. SMS
+  // is a candidate channel, so it is only delivered where the OD-008 gate is on; the
+  // in-app notification is always recorded, and every attempt is written either way.
+  { eventName: 'stream.schedule_changed', templateKey: 'stream_schedule_changed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['streamSlug', 'scheduledStartAt'] }
 ];
 
 const BY_EVENT = new Map(EVENT_TEMPLATES.map((template) => [template.eventName, template]));

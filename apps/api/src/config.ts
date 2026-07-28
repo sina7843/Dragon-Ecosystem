@@ -41,6 +41,30 @@ export interface PaymentsConfig {
   readonly purchaseTtlSeconds: number;
 }
 
+export interface StreamingConfig {
+  /**
+   * Active streaming provider (STREAM-002, section 33.1). Only the deterministic
+   * in-repository stub is implemented. `arvan` is a recognised name that fails startup:
+   * OD-013 is a prompt-blocker, so its live/player/API/secure-link/archive capabilities
+   * are unconfirmed and shipping a half-built adapter would present a false integration.
+   */
+  readonly provider: 'stub';
+  /**
+   * Signs the short-lived playback links the provider adapter issues. Never logged and
+   * never sent to a client — only the derived, expiring token reaches the browser.
+   * Required and length-checked in production, like every other signing secret.
+   */
+  readonly secureLinkSecret: string;
+  /** Lifetime of an issued playback link, in seconds. */
+  readonly playbackTtlSeconds: number;
+  /**
+   * OD-014 gate covering stream rights, archive duration, takedown, and geographic access
+   * policy. Fail-closed: while it is false there is no approved archive duration and no
+   * approved takedown policy, so archiving and takedown refuse instead of improvising one.
+   */
+  readonly rightsPolicyApproved: boolean;
+}
+
 export interface AppConfig {
   readonly env: Environment;
   readonly host: string;
@@ -115,6 +139,7 @@ export interface AppConfig {
    * or stray flag can never expose the route in a real deployment.
    */
   readonly devRoutesEnabled: boolean;
+  readonly streaming: StreamingConfig;
 }
 
 /** Safe non-secret default used only outside production. */
@@ -324,6 +349,40 @@ function parseSms(source: NodeJS.ProcessEnv, env: Environment, problems: string[
   return { provider: 'kavenegar', kavenegar: { apiKey, sender, otpTemplate } };
 }
 
+/** Development-only placeholder; production startup fails without a real secure-link secret. */
+const DEVELOPMENT_STREAM_SECURE_LINK_SECRET = 'development-only-insecure-stream-secure-link-secret';
+
+/**
+ * Streaming provider selection and the OD-014 rights gate.
+ *
+ * `arvan` is named and rejected on purpose: it documents where the contracted provider
+ * plugs in while making it impossible to run against an adapter whose capabilities have
+ * not been validated in a sandbox (OD-013, section 33.1). Anything else is a typo.
+ */
+function parseStreaming(source: NodeJS.ProcessEnv, env: Environment, problems: string[]): StreamingConfig {
+  const requested = (source['STREAMING_PROVIDER'] ?? '').trim().toLowerCase();
+  if (requested === 'arvan') {
+    problems.push(
+      'STREAMING_PROVIDER=arvan is not available: the contracted Arvan Cloud live, player, API, secure-link, and archive capabilities are unconfirmed (OD-013). Use the deterministic stub until the sandbox validation is complete.'
+    );
+  } else if (requested !== '' && requested !== 'stub') {
+    problems.push('STREAMING_PROVIDER must be "stub" when set.');
+  }
+  return {
+    provider: 'stub',
+    secureLinkSecret: parseRequiredSecret(
+      source['STREAM_SECURE_LINK_SECRET'],
+      env,
+      'STREAM_SECURE_LINK_SECRET',
+      DEVELOPMENT_STREAM_SECURE_LINK_SECRET,
+      problems
+    ),
+    playbackTtlSeconds: parsePositiveInteger(source['STREAM_PLAYBACK_TTL_SECONDS'], 300, 'STREAM_PLAYBACK_TTL_SECONDS', problems),
+    // OD-014 fail-closed: archive publication and takedown stay off unless explicitly approved.
+    rightsPolicyApproved: (source['STREAM_RIGHTS_POLICY_APPROVED'] ?? '').toLowerCase() === 'true'
+  };
+}
+
 /**
  * Builds validated configuration. Throws with every problem at once so a
  * misconfigured deployment fails fast and loudly instead of degrading silently.
@@ -368,7 +427,8 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
       sessionTtlHours: parsePositiveInteger(source['SESSION_TTL_HOURS'], 24 * 14, 'SESSION_TTL_HOURS', problems),
       recentAuthMinutes: parsePositiveInteger(source['RECENT_AUTH_MINUTES'], 15, 'RECENT_AUTH_MINUTES', problems)
     },
-    payments: parsePayments(source, env, problems)
+    payments: parsePayments(source, env, problems),
+    streaming: parseStreaming(source, env, problems)
   };
 
   if (problems.length > 0) {

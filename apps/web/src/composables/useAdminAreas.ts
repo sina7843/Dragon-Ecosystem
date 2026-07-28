@@ -26,6 +26,8 @@ export function useAdminAreas(): { areas: ComputedRef<AdminArea[]> } {
     canWriteContent,
     canPublishContent,
     canManageGames,
+    canManageStreams,
+    canModerateChat,
     canManageTournaments,
     canManageModeration,
     canManageSupport,
@@ -43,6 +45,8 @@ export function useAdminAreas(): { areas: ComputedRef<AdminArea[]> } {
       // same events the full tournament list holds.
       { path: '/admin/organizer', labelKey: 'admin.area.organizer', visible: canManageTournaments.value, testid: 'area-organizer' },
       { path: '/admin/tournaments', labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
+      { path: '/admin/streams', labelKey: 'admin.area.streams', visible: canManageStreams.value, testid: 'area-streams' },
+      { path: '/admin/chat', labelKey: 'admin.area.chat', visible: canModerateChat.value, testid: 'area-chat' },
       { path: '/admin/users', labelKey: 'admin.area.users', visible: canReadUsers.value, testid: 'area-users' },
       { path: '/admin/audit', labelKey: 'admin.area.audit', visible: canReadAudit.value, testid: 'area-audit' },
       { path: '/admin/moderation', labelKey: 'admin.area.moderation', visible: canManageModeration.value, testid: 'area-moderation' },

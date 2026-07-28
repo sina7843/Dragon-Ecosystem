@@ -1,19 +1,17 @@
-import { createRouter, createWebHistory, type RouteLocationNormalized } from 'vue-router';
-// Public routes are eagerly imported (they are the crawlable, first-paint surface).
-// Admin and account routes are lazily imported below so an anonymous public visitor
-// never downloads privileged/personalized code (bundle: disabled/gated code is split out).
-import AuthMobileView from './views/AuthMobileView.vue';
+import { createRouter, createWebHistory, START_LOCATION, type RouteLocationNormalized } from 'vue-router';
+// The primary public funnel — home, content, games, tournaments — is eagerly imported:
+// it is the crawlable first-paint surface a visitor actually lands on. Admin and account
+// routes are lazy so an anonymous visitor never downloads privileged/personalized code.
+// The secondary public surfaces (the team/player directories, the calendar view of the
+// tournament list, the streams pages) are lazy too: they are reached by a deliberate
+// click from the funnel above, and keeping them out of the entry chunk is what holds the
+// bundle budget in `build-budget.test.ts`.
 import ContentListView from './views/ContentListView.vue';
 import ContentDetailView from './views/ContentDetailView.vue';
 import GamesCatalogView from './views/GamesCatalogView.vue';
 import GameDetailView from './views/GameDetailView.vue';
-import PublicTeamView from './views/PublicTeamView.vue';
-import TeamsDirectoryView from './views/TeamsDirectoryView.vue';
-import PlayersDirectoryView from './views/PlayersDirectoryView.vue';
 import TournamentsListView from './views/TournamentsListView.vue';
-import TournamentCalendarView from './views/TournamentCalendarView.vue';
 import TournamentDetailView from './views/TournamentDetailView.vue';
-import ForbiddenView from './views/ForbiddenView.vue';
 import HomeView from './views/HomeView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 import { applyDocumentLocale, i18n, persistLocale } from './i18n/index.ts';
@@ -86,7 +84,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/tournaments-calendar',
       name: 'tournaments-calendar',
-      component: TournamentCalendarView,
+      component: () => import('./views/TournamentCalendarView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
     },
     {
@@ -100,20 +98,35 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/teams',
       name: 'teams',
-      component: TeamsDirectoryView,
+      component: () => import('./views/TeamsDirectoryView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
     },
     {
       path: '/:locale(fa|en)/teams/:slug',
       name: 'public-team',
-      component: PublicTeamView,
+      component: () => import('./views/PublicTeamView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.teams' }
     },
     {
       path: '/:locale(fa|en)/players',
       name: 'players',
-      component: PlayersDirectoryView,
+      component: () => import('./views/PlayersDirectoryView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.players' }
+    },
+    // Stream discovery and the watch page are crawlable, but they are a secondary
+    // surface rather than the first-paint landing, and the public entry chunk is close
+    // to its budget — so they are lazy like the other non-landing routes.
+    {
+      path: '/:locale(fa|en)/streams',
+      name: 'streams',
+      component: () => import('./views/StreamsListView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.streams' }
+    },
+    {
+      path: '/:locale(fa|en)/streams/:slug',
+      name: 'stream-detail',
+      component: () => import('./views/StreamDetailView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.streams' }
     },
     {
       // Global search is a utility surface, not a landing page: it must not be indexed,
@@ -133,7 +146,8 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/auth/mobile',
       name: 'auth-mobile',
-      component: AuthMobileView,
+      // Never a landing page and never indexed: a deliberate click from the chrome.
+      component: () => import('./views/AuthMobileView.vue'),
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.signIn' }
     },
     {
@@ -207,6 +221,18 @@ export const router = createRouter({
       name: 'admin-moderation',
       component: () => import('./views/AdminModerationView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/chat',
+      name: 'admin-chat',
+      component: () => import('./views/AdminChatView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminChat' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/streams',
+      name: 'admin-streams',
+      component: () => import('./views/AdminStreamsView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStreams' }
     },
     {
       path: '/:locale(fa|en)/admin/media',
@@ -283,7 +309,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/403',
       name: 'forbidden',
-      component: ForbiddenView,
+      component: () => import('./views/ForbiddenView.vue'),
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.forbidden' }
     },
     {
@@ -295,7 +321,13 @@ export const router = createRouter({
   ]
 });
 
-/** Keeps the active locale, document direction, and stored preference in sync with the URL. */
+/**
+ * Keeps the active locale, document direction, and stored preference in sync with the URL.
+ *
+ * Deliberately synchronous: `<main>` is keyed on the full path, so an async guard would
+ * move the remount after the browser has settled focus on a same-page `#main-content`
+ * jump and silently break the skip link.
+ */
 router.beforeEach((to: RouteLocationNormalized) => {
   const requested = to.params['locale'];
   const locale = isLocale(requested) ? requested : activeLocale();
@@ -304,10 +336,8 @@ router.beforeEach((to: RouteLocationNormalized) => {
   persistLocale(locale);
 });
 
-let firstNavigation = true;
-
 // Title, canonical, hreflang, and indexability follow the resolved route.
-router.afterEach((to: RouteLocationNormalized) => {
+router.afterEach((to: RouteLocationNormalized, from: RouteLocationNormalized) => {
   const locale = isLocale(to.params['locale']) ? (to.params['locale'] as Locale) : activeLocale();
   applyHead({
     title: `${i18n.global.t(to.meta.titleKey)} — ${i18n.global.t('app.name')}`,
@@ -320,10 +350,12 @@ router.afterEach((to: RouteLocationNormalized) => {
   // (or <body>). Skipped on the first load, where no prior focus exists to correct, and
   // deferred until the new view has rendered. This fires only on real route changes, not
   // on background/polling updates, so focus is never yanked mid-task.
-  if (firstNavigation) {
-    firstNavigation = false;
-    return;
-  }
+  //
+  // The initial load is identified by vue-router's own START_LOCATION rather than by
+  // counting navigations: a counter also depends on *when* the app mounts, and once the
+  // mount was deferred behind the locale bundle it started swallowing the first real
+  // navigation instead — which is the skip link, whose whole job is to move focus here.
+  if (from === START_LOCATION) return;
   const document = globalThis.document;
   if (document === undefined) return;
   requestAnimationFrame(() => {

@@ -26,6 +26,8 @@ import { ModerationService, registerModerationRoutes } from './modules/moderatio
 import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
 import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferences } from './modules/media/index.ts';
 import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, type Locale as SeoLocale } from './modules/seo/index.ts';
+import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPubliclyReadableStream, type StreamAlerts } from './modules/streams/index.ts';
+import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStreamAccess } from './modules/chat/index.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { utcNow } from './shared/events.ts';
@@ -98,6 +100,8 @@ export interface ServerDependencies {
   readonly operations?: { service: OperationsService };
   readonly media?: { service: MediaService };
   readonly seo?: { service: SeoService };
+  readonly streams?: { service: StreamsService };
+  readonly chat?: { service: ChatService };
 }
 
 declare module 'fastify' {
@@ -327,6 +331,23 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
           }
           if (deps.teams !== undefined) {
             registerTeamsRoutes(api, { identity: deps.identity.service, teams: deps.teams.service });
+          }
+          // Streams reference games, tournaments, and matches by id only, so the module
+          // has no service dependency on them and registers independently.
+          if (deps.streams !== undefined) {
+            registerStreamsRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              streams: deps.streams.service
+            });
+          }
+          // Chat rooms exist only for streams, so the module is registered alongside them.
+          if (deps.chat !== undefined) {
+            registerChatRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              chat: deps.chat.service
+            });
           }
           if (deps.tournaments !== undefined) {
             registerTournamentsRoutes(api, {
@@ -629,6 +650,60 @@ export function buildMedia(database: Database, config: AppConfig): { service: Me
   return { service: new MediaService(database, storage, { mediaMaxBytes: config.mediaMaxBytes }, references) };
 }
 
+/**
+ * Wires the streams module.
+ *
+ * The provider is selected here, not inside the service, so the domain never learns which
+ * vendor is behind the adapter (STREAM-002, section 33.1). Operator alerts go through a
+ * narrow port bound to the operations service, so streams never import its internals.
+ */
+export function buildStreams(
+  database: Database,
+  config: AppConfig,
+  operations: { service: OperationsService }
+): { service: StreamsService } {
+  const provider = new LocalStubStreamingProvider(config.streaming.secureLinkSecret);
+  const alerts: StreamAlerts = {
+    async raise(context, input) {
+      await operations.service.raiseAlert(context, { category: 'stream', severity: input.severity, message: input.message, detail: input.detail });
+    }
+  };
+  return {
+    service: new StreamsService(
+      database,
+      provider,
+      { rightsPolicyApproved: config.streaming.rightsPolicyApproved, playbackTtlSeconds: config.streaming.playbackTtlSeconds },
+      alerts
+    )
+  };
+}
+
+/**
+ * Wires the chat module.
+ *
+ * Chat reaches streams and moderation only through narrow ports: it asks streams whether
+ * a visitor may watch (so a room inherits the stream's access decision rather than
+ * inventing one), and it files reports into the shared moderation case workflow instead
+ * of keeping a private report table.
+ */
+export function buildChat(
+  database: Database,
+  streams: { service: StreamsService },
+  moderation: { service: ModerationService }
+): { service: ChatService } {
+  const streamAccess: ChatStreamAccess = {
+    async getWatchable(streamId) {
+      const stream = await streams.service.getById(streamId);
+      if (stream === null) return null;
+      return { readable: isPubliclyReadableStream(stream.state), accessMode: stream.accessMode };
+    }
+  };
+  const cases: ChatModerationCases = {
+    fileReport: (context, reporterId, input) => moderation.service.fileReport(context, reporterId, input)
+  };
+  return { service: new ChatService(database, streamAccess, cases) };
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -681,6 +756,9 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const competitions = buildCompetitions(database, tournaments, registrations);
   const checkout = buildCheckout(database, config, tournaments, registrations, ledger, holds);
   const notifications = buildNotifications(database, config);
+  const operations = buildOperations(database, config, notifications, holds, checkout);
+  const moderation = buildModeration(database, identity);
+  const streams = buildStreams(database, config, operations);
   const app = buildServer(config, {
     database,
     identity,
@@ -696,10 +774,12 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     checkout,
     prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
     notifications,
-    moderation: buildModeration(database, identity),
-    operations: buildOperations(database, config, notifications, holds, checkout),
+    moderation,
+    operations,
     media: buildMedia(database, config),
-    seo: buildSeo(database, config)
+    seo: buildSeo(database, config),
+    streams,
+    chat: buildChat(database, streams, moderation)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

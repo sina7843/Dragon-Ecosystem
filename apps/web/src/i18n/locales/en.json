@@ -36,7 +36,10 @@
       "adminFinance": "Finance",
       "adminSupport": "Support",
       "adminOperations": "Operations",
-      "adminOrganizer": "Organizer"
+      "adminOrganizer": "Organizer",
+      "streams": "Streams",
+      "adminStreams": "Streams",
+      "adminChat": "Chat moderation"
     }
   },
   "player": {
@@ -72,7 +75,8 @@
     "wallet": "Wallet",
     "notifications": "Notifications",
     "teamsDirectory": "Teams",
-    "playersDirectory": "Players"
+    "playersDirectory": "Players",
+    "streams": "Streams"
   },
   "theme": {
     "label": "Theme",
@@ -237,7 +241,9 @@
       "finance": "Finance",
       "support": "Support",
       "operations": "Operations",
-      "organizer": "Organizer workspace"
+      "organizer": "Organizer workspace",
+      "streams": "Stream operations",
+      "chat": "Chat moderation"
     },
     "users": {
       "heading": "Users",
@@ -1348,9 +1354,146 @@
       "registration_approved": "Your tournament registration was approved.",
       "registration_confirmed": "Your paid tournament registration is confirmed.",
       "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
-      "prize_paid": "Your cash prize has been marked paid."
+      "prize_paid": "Your cash prize has been marked paid.",
+      "stream_schedule_changed": "The schedule for stream {streamSlug} changed."
     },
     "open": "Open"
+  },
+  "streams": {
+    "hub": {
+      "heading": "Streams",
+      "intro": "Live and scheduled broadcasts across the ecosystem.",
+      "empty": "No streams match this view yet."
+    },
+    "shelf": {
+      "label": "Stream shelf",
+      "default": "Live and upcoming"
+    },
+    "state": {
+      "scheduled": "Scheduled",
+      "live": "Live",
+      "ended": "Ended",
+      "cancelled": "Cancelled",
+      "archived": "Archived",
+      "failed": "Interrupted"
+    },
+    "access": {
+      "public": "Open to everyone",
+      "authenticated": "Sign-in required",
+      "signInRequired": "This stream is available to signed-in viewers."
+    },
+    "availability": {
+      "unavailable": "Temporarily unavailable",
+      "unavailableDetail": "Playback is temporarily unavailable. Try again shortly."
+    },
+    "field": {
+      "scheduledStartAt": "Starts",
+      "scheduledEndAt": "Ends",
+      "actualStartAt": "Went live"
+    },
+    "filteredByTournament": "Filtered by tournament",
+    "filteredByGame": "Filtered by game",
+    "detail": {
+      "notFound": "This stream does not exist or is not public.",
+      "about": "About this stream",
+      "relatedTournament": "See every stream for this tournament",
+      "archiveRetained": "A recording of this stream is retained."
+    },
+    "player": {
+      "region": "Stream player",
+      "watch": "Watch",
+      "authorized": "Playback authorised",
+      "expiresAt": "This viewing link expires at {time}.",
+      "provider": "Delivered by the {provider} provider.",
+      "notPlaying": "This stream is not playing right now.",
+      "retry": "Try again"
+    }
+  },
+  "chat": {
+    "region": "Live chat",
+    "heading": "Live chat",
+    "empty": "No messages yet.",
+    "closed": "This chat room is closed.",
+    "unavailable": "Live chat is not available for this stream.",
+    "signInToRead": "Sign in to follow this chat.",
+    "signInToSend": "Sign in to join the conversation.",
+    "inputLabel": "Chat message",
+    "placeholder": "Say something",
+    "send": "Send",
+    "removed": "This message was removed by a moderator.",
+    "report": "Report",
+    "reported": "Reported to the moderation team.",
+    "reportReason": "Reported from live chat"
+  },
+  "adminChat": {
+    "heading": "Chat moderation",
+    "intro": "Review live rooms, remove messages, and apply timeouts or bans in the rooms assigned to you.",
+    "noRooms": "No chat rooms yet.",
+    "noMessages": "No messages in this room yet.",
+    "noRestrictions": "No active timeouts or bans in this room.",
+    "roomLabel": "Room {id}",
+    "roomState": {
+      "open": "Open",
+      "closed": "Closed"
+    },
+    "messageCount": "{count} messages",
+    "openRoom": "Reopen room",
+    "closeRoom": "Close room",
+    "roomStateChanged": "Room state updated.",
+    "messages": "Messages",
+    "messageRemoved": "Removed",
+    "activeRestrictions": "Active timeouts and bans",
+    "kind": {
+      "timeout": "Timeout",
+      "ban": "Ban"
+    },
+    "reasonLabel": "Reason",
+    "reasonHint": "Recorded with the action in the audit trail.",
+    "remove": "Remove message",
+    "removed": "Message removed. The original is retained as evidence.",
+    "timeout": "Time out sender",
+    "timedOut": "Sender timed out in this room.",
+    "ban": "Ban sender",
+    "banned": "Sender banned from this room.",
+    "lift": "Lift",
+    "lifted": "Restriction lifted.",
+    "liftReason": "Lifted from the chat moderation console."
+  },
+  "adminStreams": {
+    "heading": "Stream operations",
+    "intro": "Create streams, link the provider resource, move them through their lifecycle, and recover from provider failures.",
+    "createHeading": "New stream",
+    "create": "Create stream",
+    "created": "Stream created.",
+    "empty": "No streams yet.",
+    "provider": "Provider: {provider}",
+    "rightsPolicyGated": "Archive and takedown are disabled pending rights approval",
+    "rightsMissing": "Rights not confirmed",
+    "confirmRights": "Confirm rights",
+    "rightsConfirmed": "Broadcast rights recorded.",
+    "rightsHint": "Record which approval confirms the broadcast rights for this stream.",
+    "provision": "Provision provider",
+    "provisioned": "Provider resource ready.",
+    "reconcile": "Reconcile",
+    "reconciled": "Provider state reconciled.",
+    "moveTo": "Move to {state}",
+    "stateChanged": "Stream state updated.",
+    "stateReason": "Moved to {state} from the operations console.",
+    "providerFailed": "The provider request failed. Correlation ID:",
+    "field": {
+      "titleEn": "English title",
+      "titleFa": "Persian title",
+      "slug": "Slug",
+      "accessMode": "Watch access",
+      "rightsReference": "Rights approval reference",
+      "attempts": "Provider attempts"
+    },
+    "sync": {
+      "unlinked": "Not linked",
+      "provisioning": "Provisioning",
+      "ready": "Ready",
+      "failed": "Provider failed"
+    }
   },
   "moderation": {
     "report": {

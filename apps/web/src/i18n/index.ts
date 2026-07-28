@@ -12,6 +12,17 @@ function storedLocale(): string | null {
   }
 }
 
+/**
+ * Both message bundles ship in the entry chunk, so the app is interactive as soon as the
+ * document loads.
+ *
+ * Loading them per locale was tried in DRAGON-18 and reverted: it requires deferring the
+ * mount until the bundle arrives over the network, which leaves the page unmounted when
+ * `load` fires — the skip link and every other keyboard entry point are simply absent for
+ * that window. The entry budget is held down by route-level splitting instead (see
+ * `build-budget.test.ts`). Doing this properly needs the messages inlined into the document
+ * or served per locale by the edge, not a client-side fetch in front of the mount.
+ */
 export const i18n = createI18n({
   legacy: false,
   locale: detectLocale(storedLocale(), globalThis.navigator?.languages ?? []),
