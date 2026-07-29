@@ -354,10 +354,9 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     needs: validate
-    # The static half of the topology contract — nginx as the sole published entry point,
-    # no host port for the API or MongoDB, and the container port surviving a WEB_PORT
-    # override — is asserted by compose-topology.test.ts, which runs in `unit` on every
-    # pull request. Only the runtime half is here: it pulls an image and cycles a
+    # The static half of the topology contract is asserted by compose-topology.test.ts,
+    # which runs in `unit` on every pull request. Only the runtime half is here: it pulls
+    # an image and cycles a
     # container for a guarantee that changes far less often than the code does, so it runs
     # on the protected branch and on demand rather than on every pull request. It is a
     # required check for main; CI.md records that split.
@@ -375,21 +374,45 @@ jobs:
           docker compose config -q
           docker compose -f docker-compose.test.yml config -q
 
-      - name: A WEB_PORT override moves only the host port
+      # nginx is the only published surface: web on 8080, and no host port for the API or
+      # MongoDB at all.
+      #
+      # The first remote run failed here, and the assertion was wrong rather than the
+      # repository. It required `WEB_PORT=18080` to move the published port, which is a
+      # behaviour of an *uncommitted* working-tree change to docker-compose.yml — the
+      # committed file hardcodes `8080:8080`, so CI checked out a repository that could not
+      # satisfy it. A CI job may only assert committed state; what follows is the contract
+      # the committed file actually makes, and it keeps holding if that change is ever
+      # committed, because `${WEB_PORT:-8080}` still resolves to 8080 with WEB_PORT unset.
+      - name: nginx is the only published entry point
         run: |
-          default_port=$(docker compose config --format json | node -e '
-            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-              const p=JSON.parse(s).services.web.ports[0];
-              process.stdout.write(`${p.published}:${p.target}`);
-            })')
-          moved=$(WEB_PORT=18080 docker compose config --format json | node -e '
-            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
-              const p=JSON.parse(s).services.web.ports[0];
-              process.stdout.write(`${p.published}:${p.target}`);
-            })')
-          echo "default=$default_port override=$moved"
-          test "$default_port" = "8080:8080"
-          test "$moved" = "18080:8080"
+          docker compose config --format json > compose.json
+          node -e '
+            const compose = JSON.parse(require("node:fs").readFileSync("compose.json", "utf8"));
+            const problems = [];
+            const web = compose.services.web.ports ?? [];
+            if (web.length !== 1) problems.push(`web publishes ${web.length} port(s), expected 1`);
+            else {
+              const { published, target } = web[0];
+              if (String(published) !== "8080" || String(target) !== "8080") {
+                problems.push(`web publishes ${String(published)}:${String(target)}, expected 8080:8080`);
+              }
+            }
+            for (const name of ["api", "mongo"]) {
+              const ports = compose.services[name].ports ?? [];
+              if (ports.length > 0) {
+                problems.push(`${name} publishes a host port (${JSON.stringify(ports)}); it must stay internal`);
+              }
+            }
+            console.log("web:", JSON.stringify(web));
+            console.log("api/mongo published ports:", JSON.stringify([compose.services.api.ports ?? [], compose.services.mongo.ports ?? []]));
+            if (problems.length > 0) {
+              console.error("\n  " + problems.join("\n  "));
+              process.exit(1);
+            }
+            console.log("topology contract holds");
+          '
+          rm -f compose.json
 
       - name: Pull the pinned MongoDB image
         run: docker pull "$MONGO_IMAGE"

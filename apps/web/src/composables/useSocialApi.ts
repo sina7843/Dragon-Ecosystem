@@ -54,6 +54,8 @@ export interface SocialProfileView {
   links: Array<{ label: string; url: string }>;
   statistics: SocialStatistic[];
   posts: PostView[];
+  /** Whether the signed-in viewer already follows this account; false when anonymous. */
+  viewerFollows: boolean;
 }
 
 export function getSocialConfig(): Promise<SocialConfig> {

@@ -71,8 +71,13 @@ async function load(): Promise<void> {
   if (player.value !== null) {
     try {
       social.value = await getSocialProfileByUsername(player.value.username);
+      // The control is a toggle, so its state has to come from the server. Defaulting to
+      // "not following" made every reload show "Follow" to someone who already followed,
+      // and pressing it followed again — there was no way to unfollow from this page.
+      following.value = social.value.viewerFollows;
     } catch {
       social.value = null;
+      following.value = false;
     }
   }
 }

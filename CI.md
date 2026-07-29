@@ -13,8 +13,10 @@ assumption drawn from the repository using Git: `REQUIREMENTS_TRACEABILITY.md` n
 `.github/workflows` as the specific missing artefact in three separate rows (SEC-016,
 SEC-017, TEST-026), so GitHub Actions is the repository's own stated expectation.
 
-**No Git remote is configured** (`git remote -v` is empty). The workflow is therefore
-correct-by-construction but has never executed: see [Limitations](#limitations).
+The pipeline **has run remotely** (DRAGON-29B.1). Its first run passed `validate`, `static`,
+`unit`, `build-budget`, `integration`, and `migrations`, and failed `security`,
+`persistence`, and `e2e` — each for a real reason, all three since fixed. See
+[First remote run](#first-remote-run) and [Limitations](#limitations).
 
 ## Runtime versions
 
@@ -263,12 +265,10 @@ toolchain it cannot support. What runs:
 
 No dependency updates are applied automatically.
 
-### Live finding: the gating audit currently fails
+### First finding, and its resolution
 
-`npm audit --omit=dev --audit-level=high` **exits 1 on the current lockfile**, so
-`ci / security` will be red on the first run. This is not a pipeline defect — it is the
-pipeline doing its job on a pre-existing problem that nothing in the repository was checking
-for before.
+The first remote run failed `ci / security` on a real, pre-existing advisory that nothing in
+the repository had been checking for. It is fixed.
 
 | Field | Value |
 |---|---|
@@ -276,21 +276,18 @@ for before.
 | Advisory | [GHSA-c96f-x56v-gq3h](https://github.com/advisories/GHSA-c96f-x56v-gq3h) — denial of service over HTTP/2 |
 | Severity | high, CVSS 3.1 score 7.5 (`AV:N/AC:L/PR:N/UI:N/S:U/C:N/I:N/A:H`) |
 | Vulnerable range | `<=9.6.0` |
-| Shipped? | Yes — it is in the runtime dependency tree, not a build-time dependency |
-| Fix available | Yes, `npm audit` reports `fixAvailable: true` with no dependent effects |
+| Before → after | `9.6.0` → `9.7.0` |
+| How | `npm update find-my-way` — lockfile only |
 
-It was **not fixed in DRAGON-29B**: this slice builds the pipeline and is explicitly barred
-from applying dependency updates, and a lockfile change is a change to what ships. Two
-things are needed and neither is a CI decision:
+No manifest changed. `fastify@5.10.0` (already the newest 5.x) declares `find-my-way: ^9.6.0`,
+which `9.7.0` satisfies, so the patched router arrived without touching Fastify, without an
+API change, and without a major migration. `npm audit --omit=dev --audit-level=high` now
+reports **0 vulnerabilities**. The audit threshold was not lowered and no exception was
+added — the point of a gate is that it is answered, not muted.
 
-1. **Update the dependency** — a scoped change with its own verification, since it moves
-   Fastify's router in every request path.
-2. **Or record a formal risk acceptance** — the advisory is HTTP/2-specific, and the API is
-   served over HTTP/1.1 behind nginx, so real exposure may be nil. That judgement is
-   precisely what SEC-017 reserves for a named approver, and no such approver or waiver
-   record exists in the repository. This file does not make that call.
-
-Until one of those happens, treat a red `ci / security` as the expected and correct state.
+Routing is the hottest path in the API, so the update was verified rather than assumed:
+`server.test.ts` (route registry, versioned prefix only, unknown-route envelope) and the
+full 501-test integration suite pass on `9.7.0`.
 
 ### Recorded gaps
 
@@ -365,16 +362,68 @@ administrator must switch on, on `main`:
 
 Do not read anything in this file as evidence that protection is active. It is not.
 
+## First remote run
+
+The first real run failed three jobs. All three were genuine, none was a pipeline design
+fault, and none was fixed by weakening a check.
+
+**`ci / security` — a real advisory.** Resolved by updating `find-my-way` 9.6.0 → 9.7.0; see
+[the finding above](#first-finding-and-its-resolution).
+
+**`ci / persistence` — the assertion was wrong, not the repository.** A step required
+`WEB_PORT=18080` to move the published host port. That is a behaviour of an *uncommitted*
+working-tree change to `docker-compose.yml`; the committed file hardcodes `8080:8080`, so CI
+checked out a repository that could not satisfy it and failed in 14 seconds, before
+`verify:persistence` ever ran. **A CI job may only assert committed state.** The step now
+asserts the contract the committed file actually makes — web publishes exactly `8080:8080`,
+and `api` and `mongo` publish no host port at all — which is stricter about what matters and
+keeps holding if the `WEB_PORT` change is ever committed, because `${WEB_PORT:-8080}` still
+resolves to 8080 when WEB_PORT is unset.
+
+**`ci / e2e` — two product defects behind three vacuous assertions.** Eight failures, six of
+them one test. The common mechanism: `expect(...).toHaveCount(n)` and `toHaveAttribute` pass
+on their *first* successful poll, so an assertion evaluated during a loading window observes
+the empty or default state and passes without ever seeing the result. Locally, fast, they
+passed. On a slower runner the first poll landed after the state settled and the truth came
+out.
+
+1. **The player page never read the viewer's follow state.** `following` was a local ref
+   defaulting to `false` and never reconciled with the server, so after any reload the
+   toggle read "Follow" for someone already following, and pressing it followed again.
+   *Unfollowing from that page was impossible after a reload.* A forced local trace confirmed
+   the second click sent `POST /follows/...` → 201, never a `DELETE`. Fixed in the product:
+   `getPublicProfile` now returns `viewerFollows` (the endpoint already had the viewer's id
+   and already queried the follows collection; served by the existing
+   `follow_follower_state` index) and the view initialises the toggle from it.
+2. **The store operator console rendered for anyone signed in.** `AdminStoreView` decided
+   `forbidden` from `/store/config` and `/products` — both public storefront endpoints that
+   answer 200 for everybody — so it never detected a missing permission and showed the create
+   form, SKU and price fields, and inventory controls to any user, who could then only watch
+   the server reject each action. The server was never the hole; the page never asked. Fixed
+   by probing `store.manage` through the existing `useAdmin()` capability probe, the same
+   mechanism the other consoles use.
+3. **An auth assertion counted a leftover toast.** Signing in pushes "You are signed in" and
+   reaches the profile page by client-side navigation, so the queue was already non-empty;
+   `toHaveCount(1)` was satisfied by that message before the save produced anything. Now it
+   asserts the *success* toast, which is what the test always meant.
+
+Each strengthened assertion was verified to have teeth by temporarily reinstating the defect
+and confirming the test fails: the follow assertion failed with `aria-pressed="false"` and a
+"Follow" label; the store assertion failed on a missing `state-forbidden` block.
+
 ## Limitations
 
-- **The workflow has never run.** No Git remote is configured, so it could not be executed
-  remotely from the environment that authored it. Every command it invokes was run locally
-  and passed (see `IMPLEMENTATION_STATUS.md`), the YAML parses, and the job graph, action
-  pinning, timeouts, and required-summary logic were checked structurally — but there is no
-  remote CI run to point at, and this file does not claim one.
+- **The DRAGON-29B.1 fixes have not themselves been confirmed remotely.** One remote run has
+  happened; the three failures it exposed were diagnosed from its logs and artifacts and
+  fixed, and every affected command passes locally — but a second run is required before the
+  pipeline can be called green, and this file does not claim one.
 - **CI runs Node 22.23.1; local evidence was produced on Node 24.13.1.** Both clear the
-  22.18.0 floor. The first remote run is the first execution on the 22 line.
-- **`E2E_WORKERS: 2` is a reasoned starting value, not a measured one** for a GitHub runner.
+  22.18.0 floor. The first remote run confirmed the 22 line works: `validate`, `static`,
+  `unit`, `build-budget`, `integration`, and `migrations` all passed on it.
+- **`E2E_WORKERS: 2` is unchanged and now has some evidence.** The first remote run showed no
+  contention symptom — no page-setup timeout, no browser-launch failure — so the value was
+  left alone; the eight failures were defects, not saturation. The suite took 12.2 minutes
+  there against roughly 6 locally, which is runner speed, not a worker problem.
 - **`apps/api/src/perf/` is untracked**, so the five performance-contention integration
   tests it holds do not exist for CI and its `perf.itest.ts` will not run there. It belongs
   to DRAGON-28 and is not absorbed here; committing it is that slice's decision.

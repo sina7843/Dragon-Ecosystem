@@ -196,9 +196,15 @@ test.describe('store operations', () => {
 
   test('an ordinary user is refused both store consoles (fa)', async ({ page }) => {
     await signIn(page, 'fa');
+    // The refusal has to be observed once the console has settled. Asserting absence while
+    // the page was still loading passed on the first poll against a console that had not
+    // rendered yet, and so never noticed that it went on to render in full for a user with
+    // no permission at all.
     await page.goto('/fa/admin/store');
+    await expect(page.getByTestId('state-forbidden')).toBeVisible();
     await expect(page.getByTestId('admin-product-create')).toHaveCount(0);
     await page.goto('/fa/admin/orders');
+    await expect(page.getByTestId('state-forbidden')).toBeVisible();
     await expect(page.getByTestId('admin-orders')).toHaveCount(0);
   });
 

@@ -41,8 +41,113 @@
 - Release remediation and evidence closure: partial (DRAGON-28) — five engineering gaps closed, four remediation items not attempted and named as such. **Ecosystem verdict unchanged: NO-GO**
 - Browser E2E stabilization: complete (DRAGON-29A) — the browser-suite instability DRAGON-28 opened with no established cause is diagnosed and closed; test-only fixes and harness configuration, no product change. Committed (`caf9c34`). **Ecosystem verdict unchanged: NO-GO**
 - Production-grade CI pipeline: complete (DRAGON-29B) — `.github/workflows/ci.yml` + `CI.md`; the repository had no CI configuration at all. **Never executed (no Git remote) and branch protection not activated: CI implementation complete, repository administrator activation pending.** **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29B (production-grade CI pipeline); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- First remote CI failure remediation: complete (DRAGON-29B.1) — three failed jobs diagnosed and fixed, including two real product defects and one high-severity shipped dependency advisory. **A second remote run is required to confirm; no green run exists yet.** **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29B.1 (first remote CI failure remediation); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29B.1 — First remote CI failure remediation
+
+The pipeline ran. Six jobs passed — `validate`, `static`, `unit`, `build-budget`,
+`integration`, `migrations` — and `security`, `persistence`, and `e2e` failed. Every one of
+the three was a real problem. No job was redesigned, no retry enabled, no timeout raised, no
+assertion weakened, and no `continue-on-error` added.
+
+**`security` — a high-severity advisory in the shipped dependency tree.**
+`find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 3.1 7.5, HTTP/2 denial of service), reached
+as `@dragon/api → fastify@5.10.0 → find-my-way@9.6.0`. The patched release is `9.7.0`, and
+`fastify@5.10.0` — already the newest 5.x — declares `find-my-way: ^9.6.0`, which `9.7.0`
+satisfies. `npm update find-my-way` therefore fixed it as a **three-line lockfile change**:
+no manifest edit, no Fastify bump, no API change, no migration. `npm audit --omit=dev
+--audit-level=high` now reports **0 vulnerabilities**, with the threshold unchanged and no
+exception added. Because this replaces the router in every request path, it was verified
+rather than assumed: `server.test.ts` (route registry, versioned-prefix-only, unknown-route
+envelope) and all 501 integration tests pass on `9.7.0`.
+
+**`persistence` — my assertion was wrong, not the repository.** It failed in ~14 seconds,
+before `verify:persistence` ran, on a step requiring `WEB_PORT=18080` to move the published
+host port. That is the behaviour of an **uncommitted** working-tree change to
+`docker-compose.yml`; the committed file hardcodes `8080:8080`. CI checked out committed state
+and could not satisfy an assertion written against a local modification — the exact failure
+mode of letting a job depend on anything but committed state. The step now asserts the
+contract the committed file actually makes: web publishes exactly `8080:8080`, and `api` and
+`mongo` publish no host port at all. That is stricter about the thing that matters (nginx as
+the sole published surface) and it keeps holding if the `WEB_PORT` change is ever committed,
+since `${WEB_PORT:-8080}` resolves to 8080 unset. Verified against both the committed file
+(extracted with `git show HEAD:docker-compose.yml`) and the modified worktree copy.
+
+**`e2e` — two product defects behind three vacuous assertions.** Eight failures, six of them
+the same test. One mechanism explains all of them: `toHaveCount` and `toHaveAttribute` pass on
+their **first successful poll**, so an assertion evaluated during a loading window observes
+the empty or default state and passes without ever seeing the real result. Locally, fast, they
+passed. On a slower runner the first poll landed after the state settled.
+
+*Product defect 1 — the player page could not unfollow after a reload.* `following` was a
+local ref defaulting to `false`, never reconciled with the server, and `SocialProfileView`
+carried no viewer-follow field at all. So on every load the toggle read "Follow" to someone
+already following, and pressing it **followed again**. A forced local trace settled it: the
+second click sent `POST /api/v1/follows/user/...` → 201 and there was no `DELETE` anywhere in
+the run. The two assertions that should have caught this had been passing for the wrong
+reason — `aria-pressed` was still `false` in the window before the POST resolved, and the
+"post is gone" check ran against a feed list that had not loaded. Fixed in the product:
+`getPublicProfile` now returns `viewerFollows`, which costs one indexed `findOne` on an
+endpoint that already received the viewer's id and already queried the follows collection
+(served by the existing `follow_follower_state` index), and the view initialises the toggle
+from it.
+
+*Product defect 2 — the store operator console rendered for anyone.* `AdminStoreView` decided
+`forbidden` from `getStoreConfig()` and `listProducts()` — `/store/config` and `/products`,
+the **public storefront's own endpoints**, which answer 200 for everybody. So the gate could
+never trip, and the create form, SKU and price fields, and inventory controls rendered in full
+for any signed-in user, who could then only watch the server reject each action. The server
+was never the hole; the page simply never asked whether it should render. Fixed by probing
+`store.manage` through the existing `useAdmin()` capability probe — the mechanism the other
+consoles already use.
+
+*Test defect — an auth assertion counted a leftover toast.* Signing in pushes "You are signed
+in" and reaches the profile page by client-side navigation, so the toast queue was already
+non-empty and `toHaveCount(1)` was satisfied by that message before the save produced
+anything. It now asserts the **success** toast, which is what the test always meant. This is a
+site DRAGON-29A examined and cleared as safe "because a `goto` precedes it" — there is no
+`goto` there, and the reasoning was wrong.
+
+**Both strengthened assertions were proven to have teeth**, by temporarily reinstating each
+defect and confirming the test fails: the follow assertion failed with `aria-pressed="false"`
+on a "Follow"/"دنبال کردن" button, and the store assertion failed on a missing
+`state-forbidden` block. A strengthened assertion that has not been seen to fail is not
+evidence.
+
+**`E2E_WORKERS` left at 2.** The remote log shows no contention symptom — no page-setup
+timeout, no browser-launch failure — so the eight failures were defects, not saturation, and
+lowering it would have been treating the wrong thing. The suite took 12.2 minutes remotely
+against ~6 locally, which is runner speed.
+
+**Local verification — every command, exit code recorded:**
+
+| Command | Result | Exit |
+|---|---|---|
+| `npm audit --omit=dev --audit-level=high` | **0 vulnerabilities** (was 1 high) | 0 |
+| `npm run ci:validate` | 11 checks passed | 0 |
+| `npm run typecheck` | pass | 0 |
+| `npm run lint` | 0 errors, 60 pre-existing warnings | 0 |
+| `npm test` | 451 passed, 0 failed (api 405, web 46) | 0 |
+| `npm run test:integration` | 501 passed, 0 failed, 0 skipped | 0 |
+| `npm run build` / `test:budget` | pass / 1 passed | 0 / 0 |
+| `npm run verify:migrations` | 23 checks passed | 0 |
+| `npm run verify:persistence` | PASS | 0 |
+| `npm run e2e` (`E2E_WORKERS=2`) | 464 passed, 1 skipped, 0 failed | 0 |
+| focused: community + store + auth, all 3 projects | 117 passed | 0 |
+| `closure:check` / `decision:check` | 14/14 / 12/12 | 0 / 0 |
+| workflow structure validation | 10 jobs, `required` covers 9, no problems | 0 |
+
+`npm run e2e` again needed `E2E_WEB_PORT=4400` on this host (WinNAT has reserved 4144-4243,
+containing the default 4173) — the documented escape hatch, irrelevant on a Linux runner.
+
+**The `required` job was not touched** and remains correct: `if: always()`, depends on all
+nine jobs, passes only on `success`, and allows exactly one skip (`persistence`, on a pull
+request only) checked against the event.
+
+**Remote confirmation is still pending.** These fixes are verified locally; the pipeline has
+no green run and is not described as fixed.
 
 ## DRAGON-29B — Production-grade CI pipeline
 

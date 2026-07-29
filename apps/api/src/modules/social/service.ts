@@ -495,11 +495,26 @@ export class SocialService {
     return resolved.get(username.trim().toLowerCase()) ?? null;
   }
 
-  async getPublicProfile(accountId: EntityId, viewerId: EntityId | null): Promise<{ headline: string; links: Array<{ label: string; url: string }>; statistics: SocialStatistic[] } | null> {
+  async getPublicProfile(
+    accountId: EntityId,
+    viewerId: EntityId | null
+  ): Promise<{ headline: string; links: Array<{ label: string; url: string }>; statistics: SocialStatistic[]; viewerFollows: boolean } | null> {
     const isSelf = viewerId === accountId;
     if (!isSelf && !(await this.#directory.isPubliclyVisible(accountId))) return null;
     const profile = await this.#profiles().findOne({ accountId });
-    const base = { headline: profile?.headline ?? '', links: profile?.links ?? [] };
+    /**
+     * Whether the viewer already follows this account.
+     *
+     * The profile page's follow control is a toggle, so it cannot be rendered correctly
+     * without this: it previously defaulted to "not following" on every load, which meant
+     * that after any reload the button read "Follow" for someone already following, and
+     * pressing it followed again instead of unfollowing. Served by `follow_follower_state`.
+     */
+    const viewerFollows =
+      viewerId === null || isSelf
+        ? false
+        : (await this.#follows().findOne({ followerId: viewerId, state: 'active', targetType: 'user', targetId: accountId })) !== null;
+    const base = { headline: profile?.headline ?? '', links: profile?.links ?? [], viewerFollows };
     if (profile?.statisticsVisible !== true && !isSelf) return { ...base, statistics: [] };
 
     const calculatedAt = utcNow();

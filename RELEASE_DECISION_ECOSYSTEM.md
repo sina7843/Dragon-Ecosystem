@@ -456,8 +456,8 @@ gaps remain that engineering owns and can close without any external input:
 |---|---|
 | 27 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, and cache headers. No external input is needed to build any of them. |
 | 127 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
-| An unremediated high dependency advisory | `find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 7.5, HTTP/2 denial of service) sits in the shipped dependency tree, so the new `ci / security` gate fails on the current lockfile. A fix is available. DRAGON-29B was barred from applying dependency updates, so it is surfaced rather than silently fixed; the alternative — a formal risk acceptance on the grounds that the API is served over HTTP/1.1 behind nginx — needs the named approver SEC-017 requires and that the repository does not have. |
-| CI activation | The pipeline exists and every command in it passes locally, but no Git remote is configured, so it has never executed, and branch protection has not been switched on. Both are repository-administrator actions, documented in `CI.md`. |
+| No risk-acceptance mechanism (SEC-017) | The dependency gate exists and works — its first remote run caught `find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 7.5), which DRAGON-29B.1 fixed by updating that transitive dependency to `9.7.0`; the audit now reports 0 vulnerabilities. What is still missing is the requirement's other half: the repository names no approver and defines no waiver record, so there is no way to *formally risk-accept* a finding that cannot be fixed. That is not an engineering decision. |
+| CI activation | The pipeline has run remotely once. Branch protection has **not** been switched on, so nothing yet compels the checks to pass before a merge, and no green run exists yet — the three jobs that failed were fixed but need a second run to confirm. Both remaining steps are repository-administrator actions, documented in `CI.md`. |
 
 Closed since the previous revision: the **moderation E2E flake** (test-only fix; the
 moderation test did not fail once in 17 full-suite runs), the **344 pending traceability
@@ -480,16 +480,19 @@ so an untrusted forked pull request has nothing to reach.
 
 **What this does not close:**
 
-- **It has never run.** No Git remote is configured, so the workflow could not be executed
-  from the environment that authored it. Every command it invokes was run locally and
-  passed; the YAML parses and the job graph, action pinning, timeouts, and required-summary
-  logic were checked structurally. There is no remote CI run to cite and none is claimed.
+- **There is no green remote run yet.** One run has executed (DRAGON-29B.1). Six jobs passed;
+  `security`, `persistence`, and `e2e` failed, each for a real reason, and all three are
+  fixed and verified locally. A second run is required before the pipeline may be described
+  as green, and none is claimed here.
 - **Branch protection is not active.** Nothing yet compels the checks to pass before a
   merge. `CI.md` lists the exact settings and required check names for an administrator;
   the classification is *CI implementation complete, repository administrator activation
   pending*.
-- **`ci / security` fails on the current lockfile** — see the dependency advisory in the
-  blocker table above. That is the gate working, not the pipeline being broken.
+- **The first run earned its keep.** It caught a high-severity advisory in the shipped
+  dependency tree, a CI assertion that silently depended on an uncommitted working-tree
+  change, and two product defects that three vacuous browser assertions had been hiding —
+  the player page could not unfollow after a reload, and the store operator console rendered
+  in full for any signed-in user. None of the four was visible to the local suite.
 - **Container-image scanning is absent** (SEC-016) and **no risk-acceptance mechanism
   exists** (SEC-017).
 - This is dependency and hygiene checking. It is **not** a penetration test, an authorized

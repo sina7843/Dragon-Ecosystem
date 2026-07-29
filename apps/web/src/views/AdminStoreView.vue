@@ -5,6 +5,7 @@ import StateBlock from '../components/StateBlock.vue';
 import { isLocale, type Locale } from '../i18n/locale.ts';
 import { formatDateTime, formatNumber, viewerTimeZone } from '../i18n/format.ts';
 import { useApiErrors } from '../composables/useApiErrors.ts';
+import { useAdmin } from '../composables/useAdmin.ts';
 import {
   adjustInventory,
   createProduct,
@@ -28,6 +29,7 @@ import {
 
 const { t, locale } = useI18n();
 const { messageFor } = useApiErrors();
+const { canManageStore, refresh: refreshCapabilities } = useAdmin();
 
 const activeLocale = (): Locale => (isLocale(locale.value) ? locale.value : 'fa');
 
@@ -50,6 +52,19 @@ async function load(): Promise<void> {
   errorMessage.value = undefined;
   forbidden.value = false;
   try {
+    /**
+     * The permission is probed explicitly, because neither call below can reveal its
+     * absence: `/store/config` and `/products` are the public storefront's own endpoints
+     * and answer 200 for anybody. Deciding the gate from them meant this operator console
+     * — the create form, the price and SKU fields, the inventory controls — rendered in
+     * full for any signed-in user, who could then only watch the server reject everything.
+     * The server was never the hole; the page simply never asked whether it should render.
+     */
+    await refreshCapabilities();
+    if (!canManageStore.value) {
+      forbidden.value = true;
+      return;
+    }
     config.value = await getStoreConfig();
     products.value = (await listProducts({ locale: activeLocale() })).items;
   } catch (error) {

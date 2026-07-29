@@ -114,7 +114,11 @@ for (const testCase of LOCALE_CASES) {
       await page.locator('#profile-birth-date').fill('2000-01-01');
       await page.getByTestId('profile-submit').click();
 
-      await expect(page.getByTestId('toast')).toHaveCount(1);
+      // The success toast specifically, not a count. Signing in pushes its own toast and
+      // reaches this page by client-side navigation, so the queue is already non-empty:
+      // `toHaveCount(1)` was satisfied by that leftover message and passed before the save
+      // had produced anything, then failed the moment the save's own toast arrived first.
+      await expect(page.locator('[data-testid="toast"].success')).toHaveCount(1);
       const bodyText = await page.locator('body').innerText();
       expect(bodyText).not.toMatch(RAW_KEY_PATTERN);
     });

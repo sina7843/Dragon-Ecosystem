@@ -1,5 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
-import { uniqueMobile, uniqueSuffix } from './helpers.ts';
+import { actAndAwaitApi, uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Community journey (DRAGON-22, PAGE-034/035/036/055).
@@ -12,6 +12,20 @@ import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /** A dotted lowercase token that looks like an untranslated i18n key leaking into the UI. */
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
+
+/**
+ * Asserts a body is absent from the feed, *after* the feed has finished loading.
+ *
+ * A bare `toHaveCount(0)` was worthless here: it is satisfied by the empty list that
+ * exists while the feed is still being fetched, so it passed on the first poll and never
+ * observed the real result. Both "the post is not there yet" and "the post is gone after
+ * unfollowing" were passing that way, which is how a product defect survived. Waiting for
+ * the loading block to clear first makes the absence a real observation.
+ */
+async function expectFeedWithout(page: Page, body: string): Promise<void> {
+  await expect(page.getByTestId('state-loading')).toHaveCount(0);
+  await expect(page.getByTestId('community-post').filter({ hasText: body })).toHaveCount(0);
+}
 
 async function apiWithRoles(browser: Browser, roles: string[]): Promise<APIRequestContext> {
   const api = (await browser.newContext()).request;
@@ -103,10 +117,17 @@ test.describe('JOURNEY-006: follow, publish, interact, report', () => {
       // A different user discovers the author, follows, and the post arrives.
       await signInWithProfile(page, locale);
       await page.goto(`/${locale}/community`);
-      await expect(page.getByTestId('community-post').filter({ hasText: body })).toHaveCount(0);
+      await expectFeedWithout(page, body);
 
       await page.goto(`/${locale}/players/${username}`);
-      await page.getByTestId('player-follow').click();
+      // The control is a toggle whose state arrives from the server, so it has to be read
+      // as loaded before it is pressed. Clicking while it still showed its default meant
+      // pressing "Follow" when the intent was "Unfollow" — which is what hid the product
+      // defect this journey now covers.
+      await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'false');
+      await actAndAwaitApi(page, 'POST', /^\/api\/v1\/follows\/user\//, async () => {
+        await page.getByTestId('player-follow').click();
+      });
       await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'true');
 
       await page.goto(`/${locale}/community`);
@@ -123,10 +144,15 @@ test.describe('JOURNEY-006: follow, publish, interact, report', () => {
 
       // Unfollowing takes the post away again on the next read — no rebuild (BR-025).
       await page.goto(`/${locale}/players/${username}`);
-      await page.getByTestId('player-follow').click();
+      // Reloading must still report the follow: this is the assertion the product defect
+      // failed, and it has to come before the click or the click is a second follow.
+      await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'true');
+      await actAndAwaitApi(page, 'DELETE', /^\/api\/v1\/follows\/user\//, async () => {
+        await page.getByTestId('player-follow').click();
+      });
       await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'false');
       await page.goto(`/${locale}/community`);
-      await expect(page.getByTestId('community-post').filter({ hasText: body })).toHaveCount(0);
+      await expectFeedWithout(page, body);
 
       await authorContext.close();
     });
