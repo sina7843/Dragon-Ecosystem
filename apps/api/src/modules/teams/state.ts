@@ -3,17 +3,44 @@ import type { EntityId } from '../../shared/ids.ts';
 /**
  * Team domain shapes and the pure state-machine guards.
  *
- * Phase 1 team roles are owner and member only (TEAM-002); captain, manager, and
- * substitute are deferred (GOAL-014). The role lives on each membership record —
- * a resource-scoped grant per member — so advanced delegation extends the same
- * model without rewriting a fixed team-role column (TEAM-012).
+ * The role lives on each membership record — a resource-scoped grant per member — so
+ * advanced delegation extends the same model without rewriting a fixed team-role column
+ * (TEAM-012). Phase 4 uses exactly that seam: `manager` and `captain` are additional
+ * values of the existing `role` field, so no team, membership, or roster-snapshot record
+ * is rewritten and every Phase 1 team id and history row survives untouched (TEAM-011,
+ * SOCIAL-009). Existing rows are already valid `owner`/`member` values, which is why
+ * there is no Phase 4 team migration at all.
  */
 
 export type TeamStatus = 'active' | 'disbanded';
 export type TeamVisibility = 'private' | 'public';
 
-export type TeamRole = 'owner' | 'member';
-export const TEAM_ROLES: readonly TeamRole[] = ['owner', 'member'];
+/**
+ * Team roles, most privileged first.
+ *
+ * - `owner` — the single accountable holder. Ownership transfer, disbanding, and
+ *   delegating roles stay owner-only (ROLE-007: a manager administers the team but
+ *   cannot hand it away).
+ * - `manager` — advanced team administration: settings plus everything a captain can do.
+ * - `captain` — competition-focused delegation: roster and invitation actions only
+ *   (ROLE-006).
+ * - `member` — plays; changes nothing.
+ */
+export type TeamRole = 'owner' | 'manager' | 'captain' | 'member';
+export const TEAM_ROLES: readonly TeamRole[] = ['owner', 'manager', 'captain', 'member'];
+
+/** Roles an owner may delegate. `owner` is absent by construction: it moves only through transfer. */
+export const DELEGATABLE_TEAM_ROLES: readonly TeamRole[] = ['manager', 'captain', 'member'];
+
+/** Team settings and metadata (ROLE-007). */
+export function canAdministerTeam(role: TeamRole): boolean {
+  return role === 'owner' || role === 'manager';
+}
+
+/** Invitations, removals, and roster snapshots (ROLE-006). */
+export function canManageRoster(role: TeamRole): boolean {
+  return role === 'owner' || role === 'manager' || role === 'captain';
+}
 
 export type MembershipStatus = 'active' | 'removed' | 'left';
 export type InvitationStatus = 'pending' | 'accepted' | 'declined' | 'expired' | 'revoked';

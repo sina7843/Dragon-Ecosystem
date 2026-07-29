@@ -148,6 +148,20 @@ export const router = createRouter({
       component: () => import('./views/CoursePlayerView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.academy' }
     },
+    // Community: a personalized, session-only surface. Never indexed — a feed is assembled
+    // per viewer from their follows, so there is no stable public page to crawl.
+    {
+      path: '/:locale(fa|en)/community',
+      name: 'community',
+      component: () => import('./views/CommunityFeedView.vue'),
+      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.community' }
+    },
+    {
+      path: '/:locale(fa|en)/community/posts/:id',
+      name: 'community-post',
+      component: () => import('./views/CommunityPostView.vue'),
+      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.community' }
+    },
     {
       // Global search is a utility surface, not a landing page: it must not be indexed,
       // and for the same reason it is not part of the first-paint bundle — an anonymous
@@ -259,6 +273,12 @@ export const router = createRouter({
       name: 'admin-streams',
       component: () => import('./views/AdminStreamsView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStreams' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/community',
+      name: 'admin-community',
+      component: () => import('./views/AdminCommunityView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminCommunity' }
     },
     {
       path: '/:locale(fa|en)/admin/media',

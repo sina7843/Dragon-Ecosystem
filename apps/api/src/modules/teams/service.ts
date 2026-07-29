@@ -10,8 +10,11 @@ import { applyTextSearch, normalizeQuery } from '../../shared/search.ts';
 import { resolveSlug } from '../content/slug.ts';
 import { TEAMS_COLLECTIONS } from './collections.ts';
 import {
+  canAdministerTeam,
   canInvitationTransition,
+  canManageRoster,
   isInvitationExpired,
+  DELEGATABLE_TEAM_ROLES,
   type InvitationRecord,
   type MembershipRecord,
   type RosterSnapshotRecord,
@@ -182,6 +185,25 @@ export class TeamsService {
     }
   }
 
+  /**
+   * Delegated authority check (ROLE-006, ROLE-007).
+   *
+   * Every delegated action re-reads the membership inside the same transaction as the
+   * write it guards, so a role revoked a moment earlier cannot be used by a request that
+   * was already in flight.
+   */
+  async #assertTeamRole(
+    session: ClientSession,
+    teamId: string,
+    accountId: string,
+    allows: (role: TeamRole) => boolean,
+    message: string
+  ): Promise<MembershipRecord> {
+    const membership = await this.#activeMembership(session, teamId, accountId);
+    if (membership === null || !allows(membership.role)) throw new ForbiddenError(message);
+    return membership;
+  }
+
   // --- Team lifecycle ---
 
   async createTeam(context: RequestContext, actorId: string, input: CreateTeamInput): Promise<TeamRecord> {
@@ -244,7 +266,7 @@ export class TeamsService {
     try {
       return await runUnitOfWork(this.#database, context, async (uow) => {
         const current = await this.#activeTeam(uow.session, teamId);
-        await this.#assertOwner(uow.session, teamId, actorId);
+        await this.#assertTeamRole(uow.session, teamId, actorId, canAdministerTeam, 'Only the team owner or a manager can change team settings.');
         if (input.expectedVersion !== undefined && current.version !== input.expectedVersion) {
           throw new ConflictError('TEAM_STALE', 'This team changed since you opened it. Reload and retry.');
         }
@@ -310,7 +332,7 @@ export class TeamsService {
     try {
       return await runUnitOfWork(this.#database, context, async (uow) => {
         await this.#activeTeam(uow.session, teamId);
-        await this.#assertOwner(uow.session, teamId, actorId);
+        await this.#assertTeamRole(uow.session, teamId, actorId, canManageRoster, 'Only the team owner, a manager, or a captain can invite players.');
         if (invitedAccountId === actorId) {
           throw new ValidationError('You are already on this team.', [
             { field: 'username', code: 'ALREADY_MEMBER', message: 'You cannot invite yourself.' }
@@ -447,17 +469,29 @@ export class TeamsService {
   async removeMember(context: RequestContext, actorId: string, teamId: string, targetAccountId: string, reason: string): Promise<void> {
     await runUnitOfWork(this.#database, context, async (uow) => {
       await this.#activeTeam(uow.session, teamId);
-      await this.#assertOwner(uow.session, teamId, actorId);
-      if (targetAccountId === actorId) {
+      const actor = await this.#assertTeamRole(uow.session, teamId, actorId, canManageRoster, 'Only the team owner, a manager, or a captain can remove players.');
+      const membership = await this.#members(uow.db).findOne(
+        { teamId, accountId: targetAccountId, status: 'active' },
+        { session: uow.session }
+      );
+      if (membership === null) throw new NotFoundError('That player is not an active member.');
+      // Checked before the self-check so that an owner aiming at themselves still gets the
+      // ownership answer rather than a generic one.
+      if (membership.role === 'owner') {
         throw new ValidationError('The owner cannot be removed. Transfer ownership or disband the team.', [
           { field: 'accountId', code: 'CANNOT_REMOVE_OWNER', message: 'Transfer ownership first.' }
         ]);
       }
-      const membership = await this.#members(uow.db).findOne(
-        { teamId, accountId: targetAccountId, status: 'active', role: 'member' },
-        { session: uow.session }
-      );
-      if (membership === null) throw new NotFoundError('That player is not an active member.');
+      if (targetAccountId === actorId) {
+        throw new ValidationError('You cannot remove yourself. Leave the team instead.', [
+          { field: 'accountId', code: 'CANNOT_REMOVE_SELF', message: 'Leave the team instead.' }
+        ]);
+      }
+      // A delegate cannot remove another delegate: that would let a captain strip the
+      // manager who appointed them, so revoking delegated authority stays with the owner.
+      if (membership.role !== 'member' && actor.role !== 'owner') {
+        throw new ForbiddenError('Only the team owner can remove a manager or captain.');
+      }
       const result = await this.#members(uow.db).updateOne(
         { _id: membership._id, status: 'active' },
         { $set: { status: 'removed', leftAt: utcNow() } },
@@ -488,6 +522,54 @@ export class TeamsService {
     });
   }
 
+  // --- Delegated roles (ROLE-006, ROLE-007, TEAM-011, SOCIAL-009) ---
+
+  /**
+   * Grants or revokes a delegated team role.
+   *
+   * Owner-only, and `owner` is not an assignable value: promoting to owner would be an
+   * ownership transfer without the atomic demote, which would breach the one-active-owner
+   * invariant. The membership row is updated in place, so the member keeps their id,
+   * `joinedAt`, and place in every existing roster snapshot (TEAM-011).
+   */
+  async setMemberRole(context: RequestContext, actorId: string, teamId: string, targetAccountId: string, role: TeamRole): Promise<void> {
+    if (!DELEGATABLE_TEAM_ROLES.includes(role)) {
+      throw new ValidationError('That role cannot be assigned directly.', [
+        { field: 'role', code: 'ROLE_NOT_ASSIGNABLE', message: `Choose one of ${DELEGATABLE_TEAM_ROLES.join(', ')}.` }
+      ]);
+    }
+    await runUnitOfWork(this.#database, context, async (uow) => {
+      await this.#activeTeam(uow.session, teamId);
+      await this.#assertOwner(uow.session, teamId, actorId);
+      if (targetAccountId === actorId) {
+        throw new ValidationError('You cannot change your own role. Transfer ownership instead.', [
+          { field: 'accountId', code: 'CANNOT_CHANGE_OWN_ROLE', message: 'Choose a different member.' }
+        ]);
+      }
+      const membership = await this.#members(uow.db).findOne(
+        { teamId, accountId: targetAccountId, status: 'active', role: { $ne: 'owner' } },
+        { session: uow.session }
+      );
+      if (membership === null) throw new NotFoundError('That player is not an active member.');
+      if (membership.role === role) return;
+      // The conditional filter makes a concurrent change match nothing rather than
+      // silently overwrite a role the owner did not see.
+      const result = await this.#members(uow.db).updateOne(
+        { _id: membership._id, role: membership.role, status: 'active' },
+        { $set: { role } },
+        { session: uow.session }
+      );
+      if (result.matchedCount === 0) throw new ConflictError('MEMBERSHIP_STALE', 'That membership changed. Reload and retry.');
+      uow.audit({
+        action: 'team.member_role_changed',
+        resourceType: 'team',
+        resourceId: teamId,
+        before: { accountId: targetAccountId, role: membership.role },
+        after: { accountId: targetAccountId, role }
+      });
+    });
+  }
+
   // --- Ownership transfer (TEAM-007) ---
 
   async transferOwnership(context: RequestContext, actorId: string, teamId: string, targetAccountId: string): Promise<void> {
@@ -500,7 +582,7 @@ export class TeamsService {
         ]);
       }
       const target = await this.#members(uow.db).findOne(
-        { teamId, accountId: targetAccountId, status: 'active', role: 'member' },
+        { teamId, accountId: targetAccountId, status: 'active', role: { $ne: 'owner' } },
         { session: uow.session }
       );
       if (target === null) {
@@ -518,7 +600,7 @@ export class TeamsService {
       );
       if (demote.matchedCount === 0) throw new ConflictError('OWNERSHIP_STALE', 'Ownership changed. Reload and retry.');
       const promote = await this.#members(uow.db).updateOne(
-        { teamId, accountId: targetAccountId, role: 'member', status: 'active' },
+        { teamId, accountId: targetAccountId, role: target.role, status: 'active' },
         { $set: { role: 'owner' } },
         { session: uow.session }
       );
@@ -544,7 +626,7 @@ export class TeamsService {
   async captureRosterSnapshot(context: RequestContext, actorId: string, teamId: string, reason: string): Promise<RosterSnapshotRecord> {
     return runUnitOfWork(this.#database, context, async (uow) => {
       await this.#activeTeam(uow.session, teamId);
-      await this.#assertOwner(uow.session, teamId, actorId);
+      await this.#assertTeamRole(uow.session, teamId, actorId, canManageRoster, 'Only the team owner, a manager, or a captain can capture a roster snapshot.');
       const active = await this.#members(uow.db).find({ teamId, status: 'active' }, { session: uow.session }).sort({ joinedAt: 1 }).toArray();
       const snapshot: RosterSnapshotRecord = {
         _id: newId(),
@@ -648,8 +730,12 @@ export class TeamsService {
   async listTeamInvitations(actorId: string, teamId: string): Promise<Array<{ id: string; invitedAccountId: string; username: string | null; expiresAt: string }>> {
     const team = await this.#teams().findOne({ _id: teamId }, { projection: { _id: 1 } });
     if (team === null) throw new NotFoundError('Unknown team.');
-    const owner = await this.#members().findOne({ teamId, accountId: actorId, status: 'active', role: 'owner' });
-    if (owner === null) throw new ForbiddenError('Only the team owner can view invitations.');
+    // Whoever may send an invitation must be able to see the pending ones, otherwise a
+    // captain would invite into a list they cannot read.
+    const membership = await this.#members().findOne({ teamId, accountId: actorId, status: 'active' });
+    if (membership === null || !canManageRoster(membership.role)) {
+      throw new ForbiddenError('Only the team owner, a manager, or a captain can view invitations.');
+    }
     const invitations = await this.#invitations().find({ teamId, status: 'pending' }).toArray();
     const identities = await this.#identity.getIdentitySummaries(invitations.map((i) => i.invitedAccountId));
     return invitations.map((i) => ({

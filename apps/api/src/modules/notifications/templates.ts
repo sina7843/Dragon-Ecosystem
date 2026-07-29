@@ -35,7 +35,13 @@ export const EVENT_TEMPLATES: readonly EventTemplate[] = [
   // EDU/NOTIF-010: education registers its event through this shared map rather than
   // keeping a notification table of its own. In-app only — a course completion is not
   // urgent enough to justify an SMS under the OD-008 channel policy.
-  { eventName: 'course.completed', templateKey: 'course_completed', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['courseSlug'] }
+  { eventName: 'course.completed', templateKey: 'course_completed', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['courseSlug'] },
+  // NOTIF-011: a community mention notifies the mentioned account in-app only. Push is a
+  // separate channel gated by OD-027 and is deliberately absent from this list, so no
+  // community activity can leave the product through push while that decision is open.
+  // The params carry ids and a surface name — never the post body, which would leak the
+  // text of a post the recipient may not be allowed to read.
+  { eventName: 'social.mentioned', templateKey: 'social_mentioned', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['postId', 'surface'] }
 ];
 
 const BY_EVENT = new Map(EVENT_TEMPLATES.map((template) => [template.eventName, template]));

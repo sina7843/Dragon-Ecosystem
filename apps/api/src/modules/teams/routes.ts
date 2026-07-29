@@ -2,6 +2,7 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { NotFoundError } from '../../shared/errors.ts';
 import { createSessionGuards, requireIdentity, type IdentityService } from '../identity/index.ts';
 import type { TeamsService } from './service.ts';
+import { DELEGATABLE_TEAM_ROLES, type TeamRole } from './state.ts';
 
 /**
  * Teams HTTP surface. The management side is session-gated and authorizes each
@@ -142,7 +143,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
       ...authed(),
       schema: {
         tags: ['teams'],
-        summary: 'Update a team (owner only).',
+        summary: 'Update a team (owner or manager).',
         params: idParam,
         body: { type: 'object', additionalProperties: true, properties: {} },
         response: okObject
@@ -184,7 +185,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
       ...authed(),
       schema: {
         tags: ['teams'],
-        summary: 'Invite a player by username (owner only).',
+        summary: 'Invite a player by username (owner, manager, or captain).',
         params: idParam,
         body: { type: 'object', required: ['username'], additionalProperties: false, properties: { username: { type: 'string' } } },
         response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses }
@@ -200,7 +201,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
 
   app.get(
     '/teams/:id/invitations',
-    { ...authed(), schema: { tags: ['teams'], summary: 'Pending invitations for a team (owner only).', params: idParam, response: okObject } },
+    { ...authed(), schema: { tags: ['teams'], summary: 'Pending invitations for a team (owner, manager, or captain).', params: idParam, response: okObject } },
     async (request) => ({ items: await deps.teams.listTeamInvitations(actorId(request), (request.params as { id: string }).id) })
   );
 
@@ -228,7 +229,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
       ...authed(),
       schema: {
         tags: ['teams'],
-        summary: 'Remove a member (owner only).',
+        summary: 'Remove a member (owner, manager, or captain; only the owner can remove a delegate).',
         params: { type: 'object', required: ['id', 'accountId'], additionalProperties: false, properties: { id: { type: 'string' }, accountId: { type: 'string' } } },
         body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string', minLength: 1, maxLength: 500 } } },
         response: { 204: { type: 'null' }, ...errorResponses }
@@ -237,6 +238,30 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
     async (request, reply) => {
       const params = request.params as { id: string; accountId: string };
       await deps.teams.removeMember(request.requestContext, actorId(request), params.id, params.accountId, (request.body as { reason: string }).reason);
+      reply.status(204);
+    }
+  );
+
+  app.put(
+    '/teams/:id/members/:accountId/role',
+    {
+      ...authed(),
+      schema: {
+        tags: ['teams'],
+        summary: 'Grant or revoke a delegated team role (owner only). Ownership itself moves only through transfer.',
+        params: { type: 'object', required: ['id', 'accountId'], additionalProperties: false, properties: { id: { type: 'string' }, accountId: { type: 'string' } } },
+        body: {
+          type: 'object',
+          required: ['role'],
+          additionalProperties: false,
+          properties: { role: { type: 'string', enum: [...DELEGATABLE_TEAM_ROLES] } }
+        },
+        response: { 204: { type: 'null' }, ...errorResponses }
+      }
+    },
+    async (request, reply) => {
+      const params = request.params as { id: string; accountId: string };
+      await deps.teams.setMemberRole(request.requestContext, actorId(request), params.id, params.accountId, (request.body as { role: TeamRole }).role);
       reply.status(204);
     }
   );
@@ -256,7 +281,7 @@ export function registerTeamsRoutes(app: FastifyInstance, deps: TeamsDeps): void
       ...authed(),
       schema: {
         tags: ['teams'],
-        summary: 'Capture an immutable roster snapshot (owner only).',
+        summary: 'Capture an immutable roster snapshot (owner, manager, or captain).',
         params: idParam,
         body: { type: 'object', required: ['reason'], additionalProperties: false, properties: { reason: { type: 'string', minLength: 1, maxLength: 500 } } },
         response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses }

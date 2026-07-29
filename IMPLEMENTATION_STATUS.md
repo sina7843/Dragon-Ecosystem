@@ -32,8 +32,36 @@
 - Phase 2 moderated live chat and release closure: complete (DRAGON-19) — committed (`9a2873a`). **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
 - Phase 3 courses, enrolment, and progress: complete (DRAGON-20) — committed (`c9cc9ec`)
 - Phase 3 education release closure: complete (DRAGON-21) — implemented and verified, not yet committed. **Phase 3 release decision: NO-GO** (`RELEASE_DECISION_PHASE3.md`), blocked by OD-015 + OD-016; no implementation failure outstanding
-- Active prompt: DRAGON-21 (Phase 3 education release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and both the Phase 2 and Phase 3 releases are blocked by unresolved external decisions**
-- Latest verified checkpoint: DRAGON-21 Phase 3 closure, 2026-07-29
+- Phase 4 community and advanced team roles: complete (DRAGON-22) — implemented and verified, not yet committed
+- Active prompt: DRAGON-22 (Phase 4 community capabilities and advanced team roles); **parent DRAGON-17 remains open pending authorized human sign-off, and both the Phase 2 and Phase 3 releases are blocked by unresolved external decisions**
+- Latest verified checkpoint: DRAGON-22 Phase 4 community, 2026-07-29
+
+## DRAGON-22 — Phase 4 community capabilities and advanced team roles
+
+A new `social` module (migration `027-social`) plus an additive widening of the existing team role.
+
+- **Visibility is decided on every read, never fanned out** (BR-025). Three current facts settle it — the item's moderation state, the author's profile visibility, and the follow relation — and none is cached on the post. That is why unfollowing an author, or an author narrowing their profile, removes their posts on the *next* request with no rebuild and no invalidation step. The cost is a per-item check on read; the alternative is a stored activity row that records a decision made at write time and is wrong the moment either fact changes. There is deliberately **no activity collection at all** (DATA-060).
+- **Blocking and muting are absent, not disabled.** SOCIAL-008 requires that blocking must not be *partially* activated, and a disabled endpoint over a real block table would already be partial activation. A guardrail test asserts against the registered route surface and the module's own collections and indexes that nothing named block or mute exists anywhere. `SOCIAL_BLOCKING_ENABLED` remains as the fail-closed switch for when OD-017 is answered.
+- **A post the viewer may not read answers 404, never 403.** A 403 confirms the id exists, which lets a caller enumerate private posts one id at a time. Since the visibility check already runs, answering identically for "absent" and "not yours" costs nothing.
+- **Advanced team roles required no migration.** TEAM-012 had already made the role a resource-scoped grant on each membership row rather than a fixed column, so `manager` and `captain` are simply two more values of that union and every existing row is already valid. An integration test asserts the membership id and `joinedAt` are unchanged across a promotion, and that no second row appears. `owner` is not assignable through the delegation route — promoting to owner without the atomic demote would breach the one-active-owner partial index — and a delegate cannot delegate, so revoking delegated authority stays with the single accountable holder.
+- **Community reports go into the shared moderation case workflow** with two new subject types, carrying the body as it read at report time. A removed post keeps its row and body for the case file while every reader surface drops it in the same read.
+
+**Two real defects were found by the new tests and fixed in the product, not in the test.** An over-long post body was silently truncated to the stored maximum, which publishes words the author did not write and never tells them — it is now rejected. And `POST /reports` collided with the moderation module's existing route, which is a Fastify duplicate-route crash at startup; it escaped the module suite because moderation's routes are registered inside `if (deps.tournaments !== undefined)` and the social suite has no tournaments. The path moved to `/social/reports`, and a route-registry guardrail now scans every `routes.ts` for duplicate `(method, path)` pairs regardless of composition.
+
+### DRAGON-22 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — **0 errors**, 63 warnings (all pre-existing formatting warnings in files this slice did not add)
+- `npm test` (workspaces) — **407 passed, 0 failed** (api 362 incl. 15 new social/role tests, web 45)
+- `npm run test:integration` (api) — **424 passed, 0 failed** (social 28, teams 28 incl. 7 new delegated-role tests)
+- `npm run build` — pass · `npm run test:budget` — pass (entry bundle unchanged at 357.96 kB; all four community views are lazy route chunks)
+- `npm run e2e` — **386 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 11 community tests × 3 viewports.
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+- `npm run verify:persistence` — **not run in this slice** (unchanged since the DRAGON-21 pass; no persistence-affecting change)
+
+**Review.** One independent `test-reviewer` pass over the new authorization and privacy boundary: **verdict APPROVE, no Critical and no High findings.** Read-time visibility re-checking, consistent 404-vs-403, mention resolution through the identity directory, the team-role escalation paths, gate integrity for all three open decisions, and the module boundaries were each confirmed. Two Mediums were raised: an inline 404 envelope in two social routes that duplicated the shared error shape (fixed — both now throw `NotFoundError`), and the `limit * 2` over-read heuristic in `listAuthorPosts` possibly under-filling a page, which is the same accepted pattern already used by `feed` and is a short-page nit rather than a leak. The reviewer did not inspect the three new Vue views or the Persian strings; that gap is covered separately by `community.spec.ts`, which asserts one `h1`, `label[for]` association for every composer control, the correct `dir` attribute per locale, and the absence of raw i18n keys — 33 passing across three viewports in both locales.
+
+**Deliberately out of scope, and rowed as such.** ANALYTICS-005 (community analytics) is deferred: no report is built, so there is nothing whose output could be checked. Membership applications (the second half of TEAM-011's sentence) are not in this slice.
 
 ## DRAGON-21 — Phase 3 education release closure
 

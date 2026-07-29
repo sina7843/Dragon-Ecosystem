@@ -29,6 +29,8 @@ import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, t
 import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPubliclyReadableStream, type StreamAlerts } from './modules/streams/index.ts';
 import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStreamAccess } from './modules/chat/index.ts';
 import { EducationService, registerEducationRoutes } from './modules/education/index.ts';
+import { SocialService, DEFAULT_SOCIAL_CONFIG, registerSocialRoutes, type SocialDirectory, type SocialModerationCases } from './modules/social/index.ts';
+import type { EntityId } from './shared/ids.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { utcNow } from './shared/events.ts';
@@ -104,6 +106,7 @@ export interface ServerDependencies {
   readonly streams?: { service: StreamsService };
   readonly chat?: { service: ChatService };
   readonly education?: { service: EducationService };
+  readonly social?: { service: SocialService };
 }
 
 declare module 'fastify' {
@@ -350,6 +353,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               identity: deps.identity.service,
               authorization: deps.admin.authorization,
               education: deps.education.service
+            });
+          }
+          // The community reaches identity and moderation through ports only, so it needs
+          // no other module and registers independently.
+          if (deps.social !== undefined) {
+            registerSocialRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              social: deps.social.service
             });
           }
           // Chat rooms exist only for streams, so the module is registered alongside them.
@@ -725,6 +737,55 @@ export function buildEducation(database: Database, config: AppConfig, holds: { s
   return { service: new EducationService(database, { paidCoursesEnabled: config.paidCoursesEnabled }, holds.service) };
 }
 
+/**
+ * Wires the community module.
+ *
+ * Social reaches identity and moderation only through narrow ports. The directory port is
+ * what keeps privacy-by-default honest: the social module never queries `user_profiles`
+ * itself, so "is this account publicly visible" and "does this @mention resolve" are both
+ * answered by the same identity rules the rest of the product already uses (section 16.4)
+ * rather than by a second, drifting copy of them.
+ */
+export function buildSocial(
+  database: Database,
+  config: AppConfig,
+  identity: { service: IdentityService },
+  moderation: { service: ModerationService }
+): { service: SocialService } {
+  const directory: SocialDirectory = {
+    async isPubliclyVisible(accountId) {
+      return (await identity.service.getPublicIdentities([accountId])).has(accountId);
+    },
+    async resolveMentionable(usernames) {
+      const resolved = new Map<string, EntityId>();
+      for (const username of usernames) {
+        // A private profile must not be mentionable, otherwise a mention notification
+        // would confirm the account exists.
+        if (!(await identity.service.isProfilePublic(username))) continue;
+        const accountId = await identity.service.findAccountIdByUsername(username);
+        if (accountId !== null) resolved.set(username, accountId);
+      }
+      return resolved;
+    }
+  };
+  const cases: SocialModerationCases = {
+    fileReport: (context, reporterId, input) => moderation.service.fileReport(context, reporterId, input)
+  };
+  return {
+    service: new SocialService(
+      database,
+      {
+        ...DEFAULT_SOCIAL_CONFIG,
+        blockingEnabled: config.socialBlockingEnabled,
+        appealsEnabled: config.moderationAppealsEnabled,
+        pushEnabled: config.pushNotificationsEnabled
+      },
+      directory,
+      cases
+    )
+  };
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -801,7 +862,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     seo: buildSeo(database, config),
     streams,
     chat: buildChat(database, streams, moderation),
-    education: buildEducation(database, config, holds)
+    education: buildEducation(database, config, holds),
+    social: buildSocial(database, config, identity, moderation)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

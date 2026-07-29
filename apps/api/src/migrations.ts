@@ -23,6 +23,7 @@ import { mediaMigration } from './modules/media/migrations.ts';
 import { streamsMigration } from './modules/streams/migrations.ts';
 import { chatMigration } from './modules/chat/migrations.ts';
 import { educationMigration } from './modules/education/migrations.ts';
+import { socialMigration } from './modules/social/migrations.ts';
 import { perfIndexesMigration } from './migrations-perf-indexes.ts';
 import { auditIndexesMigration } from './migrations-audit-indexes.ts';
 
@@ -59,5 +60,6 @@ export const allMigrations: readonly Migration[] = [
   auditIndexesMigration,
   streamsMigration,
   chatMigration,
-  educationMigration
+  educationMigration,
+  socialMigration
 ];

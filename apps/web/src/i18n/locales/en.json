@@ -41,7 +41,9 @@
       "adminStreams": "Streams",
       "adminChat": "Chat moderation",
       "academy": "Academy",
-      "adminCourses": "Courses"
+      "adminCourses": "Courses",
+      "community": "Community",
+      "adminCommunity": "Community moderation"
     }
   },
   "player": {
@@ -247,7 +249,22 @@
       "organizer": "Organizer workspace",
       "streams": "Stream operations",
       "chat": "Chat moderation",
+      "community": "Community moderation",
       "courses": "Courses"
+    },
+    "community": {
+      "title": "Community moderation",
+      "intro": "Recent community posts, including removed ones. A removed post keeps its body so the case stays reviewable.",
+      "appealsGate": "Appeals are not available yet. A removal cannot be challenged in the product until the appeal workflow is approved.",
+      "empty": "No community posts yet.",
+      "reason": "Removal reason",
+      "remove": "Remove from public view",
+      "removedReason": "Removed: {reason}",
+      "state": {
+        "published": "Published",
+        "removed": "Removed by a moderator",
+        "deleted": "Deleted by the author"
+      }
     },
     "users": {
       "heading": "Users",
@@ -1360,7 +1377,8 @@
       "coins_added": "{dragonCoin} Dragon Coin were added to your balance.",
       "prize_paid": "Your cash prize has been marked paid.",
       "stream_schedule_changed": "The schedule for stream {streamSlug} changed.",
-      "course_completed": "You have completed the course {courseSlug}."
+      "course_completed": "You have completed the course {courseSlug}.",
+      "social_mentioned": "You were mentioned in a community {surface}."
     },
     "open": "Open"
   },
@@ -1476,6 +1494,57 @@
       "slug": "Slug",
       "updatedAt": "Updated",
       "completion": "Completion threshold"
+    }
+  },
+  "community": {
+    "feed": {
+      "title": "Community",
+      "intro": "Posts from the people you follow, plus your own.",
+      "empty": "Nothing here yet. Follow a player to fill your feed.",
+      "more": "Load more"
+    },
+    "gate": {
+      "blocking": "Blocking and muting are not available yet. Report a post if it breaks the rules and a moderator will review it."
+    },
+    "composer": {
+      "body": "What do you want to share?",
+      "visibility": "Who can see this",
+      "submit": "Post",
+      "posting": "Posting…"
+    },
+    "visibility": {
+      "followers": "Followers only",
+      "public": "Everyone"
+    },
+    "post": {
+      "title": "Post",
+      "react": "Like",
+      "open": "Comments"
+    },
+    "comments": {
+      "title": "Comments",
+      "empty": "No comments yet.",
+      "add": "Add a comment",
+      "submit": "Comment",
+      "removed": "This comment was removed."
+    },
+    "report": {
+      "title": "Report this post",
+      "reason": "What is wrong with it?",
+      "submit": "Send report",
+      "sent": "Thank you. A moderator will review this."
+    },
+    "profile": {
+      "title": "Community",
+      "follow": "Follow",
+      "unfollow": "Unfollow",
+      "statisticsHidden": "This player has not made their community statistics public.",
+      "source": "counted from {source}",
+      "statistic": {
+        "followers": "Followers",
+        "following": "Following",
+        "posts": "Posts"
+      }
     }
   },
   "chat": {

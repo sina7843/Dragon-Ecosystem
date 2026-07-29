@@ -146,6 +146,25 @@ export interface AppConfig {
    * refund, and any coach commercial terms are approved. Free courses are unaffected.
    */
   readonly paidCoursesEnabled: boolean;
+  /**
+   * OD-017 gate for social graph privacy and blocking behaviour. Fail-closed: while false
+   * no block or mute relation can be created, so the platform never half-enforces a
+   * restriction the approved policy has not defined yet. Reporting and moderator removal
+   * stay available, because those are the shared Phase 1 controls rather than new
+   * social-graph behaviour.
+   */
+  readonly socialBlockingEnabled: boolean;
+  /**
+   * OD-024 gate for moderation appeals. Fail-closed: while false no appeal can be filed
+   * against a removal, and the surfaces say so instead of silently dropping one.
+   */
+  readonly moderationAppealsEnabled: boolean;
+  /**
+   * OD-027 gate for web and mobile push. Fail-closed: while false community activity
+   * never leaves the product through a push channel; in-product notification records are
+   * unaffected.
+   */
+  readonly pushNotificationsEnabled: boolean;
 }
 
 /** Safe non-secret default used only outside production. */
@@ -409,6 +428,12 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     paidTournamentsEnabled: (source['PAID_TOURNAMENTS_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-015 fail-closed: paid course enrolment is off unless explicitly enabled.
     paidCoursesEnabled: (source['PAID_COURSES_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-017 fail-closed: social blocking and muting stay off until the policy is approved.
+    socialBlockingEnabled: (source['SOCIAL_BLOCKING_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-024 fail-closed: moderation appeals stay off until the workflow is approved.
+    moderationAppealsEnabled: (source['MODERATION_APPEALS_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-027 fail-closed: web and mobile push stay off until the channel is approved.
+    pushNotificationsEnabled: (source['PUSH_NOTIFICATIONS_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-008 / OD-003 fail-closed: notification SMS and email channels are off unless explicitly enabled.
     notificationsSmsEnabled: (source['NOTIFICATIONS_SMS_ENABLED'] ?? '').toLowerCase() === 'true',
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
