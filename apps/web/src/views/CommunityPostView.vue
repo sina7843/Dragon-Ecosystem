@@ -101,7 +101,11 @@ function when(value: string): string {
         class="post"
         data-testid="community-post-detail"
       >
-        <p class="post-body">
+        <!-- dir="auto" so a mixed-script post keeps its own direction (SOCIAL-004). -->
+        <p
+          class="post-body"
+          dir="auto"
+        >
           {{ post.body }}
         </p>
         <p class="muted">
@@ -123,7 +127,10 @@ function when(value: string): string {
           class="comment"
         >
           <!-- A removed comment keeps its place so replies never dangle (SOCIAL-005). -->
-          <p v-if="entry.body !== null">
+          <p
+            v-if="entry.body !== null"
+            dir="auto"
+          >
             {{ entry.body }}
           </p>
           <p
@@ -155,6 +162,7 @@ function when(value: string): string {
           id="community-comment"
           v-model="draft"
           data-testid="community-comment-body"
+          dir="auto"
           rows="2"
           maxlength="2000"
           :aria-describedby="commentError ? 'community-comment-error' : undefined"

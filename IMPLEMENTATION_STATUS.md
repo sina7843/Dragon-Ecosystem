@@ -32,9 +32,80 @@
 - Phase 2 moderated live chat and release closure: complete (DRAGON-19) — committed (`9a2873a`). **Phase 2 release decision: NO-GO** (`RELEASE_DECISION_PHASE2.md`), blocked by OD-013 + OD-014 + INT-004; no implementation failure outstanding
 - Phase 3 courses, enrolment, and progress: complete (DRAGON-20) — committed (`c9cc9ec`)
 - Phase 3 education release closure: complete (DRAGON-21) — implemented and verified, not yet committed. **Phase 3 release decision: NO-GO** (`RELEASE_DECISION_PHASE3.md`), blocked by OD-015 + OD-016; no implementation failure outstanding
-- Phase 4 community and advanced team roles: complete (DRAGON-22) — implemented and verified, not yet committed
-- Active prompt: DRAGON-22 (Phase 4 community capabilities and advanced team roles); **parent DRAGON-17 remains open pending authorized human sign-off, and both the Phase 2 and Phase 3 releases are blocked by unresolved external decisions**
-- Latest verified checkpoint: DRAGON-22 Phase 4 community, 2026-07-29
+- Phase 4 community and advanced team roles: complete (DRAGON-22) — committed (`c1cdd9a`)
+- Phase 4 community release closure: complete (DRAGON-23) — implemented and verified, not yet committed. **Phase 4 release decision: NO-GO** (`RELEASE_DECISION_PHASE4.md`), blocked by OD-017 + OD-024 + OD-027; no implementation failure outstanding
+- Active prompt: DRAGON-23 (Phase 4 community release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-23 — Phase 4 community release closure
+
+Traceability correction and evidence, not new product surface.
+
+**The largest finding was in the paperwork, not the code.** Re-reading the Phase 4
+requirement text line by line showed that four rows DRAGON-22 recorded had been mapped to
+requirements whose text says something else:
+
+| Row | What DRAGON-22 claimed it was | What the requirement actually says |
+|---|---|---|
+| SOCIAL-011 | Community surfaces are privacy-by-default | Social notifications must respect per-channel preferences |
+| MOD-008 | Community moderation uses the shared case workflow | Appeals must remain disabled until OD-024 is approved |
+| NOTIF-011 | Community mentions notify the mentioned account | Push notifications must remain provider-adapted and preference-controlled |
+| TEST-023 | Tests cover authorization, privacy, moderation, abuse, scale | Tests cover visibility, following, moderation, block/mute when enabled, and feed filtering |
+| INT-006 | Community capabilities must not introduce an external integration | The push-integration catalog entry: token privacy, opt-in, invalid-token cleanup, retries, sandbox |
+
+Each was re-rowed against its real text. Three of the five turn out to be **gates**, not
+features: MOD-008 is now `Blocked by open decision` under OD-024, and NOTIF-011 and INT-006
+under OD-027 — the honest status for a requirement whose content is "this must stay off"
+or "here is what the integration must satisfy once it exists". The report-workflow evidence
+moved onto SOCIAL-007, where it belongs. Several other rows moved from `Implemented` to
+`Partial` where a requirement has a clause the slice does not satisfy — SOCIAL-003's
+block/mute half, PAGE-034's filters, PAGE-035's teams and match history, TEAM-011's
+membership applications.
+
+Two of these were caught by the independent review rather than by my own pass, along with
+a missing row: **ROLE-019 (community moderator) had no traceability entry at all** even
+though DRAGON-22 shipped the capability, and **TEAM-011 still read `Deferred by phase`**
+after its delegated-role half had shipped. Both are now rowed. A closure slice that leaves
+a mismapped or missing row behind has not closed anything, so these were fixed here rather
+than deferred.
+
+**Three evidence gaps closed.**
+
+- **Direction-aware posts (SOCIAL-004).** Rendered bodies and both composers now carry `dir="auto"`, matching the chat surface. A Persian post inside the English feed keeps its own base direction; the browser test asserts the *computed* direction rather than the attribute, so it would fail if the CSS ever overrode it.
+- **Search leakage (SOCIAL-003, ANALYTICS-005).** Global search is a client-side fan-out over five public list endpoints, and community posts are not one of them. Two guardrails assert that — the search view imports no community client, and no API route offers a community search surface — so an aggregate index cannot be added later without a deliberate decision. That matters because an index answers from what it last ingested, while community visibility is decided per viewer at read time.
+- **JOURNEY-006 end to end.** Discover a player, follow, receive their followers-only post, react, comment, then unfollow and watch it leave on the next read — one browser journey, run in fa and en. Advanced team permissions are exercised through the browser's own session, since delegated roles are an API capability with no dedicated UI in this slice; the test says so rather than implying a screen exists.
+
+**Two path deviations, recorded rather than hidden.** API-088 names `POST /reports`, which
+the moderation module already registers; the community intake is `POST /social/reports`.
+PAGE-035 names `/users/{username}`; the social profile renders on the existing
+`/players/{username}` page, because SOCIAL-001 requires existing profile URLs to stay valid
+and a second canonical profile URL would break the requirement PAGE-035 exists to serve.
+
+### DRAGON-23 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — **0 errors**, 63 warnings (all pre-existing formatting warnings)
+- `npm test` — **411 passed, 0 failed** (api 366, web 45)
+- `npm run test:integration` — **424 passed, 0 failed**
+- `npm run build` — pass · `npm run test:budget` — pass (entry bundle 357.96 kB, unchanged)
+- `npm run e2e` — **398 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR
+- `npm run docker:up` — web, api, and mongo all **healthy**. This is also independent confirmation that the DRAGON-22 duplicate-route crash is fixed in a production image
+- `npm run verify:persistence` — **PASS**
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+
+**Review.** One focused `test-reviewer` release-and-security pass: **no Critical and no High
+security findings**, and the verdict itself confirmed honest — every capability the decision
+calls absent was verified absent in the code, the three gate defaults verified fail-closed
+in both `config.ts` and `.env.example`, and every evidence row checked against a test that
+exists and asserts what the row claims. The `dir="auto"` change renders through Vue
+interpolation, never `v-html`, so it adds no injection vector. The three traceability
+defects it found (INT-006 text, missing ROLE-019, stale TEAM-011) are fixed above.
+
+**Phase 4 release decision: NO-GO**, recorded in `RELEASE_DECISION_PHASE4.md`. Blocked
+entirely by OD-017, OD-024, and OD-027, with **no implementation failure outstanding**. The
+decisive blocker is OD-017: SOCIAL-003 requires the feed to enforce block and mute rules,
+and no such rules exist to enforce, so a released Phase 4 would put a public posting
+surface in front of users whose only remedy against a specific person is a report.
 
 ## DRAGON-22 — Phase 4 community capabilities and advanced team roles
 

@@ -127,6 +127,60 @@ describe('OD-027: push is not a candidate channel for community activity', () =>
   });
 });
 
+describe('social notifications respect the shared channel policy (SOCIAL-011, NOTIF-010)', () => {
+  test('the mention event is a transactional template, so it inherits the shared preference check', async () => {
+    const { EVENT_TEMPLATES } = await import('../notifications/templates.ts');
+    const { DEFAULT_PREFERENCES } = await import('../notifications/state.ts');
+    const social = EVENT_TEMPLATES.find((t) => t.eventName === 'social.mentioned');
+    assert.ok(social !== undefined);
+    assert.equal(social.category, 'transactional');
+    // Every non-in-app channel is consent-checked against these categories before a
+    // delivery row is queued, so a social notification cannot bypass a disabled channel:
+    // it has no delivery path of its own.
+    assert.equal(DEFAULT_PREFERENCES[social.category].sms, false, 'SMS is off by default (OD-008)');
+    assert.equal(DEFAULT_PREFERENCES[social.category].email, false, 'email is off by default (OD-003)');
+  });
+
+  test('the social module writes no notification table of its own (NOTIF-010)', () => {
+    for (const name of Object.values(SOCIAL_COLLECTIONS)) {
+      assert.ok(!/notif/i.test(name), `collection "${name}" duplicates the shared notification service`);
+    }
+    const source = readFileSync(join(apiSrc, 'modules', 'social', 'service.ts'), 'utf8');
+    // The only way out is the shared outbox, which the notifications service consumes.
+    assert.ok(source.includes("eventName: 'social.mentioned'"), 'mentions publish a domain event');
+    assert.ok(!/collection<[^>]*Notification/.test(source), 'the social module opens no notification collection');
+  });
+});
+
+describe('community content cannot leak through global search (SOCIAL-003, ANALYTICS-005)', () => {
+  /**
+   * Global search fans out to five public list endpoints on the client. Community posts
+   * are not one of them, and they must not become one while visibility is decided
+   * per-viewer at read time — an aggregate index would answer from whatever it last
+   * ingested rather than from the viewer's current relationship to the author.
+   */
+  test('the search view queries no community source', () => {
+    const webSrc = join(apiSrc, '..', '..', 'web', 'src');
+    const source = readFileSync(join(webSrc, 'views', 'SearchView.vue'), 'utf8');
+    assert.ok(!/useSocialApi/.test(source), 'search imports the community client');
+    for (const term of ['/feed', '/posts', 'social']) {
+      assert.ok(!source.includes(term), `search references "${term}"`);
+    }
+  });
+
+  test('no API route offers an unauthenticated community search surface', () => {
+    const offenders: string[] = [];
+    for (const relative of routeFiles()) {
+      const source = readFileSync(join(apiSrc, relative), 'utf8');
+      for (const match of source.matchAll(ROUTE_RE)) {
+        const path = match[2] as string;
+        if (/search/i.test(path) && /(post|feed|social|community)/i.test(path)) offenders.push(`${relative}: ${path}`);
+      }
+    }
+    assert.deepEqual(offenders, [], `a community search route exists: ${offenders.join('; ')}`);
+  });
+});
+
 describe('delegated team roles (ROLE-006, ROLE-007, TEAM-011)', () => {
   test('the Phase 1 roles still exist unchanged, so no membership record needs rewriting', () => {
     assert.ok(TEAM_ROLES.includes('owner'));

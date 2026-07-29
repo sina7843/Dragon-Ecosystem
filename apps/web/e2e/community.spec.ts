@@ -87,6 +87,112 @@ test.describe('community feed', () => {
   });
 });
 
+test.describe('JOURNEY-006: follow, publish, interact, report', () => {
+  for (const locale of ['fa', 'en'] as const) {
+    test(`following an author brings their post into the feed, where it can be reacted to (${locale})`, async ({ page, browser }) => {
+      // Author publishes to followers only — the narrow audience, so the follow is what
+      // makes it visible rather than the post being public.
+      const authorContext = await browser.newContext();
+      const authorPage = await authorContext.newPage();
+      const { username } = await signInWithProfile(authorPage, locale);
+      await authorPage.goto(`/${locale}/community`);
+      const body = `Journey ${uniqueSuffix()}`;
+      await authorPage.getByTestId('community-composer-body').fill(body);
+      await authorPage.getByTestId('community-composer-submit').click();
+      await expect(authorPage.getByTestId('community-post').filter({ hasText: body })).toBeVisible();
+
+      // A different user discovers the author, follows, and the post arrives.
+      await signInWithProfile(page, locale);
+      await page.goto(`/${locale}/community`);
+      await expect(page.getByTestId('community-post').filter({ hasText: body })).toHaveCount(0);
+
+      await page.goto(`/${locale}/players/${username}`);
+      await page.getByTestId('player-follow').click();
+      await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'true');
+
+      await page.goto(`/${locale}/community`);
+      const post = page.getByTestId('community-post').filter({ hasText: body });
+      await expect(post).toBeVisible();
+
+      // Interact: react, then open the thread and comment.
+      await post.getByTestId('community-post-react').click();
+      await expect(post.getByTestId('community-post-react')).toHaveAttribute('aria-pressed', 'true');
+      await post.getByRole('link').click();
+      await page.getByTestId('community-comment-body').fill('Count me in.');
+      await page.getByTestId('community-comment-submit').click();
+      await expect(page.getByTestId('community-comments')).toContainText('Count me in.');
+
+      // Unfollowing takes the post away again on the next read — no rebuild (BR-025).
+      await page.goto(`/${locale}/players/${username}`);
+      await page.getByTestId('player-follow').click();
+      await expect(page.getByTestId('player-follow')).toHaveAttribute('aria-pressed', 'false');
+      await page.goto(`/${locale}/community`);
+      await expect(page.getByTestId('community-post').filter({ hasText: body })).toHaveCount(0);
+
+      await authorContext.close();
+    });
+  }
+
+  test('a Persian post inside the English feed keeps its own direction (SOCIAL-004)', async ({ page }) => {
+    await signInWithProfile(page, 'en');
+    await page.goto('/en/community');
+    const body = `اسکریم ${uniqueSuffix()}`;
+    await page.getByTestId('community-composer-body').fill(body);
+    await page.getByTestId('community-composer-submit').click();
+
+    const post = page.getByTestId('community-post').filter({ hasText: body });
+    await expect(post).toBeVisible();
+    // The paragraph declares dir="auto", so the browser resolves RTL from the content
+    // even though the page is LTR.
+    const direction = await post.locator('.post-body').evaluate((node) => getComputedStyle(node).direction);
+    expect(direction).toBe('rtl');
+  });
+});
+
+test.describe('advanced team permissions (ROLE-006, ROLE-007)', () => {
+  /**
+   * Delegated roles have no dedicated UI in this slice — they are an API capability the
+   * team surfaces will adopt later — so this exercises the contract through the browser's
+   * own session rather than pretending a screen exists.
+   */
+  test('a captain manages the roster but is refused team settings and delegation', async ({ page, browser }) => {
+    const ownerApi = (await browser.newContext()).request;
+    const ownerMobile = uniqueMobile();
+    await ownerApi.post('/api/v1/auth/otp/request', { data: { mobile: ownerMobile } });
+    const ownerInbox = await ownerApi.get(`/api/v1/dev/sms-inbox?mobile=${ownerMobile}`);
+    await ownerApi.post('/api/v1/auth/otp/verify', { data: { mobile: ownerMobile, code: ((await ownerInbox.json()) as Array<{ code: string }>)[0]?.code ?? '' } });
+    await ownerApi.put('/api/v1/account/profile', { data: { username: `owner${uniqueSuffix()}`, displayName: 'Team Owner', birthDate: '2000-01-01', visibility: 'public' } });
+
+    const catalogApi = await apiWithRoles(browser, ['content_publisher']);
+    const gameSlug = `delegation-${uniqueSuffix()}`;
+    const created = await catalogApi.post('/api/v1/admin/games', { data: { slug: gameSlug, translations: { fa: { name: 'بازی', description: 'توضیح' }, en: { name: 'Game', description: 'Description' } } } });
+    const gameId = ((await created.json()) as { id: string }).id;
+    expect((await catalogApi.post(`/api/v1/admin/games/${gameId}/status`, { data: { status: 'published', reason: 'launch' } })).ok()).toBe(true);
+
+    const teamResponse = await ownerApi.post('/api/v1/teams', { data: { name: `Delegates ${uniqueSuffix()}`, gameId } });
+    expect(teamResponse.ok()).toBe(true);
+    const teamId = ((await teamResponse.json()) as { id: string }).id;
+
+    // The captain joins through a real invitation, then is promoted by the owner.
+    const { username: captainName } = await signInWithProfile(page, 'en');
+    const invite = await ownerApi.post(`/api/v1/teams/${teamId}/invitations`, { data: { username: captainName } });
+    expect(invite.ok()).toBe(true);
+    const invitationId = ((await invite.json()) as { id: string }).id;
+    expect((await page.request.post(`/api/v1/invitations/${invitationId}/accept`)).ok()).toBe(true);
+
+    const captainAccount = await page.request.get('/api/v1/auth/session');
+    const captainId = ((await captainAccount.json()) as { account: { id: string } }).account.id;
+    expect((await ownerApi.put(`/api/v1/teams/${teamId}/members/${captainId}/role`, { data: { role: 'captain' } })).ok()).toBe(true);
+
+    // ROLE-006: roster yes, settings no, delegation no.
+    expect((await page.request.post(`/api/v1/teams/${teamId}/snapshots`, { data: { reason: 'Pre-match roster.' } })).status()).toBe(201);
+    expect((await page.request.put(`/api/v1/teams/${teamId}`, { data: { name: 'Renamed by captain' } })).status()).toBe(403);
+    expect((await page.request.put(`/api/v1/teams/${teamId}/members/${captainId}/role`, { data: { role: 'manager' } })).status()).toBe(403);
+    // ROLE-007: ownership never moves without the owner.
+    expect((await page.request.post(`/api/v1/teams/${teamId}/transfer`, { data: { accountId: captainId } })).status()).toBe(403);
+  });
+});
+
 test.describe('community privacy', () => {
   test('a followers-only post does not appear on the author page to a stranger (en)', async ({ page, browser }) => {
     const author = await browser.newContext();

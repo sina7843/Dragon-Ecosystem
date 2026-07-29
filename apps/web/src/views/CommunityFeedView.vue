@@ -127,6 +127,7 @@ function when(value: string): string {
         id="community-body"
         v-model="draft"
         data-testid="community-composer-body"
+        dir="auto"
         rows="3"
         maxlength="2000"
         :aria-describedby="composerError ? 'community-composer-error' : undefined"
@@ -191,7 +192,12 @@ function when(value: string): string {
         class="post"
         data-testid="community-post"
       >
-        <p class="post-body">
+        <!-- dir="auto" so a Persian post inside the English feed (or the reverse) keeps
+             its own base direction, matching the chat surface (SOCIAL-004, CHAT-007). -->
+        <p
+          class="post-body"
+          dir="auto"
+        >
           {{ post.body }}
         </p>
         <p class="muted">

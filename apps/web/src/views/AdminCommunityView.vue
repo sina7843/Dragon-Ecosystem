@@ -105,7 +105,12 @@ function when(value: string): string {
         :key="post.id"
         class="case"
       >
-        <p class="post-body">
+        <!-- dir="auto": a moderator reads reported content in whatever script it was
+             written in, not forced into the console's direction (SOCIAL-004). -->
+        <p
+          class="post-body"
+          dir="auto"
+        >
           {{ post.body }}
         </p>
         <p class="muted">
