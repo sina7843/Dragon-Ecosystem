@@ -39,9 +39,138 @@
 - Phase 5 commerce and economy release closure: complete (DRAGON-26) — implemented and verified, not yet committed. **Phase 5 release decision: NO-GO** (`RELEASE_DECISION_PHASE5.md`), blocked by OD-019 + OD-020 + OD-030; no implementation failure outstanding
 - Whole-ecosystem audit and release evidence: complete (DRAGON-27a, 27b, 27c). **Final ecosystem verdict: NO-GO** (`RELEASE_DECISION_ECOSYSTEM.md`). Implementation completeness and release approval are separate: the code is largely built and tested; the release is blocked by ten open external decisions, four standing phase NO-GOs, an unauthorized Phase 1 production deployment, and missing human sign-off
 - Release remediation and evidence closure: partial (DRAGON-28) — five engineering gaps closed, four remediation items not attempted and named as such. **Ecosystem verdict unchanged: NO-GO**
-- Browser E2E stabilization: complete (DRAGON-29A) — the browser-suite instability DRAGON-28 opened with no established cause is diagnosed and closed; test-only fixes and harness configuration, no product change. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29A (browser E2E stabilization); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Browser E2E stabilization: complete (DRAGON-29A) — the browser-suite instability DRAGON-28 opened with no established cause is diagnosed and closed; test-only fixes and harness configuration, no product change. Committed (`caf9c34`). **Ecosystem verdict unchanged: NO-GO**
+- Production-grade CI pipeline: complete (DRAGON-29B) — `.github/workflows/ci.yml` + `CI.md`; the repository had no CI configuration at all. **Never executed (no Git remote) and branch protection not activated: CI implementation complete, repository administrator activation pending.** **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29B (production-grade CI pipeline); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29B — Production-grade CI pipeline
+
+**Provider: GitHub Actions, chosen on evidence rather than assumption.** The repository had
+no CI configuration of any kind — no `.github/`, no `.gitlab-ci.yml`, no Azure Pipelines, no
+`Jenkinsfile` — and `git remote -v` is empty, so the host could not be read from a remote.
+The deciding evidence is the repository's own: `REQUIREMENTS_TRACEABILITY.md` names
+`.github/workflows` as the specific missing artefact in three rows (SEC-016, SEC-017,
+TEST-026), and `Requirements.md` requires linting, type checks, tests, and security scans to
+run in CI (§1991, SEC-016, §2106). No second CI platform was added.
+
+**Ten jobs, one required summary.** `validate` → then `static`, `unit`, `integration`,
+`build-budget`, `migrations`, `security`, and `persistence` in parallel; `e2e` after
+`static`, `unit`, and `build-budget`; `required` over all of them. Stable check names are
+`ci / validate`, `ci / static`, `ci / unit`, `ci / integration`, `ci / build-budget`,
+`ci / migrations`, `ci / e2e`, `ci / security`, `ci / persistence`, `ci / required`.
+
+Every step invokes a script the repository already owns. There is no CI-only variant of any
+check, no relaxed configuration, no raised bundle budget, no enabled retry, and no step that
+can pass while the command inside it fails — `ci-validate.mjs` fails the build if any
+CI-required npm script grows a `|| true` or `; exit 0`, and the one `continue-on-error` step
+in the workflow is the report-only dev-dependency audit, which cannot decide its job.
+
+**`required` cannot go green falsely.** It runs `if: always()` and inspects
+`needs.*.result`; anything other than `success` fails it. Exactly one job may be skipped —
+`persistence`, and only on a `pull_request`, which is the reason it declares — and the
+allowance is checked against the event rather than treating "skipped" as acceptable in
+general.
+
+**Least privilege and no secrets.** Workflow-level `permissions: contents: read`, never
+raised. The string `secrets.` does not appear in the workflow: the API runs `NODE_ENV=test`
+with the deterministic test-only values already committed in `playwright.config.ts`, the
+mock payment provider stays fail-closed in production (asserted by `config.test.ts` in
+`validate`), no provider credential is needed, and no `.env` is created, read, or uploaded.
+An untrusted forked pull request therefore has nothing to reach.
+
+**MongoDB is the repository's own disposable database, not a service container.** It is a
+pinned `mongo:8.0` single-node **replica set** — MongoDB only supports transactions on one,
+and the ledger, store, and economy suites depend on them, which a service container cannot
+provide because it cannot run `rs.initiate`. Data is on `tmpfs`, bound to `127.0.0.1:27018`
+only, and readiness comes from polling the container's own healthcheck rather than a sleep.
+Three independent guards keep it test-only, and the `e2e` job **proves the reset guard still
+works** before running the suite: it points `E2E_MONGODB_URI` at a production-shaped name,
+requires a non-zero exit, and requires the refusal message in stderr.
+
+**Two findings the pipeline surfaced rather than hid.**
+
+*First, the toolchain Node floor was wrong.* `engines.node` says `>=22.12.0`, which is
+correct for the container — it runs compiled JavaScript. It is not enough for the toolchain:
+`npm test` and `npm run migrate` execute TypeScript sources directly, and unflagged type
+stripping only arrived in **Node 22.18.0**. A host on 22.12.0 installs cleanly and then
+cannot run a single test. `.nvmrc` now carries the toolchain version (`22.23.1`), CI reads it
+via `node-version-file`, and `ci:validate` asserts both that `.nvmrc` clears the floor and
+that the Node actually running clears it. `engines.node` was deliberately left alone: it is
+the packaging contract for an image that does not need type stripping.
+
+*Second, `ci / security` fails on the current lockfile.* `find-my-way <=9.6.0` — GHSA-c96f-x56v-gq3h,
+CVSS 7.5, HTTP/2 denial of service — is in the **shipped** dependency tree via Fastify, and
+`npm audit --omit=dev --audit-level=high` exits 1 on it. That is the gate working on a
+pre-existing problem nothing was checking for before. It was not fixed here: this slice is
+barred from applying dependency updates, and a lockfile change is a change to what ships.
+The alternative is a formal risk acceptance — the advisory is HTTP/2-specific and the API is
+served over HTTP/1.1 behind nginx — which is exactly the judgement SEC-017 reserves for a
+named approver the repository does not have. Neither call was invented here.
+
+**Verification — every command run locally, exit codes recorded:**
+
+| Command | Result |
+|---|---|
+| `npm run ci:validate` | 11 checks passed, exit 0 |
+| `npm run typecheck` | pass, exit 0 |
+| `npm run lint` | 0 errors, 63 pre-existing warnings, exit 0 |
+| `npm test` | 451 passed, 0 failed (api 405, web 46), exit 0 |
+| `npm run test:integration` | 501 passed, 0 failed, 0 skipped, exit 0 |
+| `npm run build` | pass, exit 0 |
+| `npm run test:budget` | 1 passed, exit 0 |
+| `npm run closure:check` | 14/14, exit 0 |
+| `npm run decision:check` | 12/12, exit 0 |
+| `npm run verify:migrations` | 23 checks passed, exit 0 |
+| `npm run verify:persistence` | PASS, exit 0 |
+| `npm run e2e` | 464 passed, 1 skipped, 0 failed, exit 0 |
+| `npm run ci` | exit 0 (the whole non-Docker chain) |
+| `npm audit --omit=dev --audit-level=high` | **exit 1** — the live advisory above |
+
+The integration count is 501 locally but would be **493 in CI**: `apps/api/src/perf/` is
+untracked, so its eight performance-contention tests do not exist for a fresh clone. That
+directory belongs to DRAGON-28 and was deliberately not absorbed here.
+
+`npm run e2e` needed `E2E_WEB_PORT=4400` on this host: Windows WinNAT had reserved
+4144-4243, which contains the default 4173, and a reserved port fails to bind even with
+nothing listening. That is the host escape hatch working as designed and does not apply to a
+Linux runner.
+
+**Not verified: the workflow itself.** No Git remote is configured, so it could not be run
+remotely. What was checked: the YAML parses, every job has a display name, a pinned
+`ubuntu-24.04` runner and a `timeout-minutes`, every `needs` reference resolves, every action
+is pinned to a major, no step suppresses failure, and `required` depends on all nine other
+jobs. There is no remote CI run to cite and none is claimed.
+
+**The independent review returned REQUEST-CHANGES with one Critical, and it was right.** The
+step that proves the E2E database reset still refuses a non-test database ran *before* any
+MongoDB was started, and `reset-test-db.mjs` connected before checking the name — so the
+script would have died on a 15-second server-selection timeout, the `grep` for the refusal
+message would have missed, and the `e2e` job would have failed on every run without ever
+reaching the browser suite. A false red, and on a pipeline that has never executed, one that
+would have been blamed on the suite rather than the step. Fixed at the root rather than by
+reordering the workflow: the guard now reads the database name off the connection string and
+refuses **before** it connects, so a refusal can never be confused with a connection failure
+and the check works with nothing listening (verified with the test database stopped). Parsing
+is by pattern, not `new URL`, which rejects MongoDB's comma-separated multi-host form, and it
+fails closed on a string it cannot read a name out of.
+
+Two more gaps closed while acting on the review: the suite had `reporter: 'list'` only, so the
+`playwright-report/` the workflow uploads would never have existed — the config now declares
+`[['list'], ['html', { open: 'never' }]]` and `playwright-report/` is gitignored; and `CI.md`
+now states that `if-no-files-found: warn` means a red `e2e` job does not guarantee an
+artifact, because the failure may predate Playwright. The review's other conclusions were
+that nothing can produce a false green, nothing can reach a non-test database, the
+`find-my-way` advisory and the traceability counts are accurate as stated, and neither the
+migration check's existing-database scenario nor any of `ci-validate.mjs`'s eleven checks is
+vacuous.
+
+**Traceability.** SEC-016 and SEC-017 moved from `Evidence pending` to `Partial`, each
+naming what is still unsatisfied (container-image scanning; a risk-acceptance mechanism and
+the live advisory). TEST-026 stays `Partial` with rewritten clauses (never executed, branch
+protection inactive, persistence not on pull requests). `Evidence pending` rows: 29 → 27.
+`Partial`: 125 → 127. No requirement was marked complete on the strength of a pipeline that
+has not run.
 
 ## DRAGON-29A — Browser E2E stabilization
 

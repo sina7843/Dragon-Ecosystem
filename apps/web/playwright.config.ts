@@ -21,7 +21,13 @@ export default defineConfig({
   fullyParallel: true,
   forbidOnly: isCi,
   retries: 0,
-  reporter: 'list',
+  /**
+   * The list reporter is what a developer reads while the suite runs. The HTML report is
+   * what survives it: CI uploads it on failure, and without it a failed run would offer
+   * nothing but the terminal line — the same diagnostic hole `on-first-retry` traces left
+   * before DRAGON-29A. `open: 'never'` keeps it from launching a browser locally.
+   */
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'playwright-report' }]],
   /**
    * Playwright's default is one worker per two cores, which assumes a worker costs one
    * browser page. It does not here: the multi-actor journeys (an owner and an invitee,

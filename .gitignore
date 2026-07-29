@@ -5,6 +5,7 @@ build/
 coverage/
 .playwright/
 test-results/
+playwright-report/
 
 # local environment and secrets
 .env

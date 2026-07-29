@@ -380,9 +380,11 @@ disputed state. Catalogued API paths the implementation deviates from (`/auth/se
 `/account/sessions`, `/me/profile` → `/account/profile`, and others) are recorded as
 deviations on an otherwise Implemented row rather than quietly accepted.
 
-The **29 rows that remain pending** are the ones where nothing is implemented and no
+The **27 rows that remain pending** are the ones where nothing is implemented and no
 external party is blocking — the honest reading is that engineering has not built these
-yet, and no test can prove otherwise:
+yet, and no test can prove otherwise. (It was 29 before DRAGON-29B: SEC-016 and SEC-017
+moved to `Partial` once the pipeline that runs the dependency scan and gates on it
+existed. Both still name what is unsatisfied.)
 
 | Category | Rows |
 |---|---|
@@ -393,7 +395,10 @@ yet, and no test can prove otherwise:
 | Analytics reporting | ANALYTICS-002, ANALYTICS-008, ANALYTICS-009 (owner: engineering, after OD-026) |
 | Privacy and consent | DATA-088, AUTH-011 (owner: product/legal sets the DEC-043 policy, then engineering) |
 | Operations | OPS-008 maintenance mode, ADMIN-011 access review, PERF-009 cache/CDN headers |
-| CI pipeline | SEC-016 dependency and image scanning, SEC-017 vulnerability gate — reclassified from Blocked after the reviewer found the traceability rows still blamed an external platform decision while §15c already called CI engineering-owned |
+*(The CI-pipeline category that stood here — SEC-016 dependency and image scanning, SEC-017
+vulnerability gate — left this table in DRAGON-29B. Both are now `Partial`: the dependency
+scan and the high/critical gate exist and run; container-image scanning and a formal
+risk-acceptance mechanism do not.)*
 
 Each of those rows records the exact missing evidence, why the existing tests cannot prove
 it, and who must supply it.
@@ -449,14 +454,46 @@ gaps remain that engineering owns and can close without any external input:
 
 | Item | Why it is engineering-owned |
 |---|---|
-| 29 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, cache headers, and the two CI-scanning rows. No external input is needed to build any of them. |
-| 125 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
-| No CI pipeline | SEC-016, SEC-017 and TEST-026 all depend on it; the repository has no workflow at all. Authoring one needs no external decision — only the platform it eventually runs on does. |
+| 27 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, and cache headers. No external input is needed to build any of them. |
+| 127 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
+| An unremediated high dependency advisory | `find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 7.5, HTTP/2 denial of service) sits in the shipped dependency tree, so the new `ci / security` gate fails on the current lockfile. A fix is available. DRAGON-29B was barred from applying dependency updates, so it is surfaced rather than silently fixed; the alternative — a formal risk acceptance on the grounds that the API is served over HTTP/1.1 behind nginx — needs the named approver SEC-017 requires and that the repository does not have. |
+| CI activation | The pipeline exists and every command in it passes locally, but no Git remote is configured, so it has never executed, and branch protection has not been switched on. Both are repository-administrator actions, documented in `CI.md`. |
 
 Closed since the previous revision: the **moderation E2E flake** (test-only fix; the
 moderation test did not fail once in 17 full-suite runs), the **344 pending traceability
 rows** (dispositioned row by row), and the **absence of performance measurement** (bounded
 local measurements now recorded).
+
+### "No CI pipeline" — closed as an implementation gap by DRAGON-29B
+
+The pipeline is [`.github/workflows/ci.yml`](.github/workflows/ci.yml), documented in
+[`CI.md`](CI.md). Ten jobs on `pull_request` and `push` to `main` plus manual dispatch:
+`validate`, `static`, `unit`, `integration`, `build-budget`, `migrations`, `e2e`,
+`security`, `persistence` (main and manual only), and a `required` summary that fails if
+any of them fails, is cancelled, or is skipped for a reason it did not declare.
+
+Every step invokes a script the repository already owns, so a green pipeline means the same
+commands a developer runs locally passed — there is no CI-only variant of any check, no
+relaxed configuration, and no step that can pass while the command inside it fails.
+Workflow-level permissions are `contents: read`, and the pipeline uses **no secrets at all**,
+so an untrusted forked pull request has nothing to reach.
+
+**What this does not close:**
+
+- **It has never run.** No Git remote is configured, so the workflow could not be executed
+  from the environment that authored it. Every command it invokes was run locally and
+  passed; the YAML parses and the job graph, action pinning, timeouts, and required-summary
+  logic were checked structurally. There is no remote CI run to cite and none is claimed.
+- **Branch protection is not active.** Nothing yet compels the checks to pass before a
+  merge. `CI.md` lists the exact settings and required check names for an administrator;
+  the classification is *CI implementation complete, repository administrator activation
+  pending*.
+- **`ci / security` fails on the current lockfile** — see the dependency advisory in the
+  blocker table above. That is the gate working, not the pipeline being broken.
+- **Container-image scanning is absent** (SEC-016) and **no risk-acceptance mechanism
+  exists** (SEC-017).
+- This is dependency and hygiene checking. It is **not** a penetration test, an authorized
+  security review, a SAST run, or a licence audit, and it does not substitute for one.
 
 ### Browser-suite instability — closed by DRAGON-29A
 

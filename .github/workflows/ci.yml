@@ -1,0 +1,449 @@
+name: ci
+
+# Verification pipeline for the Dragon Ecosystem monorepo.
+#
+# Every step runs a script the repository already owns, so a green pipeline means the same
+# commands a developer runs locally passed — there is no CI-only variant of any check.
+# Documented in CI.md, including the branch-protection settings a repository
+# administrator still has to switch on.
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+# Least privilege: nothing here writes to the repository, publishes a package, or
+# comments on a pull request. Any job needing more must ask for it locally.
+permissions:
+  contents: read
+
+# A superseded pull-request run is cancelled; a main-branch run is not. Main is the
+# record of what was verified on the protected branch, so an arriving commit must not
+# erase the verification of the one before it.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  # Documentation is part of what the closure and decision checks assert, so no path
+  # filter excludes it. This is the only place a version is written down for CI; the
+  # authoritative Node version lives in .nvmrc and every job reads it from there.
+  MONGO_IMAGE: mongo:8.0
+
+jobs:
+  # ---------------------------------------------------------------------------------
+  # 1. Repository validation — seconds, fails first
+  # ---------------------------------------------------------------------------------
+  validate:
+    name: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # ci-validate.mjs scans tracked files with `git ls-files`; it needs the index,
+          # not history, so the default shallow clone is enough.
+          fetch-depth: 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - run: npm ci
+
+      - name: Repository validation
+        run: npm run ci:validate
+
+      - name: Release closure check
+        run: npm run closure:check
+
+      - name: Release decision check
+        run: npm run decision:check
+
+      # The three guards whose failure would invalidate every later job: environment
+      # validation with fail-closed provider selection, the backend route registry, and
+      # locale-key completeness. They also run inside `unit`; running them here costs
+      # about two seconds and moves the failure to the front of the pipeline.
+      - name: Environment, route-registry, and locale guards
+        run: |
+          node --test apps/api/src/config.test.ts
+          node --test apps/api/src/server.test.ts
+          node --test apps/web/src/i18n/locales.test.ts
+
+  # ---------------------------------------------------------------------------------
+  # 2. Static checks
+  # ---------------------------------------------------------------------------------
+  static:
+    name: static
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      # Warnings stay visible in the log and do not fail the job; errors do. The
+      # configuration is the repository's own eslint.config.mjs, unmodified.
+      - name: Lint
+        run: npm run lint
+
+  # ---------------------------------------------------------------------------------
+  # 3. Unit tests
+  # ---------------------------------------------------------------------------------
+  unit:
+    name: unit
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # No sharding: `node --test` runs the suites in-process and they are fast. Sharding
+      # would add a shared-state surface for no measurable gain.
+      - name: Unit tests
+        run: npm test
+
+  # ---------------------------------------------------------------------------------
+  # 4. Integration tests against the repository's disposable MongoDB
+  # ---------------------------------------------------------------------------------
+  integration:
+    name: integration
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The repository's own disposable database, not a service container. It is a pinned
+      # single-node replica set — MongoDB only supports transactions on one, and the
+      # financial suites depend on them — with its data on tmpfs and bound to loopback.
+      # A service container cannot run `rs.initiate`, so reusing docker-compose.test.yml
+      # is both the supported path and the only one that gives transactions.
+      - name: Pull the pinned MongoDB image
+        run: docker pull "$MONGO_IMAGE"
+
+      # `test:integration` starts and waits for the database itself through
+      # wait-for-test-db.mjs, which polls the container's own healthcheck — the one that
+      # initiates the replica set — so nothing runs before a transaction-capable primary
+      # answers.
+      - name: Integration tests
+        run: npm run test:integration
+
+      - name: Stop the disposable database
+        if: always()
+        run: npm run db:test:down
+
+  # ---------------------------------------------------------------------------------
+  # 5. Production build and bundle budget
+  # ---------------------------------------------------------------------------------
+  build-budget:
+    name: build-budget
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Production build
+        run: npm run build
+
+      - name: Required build outputs exist
+        run: |
+          test -f apps/web/dist/index.html
+          test -f apps/api/dist/server.js
+          echo "build outputs present"
+
+      # Asserts the entry bundle against the repository's own 380 kB budget and that the
+      # lazy public detail views are still separate chunks. The budget is not raised here
+      # or anywhere else in this workflow.
+      - name: Bundle budget
+        run: npm run test:budget
+
+      - name: Entry bundle size
+        run: |
+          ls -l apps/web/dist/assets/index-*.js | awk '{print $5, $9}'
+
+  # ---------------------------------------------------------------------------------
+  # 6. Migration verification
+  # ---------------------------------------------------------------------------------
+  migrations:
+    name: migrations
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Pull the pinned MongoDB image
+        run: docker pull "$MONGO_IMAGE"
+
+      # Fresh database: every migration applies, 030-recovery-indexes and the indexes it
+      # exists for are present, a second pass changes nothing. Then existing database:
+      # immutable ledger, order, audit, and enrolment records survive a further pass
+      # byte for byte and stay queryable.
+      - name: Fresh and existing-database migration verification
+        run: npm run verify:migrations
+
+      - name: Stop the disposable database
+        if: always()
+        run: npm run db:test:down
+
+  # ---------------------------------------------------------------------------------
+  # 7. Browser E2E
+  # ---------------------------------------------------------------------------------
+  e2e:
+    name: e2e
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    needs: [static, unit, build-budget]
+    env:
+      # A GitHub-hosted ubuntu runner has 4 vCPU. The local default is cpus/4, which
+      # would give 1; the multi-actor journeys open two or three browser pages each, and
+      # DRAGON-29A measured that oversubscribing renderers is what produced 30-second
+      # page-setup timeouts. Two workers keeps the page count near the core count with
+      # headroom for the API process and mongod. Raise it only against a measured run on
+      # a larger runner — never to make a slow suite finish, and never in place of
+      # diagnosing a failure.
+      E2E_WORKERS: 2
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Report the browser-suite configuration
+        run: |
+          echo "E2E_WORKERS=$E2E_WORKERS"
+          echo "nproc=$(nproc)"
+          node -e "console.log('playwright', require('@playwright/test/package.json').version)"
+
+      # Chromium only: playwright.config.ts defines three viewport projects, all of them
+      # Chromium. Installing the other engines would download browsers no project uses.
+      - name: Cache Playwright browsers
+        id: playwright-cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          # The Playwright version decides the browser build, and the runner image decides
+          # the shared libraries it links against, so both belong in the key.
+          key: playwright-${{ runner.os }}-${{ hashFiles('package-lock.json') }}
+
+      - name: Install Chromium and its system dependencies
+        run: npx playwright install --with-deps chromium
+
+      - name: Pull the pinned MongoDB image
+        run: docker pull "$MONGO_IMAGE"
+
+      # The guarded reset refuses any database whose name does not identify it as a test
+      # database. Proving that here means a future edit to the script cannot quietly turn
+      # `npm run e2e` into something that drops a real database.
+      #
+      # This deliberately needs no running MongoDB: reset-test-db.mjs reads the database
+      # name off the connection string and refuses before it connects, so the refusal is
+      # never confused with a connection timeout. Do not "fix" this step by starting a
+      # database in front of it — that would hide exactly the failure mode it tests for.
+      - name: The database reset refuses a non-test database
+        run: |
+          if E2E_MONGODB_URI='mongodb://127.0.0.1:27018/dragon?directConnection=true' \
+             node scripts/reset-test-db.mjs 2>reset-guard.log; then
+            echo "FAIL: the reset accepted a non-test database name"
+            exit 1
+          fi
+          grep -q 'must identify a test database' reset-guard.log
+          echo "the reset refused the production-shaped database name, as required"
+
+      # `npm run e2e` is the supported entry point and the only one that runs the guarded
+      # reset: it starts the disposable database, waits for its healthcheck, drops the
+      # e2e database, builds, and then hands over to Playwright. Playwright's own
+      # webServer gate is /health/ready, so no test starts before Mongo is reachable and
+      # the startup migrations have run. Retries stay at 0, as DRAGON-29A left them.
+      - name: Browser E2E suite
+        run: npm run e2e
+
+      - name: Upload Playwright failure artifacts
+        # Runs on failure and on cancellation, and cannot change the job's result.
+        if: ${{ failure() || cancelled() }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-artifacts-${{ github.run_id }}-${{ github.run_attempt }}
+          # Traces, screenshots, and error context, written by the retain-on-failure
+          # settings DRAGON-29A added. No database files, no .env, no build directories.
+          path: |
+            apps/web/test-results/
+            apps/web/playwright-report/
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Stop the disposable database
+        if: always()
+        run: npm run db:test:down
+
+  # ---------------------------------------------------------------------------------
+  # 8. Dependency and secret checks
+  # ---------------------------------------------------------------------------------
+  security:
+    name: security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    needs: validate
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      # The threshold is high: SEC-017 requires critical and high vulnerabilities to
+      # block a release unless formally risk-accepted, and no risk-acceptance owner or
+      # waiver mechanism exists in the repository yet (recorded in CI.md). Moderate and
+      # low findings are reported in the same log without failing the job, so they are
+      # visible rather than hidden.
+      - name: Runtime dependency audit (fails on high or critical)
+        run: npm audit --omit=dev --audit-level=high
+
+      - name: Full dependency audit (report only, includes dev dependencies)
+        # A development-only advisory is not a shipped vulnerability, so it is reported
+        # rather than gating. This step is diagnostic and must not decide the job.
+        continue-on-error: true
+        run: npm audit --audit-level=low
+
+      # The same narrow, deterministic scan the validation job runs, repeated here so the
+      # security check is self-contained for branch protection. It is a committed-key
+      # guard, not a secret scanner, and CI.md says so.
+      - name: Committed-secret guard
+        run: npm run ci:validate
+
+  # ---------------------------------------------------------------------------------
+  # 9. Docker persistence and topology — main and manual runs only
+  # ---------------------------------------------------------------------------------
+  persistence:
+    name: persistence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    needs: validate
+    # The static half of the topology contract — nginx as the sole published entry point,
+    # no host port for the API or MongoDB, and the container port surviving a WEB_PORT
+    # override — is asserted by compose-topology.test.ts, which runs in `unit` on every
+    # pull request. Only the runtime half is here: it pulls an image and cycles a
+    # container for a guarantee that changes far less often than the code does, so it runs
+    # on the protected branch and on demand rather than on every pull request. It is a
+    # required check for main; CI.md records that split.
+    if: ${{ github.event_name != 'pull_request' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+
+      - name: Compose files are valid and resolve without a local .env
+        run: |
+          docker compose config -q
+          docker compose -f docker-compose.test.yml config -q
+
+      - name: A WEB_PORT override moves only the host port
+        run: |
+          default_port=$(docker compose config --format json | node -e '
+            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+              const p=JSON.parse(s).services.web.ports[0];
+              process.stdout.write(`${p.published}:${p.target}`);
+            })')
+          moved=$(WEB_PORT=18080 docker compose config --format json | node -e '
+            let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{
+              const p=JSON.parse(s).services.web.ports[0];
+              process.stdout.write(`${p.published}:${p.target}`);
+            })')
+          echo "default=$default_port override=$moved"
+          test "$default_port" = "8080:8080"
+          test "$moved" = "18080:8080"
+
+      - name: Pull the pinned MongoDB image
+        run: docker pull "$MONGO_IMAGE"
+
+      # Stop/start on the named volume, never `down -v`: the script's own contract is that
+      # it removes no volume, and deleting one would destroy the very thing it proves.
+      - name: MongoDB persistence across a Compose stop/start
+        run: npm run verify:persistence
+
+      - name: Stop the stack without removing volumes
+        if: always()
+        run: npm run docker:stop
+
+  # ---------------------------------------------------------------------------------
+  # 10. Required summary — the single check branch protection points at
+  # ---------------------------------------------------------------------------------
+  required:
+    name: required
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    if: always()
+    needs: [validate, static, unit, integration, build-budget, migrations, e2e, security, persistence]
+    steps:
+      # `needs.*.result` is success, failure, cancelled, or skipped. Anything other than
+      # success fails this job, so a cancelled or timed-out required job can never present
+      # itself as a green required check.
+      #
+      # Exactly one job is allowed to be skipped, and only for the reason it declares:
+      # `persistence` does not run on a pull request. The allowance is spelled out per job
+      # and cross-checked against the event, rather than treating "skipped" as acceptable
+      # in general — a job skipped for any other reason still fails this check.
+      - name: Every required job succeeded
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          node -e '
+            const needs = JSON.parse(process.env.RESULTS);
+            const event = process.env.EVENT_NAME;
+            const skippableOnPullRequest = new Set(["persistence"]);
+            const bad = [];
+            for (const [name, value] of Object.entries(needs)) {
+              const result = value.result;
+              console.log(`  ${name}: ${result}`);
+              if (result === "success") continue;
+              if (result === "skipped" && event === "pull_request" && skippableOnPullRequest.has(name)) {
+                console.log(`    allowed: ${name} does not run on a pull request`);
+                continue;
+              }
+              bad.push(`${name} (${result})`);
+            }
+            if (bad.length > 0) {
+              console.error(`\n${bad.length} required job(s) did not succeed: ${bad.join(", ")}`);
+              process.exit(1);
+            }
+            console.log("\nAll required jobs succeeded.");
+          '
