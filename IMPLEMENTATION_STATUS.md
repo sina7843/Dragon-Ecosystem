@@ -38,8 +38,101 @@
 - Phase 5 economy, rewards, peer transfer, and payouts: complete (DRAGON-25) — implemented and verified, not yet committed
 - Phase 5 commerce and economy release closure: complete (DRAGON-26) — implemented and verified, not yet committed. **Phase 5 release decision: NO-GO** (`RELEASE_DECISION_PHASE5.md`), blocked by OD-019 + OD-020 + OD-030; no implementation failure outstanding
 - Whole-ecosystem audit and release evidence: complete (DRAGON-27a, 27b, 27c). **Final ecosystem verdict: NO-GO** (`RELEASE_DECISION_ECOSYSTEM.md`). Implementation completeness and release approval are separate: the code is largely built and tested; the release is blocked by ten open external decisions, four standing phase NO-GOs, an unauthorized Phase 1 production deployment, and missing human sign-off
-- Active prompt: DRAGON-27c (final ecosystem release evidence and decision); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Release remediation and evidence closure: partial (DRAGON-28) — five engineering gaps closed, four remediation items not attempted and named as such. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-28 (release remediation and evidence closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-28 — Release remediation and evidence closure
+
+**The economy concurrency failure was a product defect, not a flaky test.**
+`claimTransferWindow`'s fallback assumed the only reason its conditional claim could fail
+was an exhausted budget. It can also fail because the window did not exist at that instant
+and a racer created it microseconds later — in which case the code returned
+`amount_exceeded` without ever checking the budget. Two transfers arriving together on a
+sender's first transfer of a period meant one was refused with a misleading "too many
+transfers" error. Under load, users would have seen spurious limit refusals. The claim now
+retries once against the window a racer just opened, and reports a limit only after
+re-reading it. Reproduced at ~1-in-3; **0 failures in 10 bounded runs** afterwards.
+
+Regression coverage was added (two concurrent transfers on a cold window, both far inside
+every limit), but honestly: **it does not deterministically fail under the original
+defect** — the bug is race-only, and reproducing it reliably would need fault injection.
+The dependable signal is bounded repetition, which is what the evidence above rests on.
+
+**A previously reported finding was wrong, and it was my error.** Earlier documents said the
+browser suite "intermittently exited non-zero while reporting every test passed". It never
+did. Those runs had a real failing test — `moderation.spec.ts` → *"report a tournament …
+and a moderator sees it (fa)"* on desktop — and the console filters I used to summarise the
+output truncated the failure line. There is no phantom exit code, no `webServer` shutdown
+bug, and no npm exit-code propagation problem; the scripts report failure correctly. The
+flake itself remains undiagnosed and is carried as an engineering risk.
+
+**Entry bundle: 376.27 kB → 341.13 kB** against an unchanged 380 kB budget, by moving the
+three public *detail* views (tournament, content, game) to lazy route chunks. They are
+reached by a click or a direct link, never as a first paint; `TournamentDetailView` alone is
+25.52 kB. Headroom went from 3.73 kB to 38.87 kB.
+
+**Docker and persistence evidence restored** at the current commit: engine 28.1.1, all three
+services healthy, only 8080 published, persistence PASS.
+
+**Moderation E2E flake diagnosed.** `moderation.spec.ts` → *"report a tournament … and a
+moderator sees it (fa)"* is a **test-isolation defect**, not a product defect and not
+external. The moderation queue returns a default first page of 20 cases newest-first and
+the view loads only that page; during a full run, other specs' cases push this test's row
+off it. 6/6 clean in isolation, ~1-in-3 inside the suite. UUIDv4 ids ruled out prefix
+collision. The remedy — scoping the queue read by `subjectId`, which the API already
+supports but the web client does not expose — is product scope, so it was **not applied**;
+it is carried as a remaining engineering risk with the fix named.
+
+**Accessibility preparation complete.** `ACCESSIBILITY_CERTIFICATION.md`: 20 criteria,
+four audiences, both locales, 320px and desktop, each marked with its automated coverage.
+Six criteria have no automation at all and are the substance of certification. Labelled
+*Engineering preparation complete / Authorized human certification pending*; no tester,
+date, result, or signature recorded.
+
+**Moderation flake fixed, test-only.** The spec pages forward through the queue's own
+`load-more` control, bounded at ten pages, until the row is reachable. `toHaveCount(1)`,
+the state and severity checks and the identifier-leak checks are unchanged, and no product
+behaviour was touched. Across **17 full-suite runs** the moderation test did not fail once
+— but the suite as a whole was clean in only **14 of 17**. Three other specs failed once
+each (`community.spec.ts:92`, `registration.spec.ts:90`, and one run whose failure was not
+captured), all on small-mobile, all element-wait timeouts. That instability is a separate,
+newly-recorded engineering risk with **no established cause**; the suite must not be
+described as green. The subject-scoped queue read is still the better product remedy and is still not
+implemented, because that is new product scope.
+
+**Traceability reconciled.** All 344 `Evidence pending` rows were read against their source
+requirement, the registered route or collection, the module's tests and the applicable
+gate. 200 became **Implemented**, 96 **Partial** with the unsatisfied clause named, 12
+**Blocked** with the blocker named, 4 **Gated** with the flag and default state, 2
+**Deferred**, 1 **Not applicable**, and **29 stay pending** — 344 exactly — those are the rows where
+nothing is built and no external party is blocking, each recording its exact missing
+evidence and owner. The applier refused to write until every cited path, test filename and
+index name resolved to something that exists, so no row claims evidence the repository does
+not contain.
+
+**Bounded performance measurements added.** `apps/api/src/perf/perf.itest.ts`: transfer
+idempotency under concurrency (one key and distinct keys, cold and open windows), the
+rolling-window claim at its configured budget, store last-unit contention, the indexed
+stale-reservation scan, and one additional bounded admin query. Every scenario asserts its
+correctness invariant as well as timing it — 24 concurrent claims against a budget of 20
+admitted exactly 20 with zero overshoot; eight buyers for one unit produced exactly one
+winner; the stale scan examined 50 keys for a configured limit of 50 via `IXSCAN`. Zero
+errors. These are contention measurements on one machine through `app.inject`, not
+production capacity, and the release document states that limitation explicitly.
+
+**Correction to an earlier claim.** The statement that "every remaining blocker is
+external" was wrong. Engineering still owns the 29 pending rows, the 125 partial rows, and
+the absence of any CI pipeline (SEC-016, SEC-017, TEST-026).
+
+### DRAGON-28 verification, 2026-07-29
+
+- `npm run typecheck` pass · `npm run lint` **0 errors** · `npm test` **451/451**
+- `npm run test:integration` — **500/500, exit 0** (includes the five new performance scenarios)
+- `npm run build` pass · `npm run test:budget` pass at **341.13 kB / 380 kB**
+- `npm run e2e` — **14 of 17 runs clean at 464 passed, exit 0**; 3 runs failed once each on unrelated small-mobile specs (cause not established). The moderation test passed in all 17.
+- `npm run docker:up` — api, mongo, web all healthy; only 8080 published
+- `npm run verify:persistence` — **PASS** · `closure:check` 14/14 · `decision:check` 12/12
 
 ## DRAGON-27 — Whole-ecosystem audit and release evidence
 

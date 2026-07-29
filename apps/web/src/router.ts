@@ -1,17 +1,17 @@
 import { createRouter, createWebHistory, START_LOCATION, type RouteLocationNormalized } from 'vue-router';
-// The primary public funnel — home, content, games, tournaments — is eagerly imported:
-// it is the crawlable first-paint surface a visitor actually lands on. Admin and account
+// The primary public funnel — home and the list pages — is eagerly imported: it is the
+// crawlable first-paint surface a visitor actually lands on. The *detail* pages are lazy:
+// they are reached by a deliberate click or a direct link, never as the first paint of a
+// browsing session, and TournamentDetailView alone is the largest view in the app. Keeping
+// them in the entry chunk cost real headroom against the build budget for no benefit. Admin and account
 // routes are lazy so an anonymous visitor never downloads privileged/personalized code.
 // The secondary public surfaces (the team/player directories, the calendar view of the
 // tournament list, the streams pages) are lazy too: they are reached by a deliberate
 // click from the funnel above, and keeping them out of the entry chunk is what holds the
 // bundle budget in `build-budget.test.ts`.
 import ContentListView from './views/ContentListView.vue';
-import ContentDetailView from './views/ContentDetailView.vue';
 import GamesCatalogView from './views/GamesCatalogView.vue';
-import GameDetailView from './views/GameDetailView.vue';
 import TournamentsListView from './views/TournamentsListView.vue';
-import TournamentDetailView from './views/TournamentDetailView.vue';
 import HomeView from './views/HomeView.vue';
 import NotFoundView from './views/NotFoundView.vue';
 import { applyDocumentLocale, i18n, persistLocale } from './i18n/index.ts';
@@ -60,7 +60,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/content/:type/:slug',
       name: 'content-detail',
-      component: ContentDetailView,
+      component: () => import('./views/ContentDetailView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.content' }
     },
     {
@@ -72,7 +72,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/games/:slug',
       name: 'game-detail',
-      component: GameDetailView,
+      component: () => import('./views/GameDetailView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.games' }
     },
     {
@@ -90,7 +90,7 @@ export const router = createRouter({
     {
       path: '/:locale(fa|en)/tournaments/:slug',
       name: 'tournament-detail',
-      component: TournamentDetailView,
+      component: () => import('./views/TournamentDetailView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.tournaments' }
     },
     // The directories come before their detail routes so `/teams` is not swallowed by

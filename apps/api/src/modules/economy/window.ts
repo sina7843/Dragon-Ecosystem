@@ -46,12 +46,33 @@ export async function claimTransferWindow(
   );
   if (claimed !== null) return 'claimed';
 
-  // Either the window lapsed or a budget is exhausted. Read once to tell them apart, so
-  // the caller can report which limit was hit rather than a generic refusal.
+  // The claim can fail for two quite different reasons: a budget really is exhausted, or
+  // the window simply did not exist at that instant and a racer opened it a moment later.
+  // Treating the second as a refusal rejected a perfectly ordinary transfer with a
+  // misleading "too many transfers" error whenever two arrived together on a cold window.
+  // So: if a live window exists now, try once more against it before concluding anything.
   const current = await collection.findOne({ _id: key, expiresAt: { $gt: now } });
   if (current !== null) {
-    if (current.count + 1 > limits.transfersPerWindow) return 'count_exceeded';
-    return 'amount_exceeded';
+    const retried = await collection.findOneAndUpdate(
+      {
+        _id: key,
+        expiresAt: { $gt: now },
+        count: { $lte: limits.transfersPerWindow - 1 },
+        amount: { $lte: limits.transferAmountPerWindow - amount }
+      },
+      { $inc: { count: 1, amount } },
+      { returnDocument: 'after' }
+    );
+    if (retried !== null) return 'claimed';
+
+    // The retry failed too, so a budget genuinely is exhausted. Re-read rather than reuse
+    // the earlier snapshot, so the reported reason reflects the window as it stands now.
+    const latest = await collection.findOne({ _id: key, expiresAt: { $gt: now } });
+    if (latest !== null) {
+      if (latest.count + 1 > limits.transfersPerWindow) return 'count_exceeded';
+      return 'amount_exceeded';
+    }
+    // The window lapsed between the two reads; fall through and open a fresh one.
   }
 
   // No live window. Drop a lapsed one first so its stale totals are not inherited, then
@@ -87,9 +108,18 @@ export async function claimTransferWindow(
   return 'amount_exceeded';
 }
 
-/** Returns a claimed budget when the transfer is refused after the claim (REWARD-007). */
+/**
+ * Returns a claimed budget when the transfer is refused after the claim (REWARD-007).
+ *
+ * Scoped to a *live* window, for the same reason the compensation inside
+ * `claimTransferWindow` is scoped to one generation: a release delayed past the window's
+ * expiry would otherwise decrement whichever window happens to exist when it lands,
+ * crediting a period this claim never spent anything in. If the window this claim
+ * belonged to has already lapsed there is nothing to give back — the next window starts
+ * from zero regardless — so matching nothing is the correct outcome, not a lost refund.
+ */
 export async function releaseTransferWindow(db: Db, senderId: string, amount: number): Promise<void> {
   await db
     .collection<WindowRecord>(ECONOMY_COLLECTIONS.transferWindows)
-    .updateOne({ _id: `transfer_window:${senderId}` }, { $inc: { count: -1, amount: -amount } });
+    .updateOne({ _id: `transfer_window:${senderId}`, expiresAt: { $gt: new Date() } }, { $inc: { count: -1, amount: -amount } });
 }

@@ -15,6 +15,7 @@ import { GLOBAL_SCOPE_ID, GLOBAL_SCOPE_TYPE, roleAssignments } from '../admin/st
 import type { LedgerService } from '../ledger/index.ts';
 import { ECONOMY_COLLECTIONS } from './collections.ts';
 import { DEFAULT_ECONOMY_LIMITS } from './state.ts';
+import { releaseTransferWindow } from './window.ts';
 
 /**
  * Economy integration coverage (REWARD-002..008, TEST-024).
@@ -193,6 +194,25 @@ describe('coin transfers', () => {
       .collection('ledger_transactions')
       .countDocuments({ businessRef: `coin_transfer:${sender.accountId}:${payload.idempotencyKey}` });
     assert.equal(postings, 1, 'exactly one ledger posting exists for the key');
+  });
+
+  test('two concurrent transfers on a cold window are both accepted', async () => {
+    // Regression: the window claim treated "the window did not exist yet" as "the budget
+    // is exhausted", so whenever two transfers arrived together on a sender's first
+    // transfer of a period, one was refused with a misleading limit error. Both of these
+    // are far inside every configured limit, so any refusal here is a defect.
+    const [sender, first, second] = [await signUp(), await signUp(), await signUp()];
+    await creditCoins(sender.accountId, 500);
+
+    const [a, b] = await Promise.all([
+      app.inject({ method: 'POST', url: '/api/v1/me/coin-transfers', ...auth(sender.cookie), payload: { recipientUsername: first.username, amount: 10, idempotencyKey: key() } }),
+      app.inject({ method: 'POST', url: '/api/v1/me/coin-transfers', ...auth(sender.cookie), payload: { recipientUsername: second.username, amount: 10, idempotencyKey: key() } })
+    ]);
+    assert.equal(a.statusCode, 201, a.body);
+    assert.equal(b.statusCode, 201, b.body);
+    assert.equal(await balanceOf(first.accountId), 10);
+    assert.equal(await balanceOf(second.accountId), 10);
+    assert.equal(await balanceOf(sender.accountId), 480, 'both transfers moved, exactly once each');
   });
 
   test('concurrent transfers cannot collectively pass the rolling window', async () => {
@@ -456,6 +476,32 @@ describe('reporting and gates', () => {
     assert.equal(body.transfers.completed, 1);
     assert.equal(body.transfers.amount, 30);
     assert.deepEqual(body.differences, [], 'nothing is unexplained');
+  });
+
+  test('a budget release does not credit a window the claim never spent in', async () => {
+    // Reviewer finding (DRAGON-28): the compensation inside `claimTransferWindow` is scoped
+    // to one window generation, but `releaseTransferWindow` matched on the key alone. A
+    // release delayed past the expiry would then decrement whichever window existed when it
+    // landed, handing budget back in a period this claim spent nothing in.
+    const senderId = `release-scope-${String(++counter)}`;
+    const key = `transfer_window:${senderId}`;
+    const windows = fixture.database.db.collection<{ _id: string; count: number; amount: number; expiresAt: Date }>(
+      ECONOMY_COLLECTIONS.transferWindows
+    );
+
+    // A window that has already lapsed: the release has nothing to return.
+    await windows.insertOne({ _id: key, count: 3, amount: 300, expiresAt: new Date(Date.now() - 1_000) });
+    await releaseTransferWindow(fixture.database.db, senderId, 100);
+    const lapsed = await windows.findOne({ _id: key });
+    assert.equal(lapsed?.count, 3, 'a lapsed window is left alone');
+    assert.equal(lapsed?.amount, 300, 'a lapsed window keeps its totals');
+
+    // A live window: the release returns exactly what it took.
+    await windows.updateOne({ _id: key }, { $set: { expiresAt: new Date(Date.now() + 60_000) } });
+    await releaseTransferWindow(fixture.database.db, senderId, 100);
+    const live = await windows.findOne({ _id: key });
+    assert.equal(live?.count, 2, 'a live window is decremented once');
+    assert.equal(live?.amount, 200, 'the exact amount is returned');
   });
 
   test('the config surface states what the economy will never do', async () => {

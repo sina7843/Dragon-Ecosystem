@@ -258,6 +258,223 @@ how any external provider would behave, because none has been contacted.
 Every gate above was verified fail-closed, and every capability marked **Absent** was
 verified to have no route, state, collection, job, or UI action.
 
+## 15b. DRAGON-28 remediation — what closed and what did not
+
+Assessed after remediation at working-tree state on top of `7ae35fe`.
+
+### Closed engineering gaps
+
+| Gap | Outcome |
+|---|---|
+| Economy concurrency failure | **Fixed.** Root cause was a product defect, not a flaky test: `claimTransferWindow` treated "the window did not exist yet" as "the budget is exhausted", so when two transfers arrived together on a sender's first transfer of a period, one was refused with a misleading limit error (`201 / 422`). The claim now retries once against the window a racer just opened, and only reports a limit after re-reading it. Reproduced at ~1-in-3 before; **0 failures in 10 bounded runs** after, and the full integration suite is 492/492, exit 0 |
+| Docker engine and health | **Restored.** Engine 28.1.1; web, api, mongo all healthy; only 8080 published; API and MongoDB not directly exposed |
+| Persistence at current commit | **PASS.** Committed data survived a Compose stop/start on the named volume |
+| Entry-bundle headroom | **376.27 kB → 341.13 kB** against an unchanged 380 kB budget; headroom 3.73 kB → **38.87 kB**. The three public *detail* views (tournament, content, game) moved to lazy route chunks — they are reached by a click or a direct link, never as a first paint. `TournamentDetailView` alone is 25.52 kB |
+| Full browser run at current commit | **Obtained**, and it corrected a previous misclassification — see below |
+
+### Correction to a previously reported finding
+
+Earlier release documents recorded that the browser suite "intermittently exited non-zero
+while reporting every test passed". **That was wrong, and the error was mine**: the runs
+that exited non-zero had a genuinely failing test, and the console filters used to summarise
+them truncated the failure line out of view.
+
+The real behaviour is an ordinary flaky test:
+`moderation.spec.ts` → *"report a tournament … and a moderator sees it (fa)"*, desktop
+project. Observed once as `1 failed / 463 passed` (npm exit 1) and clean on the
+surrounding runs (`464 passed`, exit 0). Playwright's own artifact directory named it.
+
+There is no phantom exit-code defect, no `webServer` shutdown bug, and no npm exit-code
+propagation problem. The repository scripts report failure correctly; the earlier reports
+did not. **The flake itself is not diagnosed** and is carried as an engineering risk.
+
+### Moderation browser flake — root cause established
+
+`moderation.spec.ts` → *"report a tournament, collapse into one case, and a moderator sees
+it (fa)"*, desktop. **Confirmed test-isolation defect, not a product defect and not
+external.**
+
+The moderation queue returns a default page of 20 cases sorted newest-first
+(`moderation/service.ts` `listCases` → `clampLimit`), and the admin view loads only the
+first page. The test asserts `toHaveCount(1)` on a row matched by its own tournament's id
+prefix. During a full-suite run, other specs create moderation cases in parallel between
+this test filing its reports and opening the queue, pushing its row off page one — the
+assertion then sees zero rows.
+
+Evidence: **6/6 clean in isolation**, fails roughly 1-in-3 only inside the full suite. Id
+prefix collision was excluded — ids are UUIDv4, so an 8-character prefix is random, not a
+timestamp.
+
+**Fixed, test-only.** The spec now pages forward through the queue's own `load-more`
+control — bounded at ten pages — until the row is reachable, then asserts exactly as
+before. No assertion was weakened and no product behaviour was changed: `toHaveCount(1)`,
+the state and severity checks and the identifier-leak checks are all unaltered. The
+subject-scoped queue read remains the better *product* remedy and is still not
+implemented, because adding it would be new product scope; it is recorded as a design
+improvement, not a blocker.
+
+Verification: the browser suite was run **17 times** after the fix. **14 runs were clean
+(464 passed, exit 0)**; three runs failed once each, and *none of them was the moderation
+test* — it did not fail once in 17 runs.
+
+The three failures were three different specs, each failing exactly once, all on the
+**small-mobile (320px)** project, and all of the same shape — a 30-second wait for an
+element that never appeared:
+
+| Run | Spec | Symptom |
+|---|---|---|
+| 4 | not captured — the run's output was filtered before the failure block was read | unknown |
+| 12 | `community.spec.ts:92` JOURNEY-006 (en) | element wait |
+| 17 | `registration.spec.ts:90` | `locator.click` timeout on `open-register-form` |
+
+**The cause of these three is not established.** They are not the moderation defect, whose
+root cause was identified and is fixed. One occurrence each is not enough to diagnose, and
+the honest classification is a **remaining engineering risk: the browser suite is not
+reliably green under full parallelism on this machine**, concentrated in the small-mobile
+project. This is recorded rather than smoothed over: the suite must not be described as
+passing cleanly.
+
+### Accessibility preparation
+
+`ACCESSIBILITY_CERTIFICATION.md` added: 20 criteria across four audiences, both locales,
+320px and desktop, each marked with its automated coverage and what only a person can
+confirm. Six criteria have no automated coverage at all — focus order, focus-indicator
+contrast, 200% zoom, measured contrast, reduced motion, and the screen-reader pass — and
+those are the substance of a certification.
+
+**Engineering preparation complete. Authorized human certification pending.** No tester,
+date, result, or signature was recorded, and engineering has no authority to record one.
+
+### Traceability reconciliation
+
+All **344** `Evidence pending` rows were dispositioned row by row against the source
+requirement, the registered route or collection, the module's tests, and the applicable
+gate or open decision. Nothing was replaced mechanically: the applier refused to write
+until every cited file path, test filename and index name resolved to something that
+actually exists in the repository.
+
+| Status | Rows |
+|---|---|
+| Implemented | 404 |
+| Verified | 175 |
+| Partial | 125 |
+| Evidence pending | 29 |
+| In progress | 25 |
+| Deferred | 14 |
+| Blocked | 13 |
+| Blocked by open decision | 10 |
+| Gated | 9 |
+| Deferred by phase | 4 |
+| Not applicable | 2 |
+
+The 344 resolved as: **200 Implemented, 96 Partial, 29 still Evidence pending, 12 Blocked,
+4 Gated, 2 Deferred, 1 Not applicable** — 344 exactly. (An earlier revision of this
+section printed 154/121, which did not sum to 344; the reviewer caught it and the
+figures above are recounted from the document itself.)
+
+**Partial** was used wherever a compound requirement had one clause satisfied and another
+absent, with the unsatisfied clause named — SEC-013 has signature validation, size limits
+and private staging but **no malware scanning**; SEC-014 has scoped audited roles but **no
+periodic access review**; PAY-005 has six payment states but no reversed, refunded or
+disputed state. Catalogued API paths the implementation deviates from (`/auth/sessions` →
+`/account/sessions`, `/me/profile` → `/account/profile`, and others) are recorded as
+deviations on an otherwise Implemented row rather than quietly accepted.
+
+The **29 rows that remain pending** are the ones where nothing is implemented and no
+external party is blocking — the honest reading is that engineering has not built these
+yet, and no test can prove otherwise:
+
+| Category | Rows |
+|---|---|
+| Missing pages | PAGE-017 registrations, PAGE-018 matches, PAGE-023 help, PAGE-024 legal, PAGE-025 status, PAGE-051 admin teams, PAGE-068 analytics |
+| Missing documents | DOC-009, DOC-011, DOC-012, DOC-013, DOC-014, DOC-015, EVENT-012 |
+| Email identity | API-008, API-009, FORM-004 (owner: engineering, after OD-003) |
+| Match scheduling | API-043, TOURN-020 |
+| Analytics reporting | ANALYTICS-002, ANALYTICS-008, ANALYTICS-009 (owner: engineering, after OD-026) |
+| Privacy and consent | DATA-088, AUTH-011 (owner: product/legal sets the DEC-043 policy, then engineering) |
+| Operations | OPS-008 maintenance mode, ADMIN-011 access review, PERF-009 cache/CDN headers |
+| CI pipeline | SEC-016 dependency and image scanning, SEC-017 vulnerability gate — reclassified from Blocked after the reviewer found the traceability rows still blamed an external platform decision while §15c already called CI engineering-owned |
+
+Each of those rows records the exact missing evidence, why the existing tests cannot prove
+it, and who must supply it.
+
+### Bounded local performance measurements
+
+`apps/api/src/perf/perf.itest.ts` runs under `npm run test:integration` against a
+disposable database and reports both a latency distribution and the correctness invariant
+that must hold while the contention is happening.
+
+**Environment:** Node v24.13.1, win32 x64, MongoDB replica set on `127.0.0.1:27018`,
+throwaway database dropped after the run, requests via `app.inject` — in process, with no
+network, TLS, proxy or connection pool in the path.
+
+| Scenario | Concurrency | Ops | p50 | p95 | max | Correctness result |
+|---|---|---|---|---|---|---|
+| A1 one key, cold window | 8 | 8 | 58.8 ms | 74.9 ms | 74.9 ms | 1 accepted, 7 × 409; **10 coin moved once**, exactly 1 ledger transaction |
+| A2 one key, open window | 8 | 8 | 45.2 ms | 65.0 ms | 65.0 ms | 1 accepted, 7 × 409; **value moved once**, no duplicate posting |
+| A3 distinct keys, cold window | 8 | 8 | 119.9 ms | 155.5 ms | 155.5 ms | **8/8 accepted**, 80 moved — the DRAGON-28 defect would surface here |
+| A4 distinct keys, open window | 8 | 8 | 102.1 ms | 143.3 ms | 143.3 ms | 8/8 accepted, 80 moved |
+| B rolling-window claims | 24 | 24 | 26.2 ms | 40.2 ms | 40.9 ms | budget 20 → **admitted 20, overshoot 0**, 4 refused, 4 compensations applied, stored counter = admitted |
+| C store last-unit contention | 8 | 8 | 58.5 ms | 99.0 ms | 99.0 ms | **exactly 1 winner**, 7 × 409, final stock 0, exactly 1 order line |
+| D stale-reservation scan | 1 | 1 | — | — | 4.6 ms | 301 rows (60 stale / 120 recent / 120 terminal); 50 findings at a configured limit of 50; **IXSCAN on `order_state_created`**, 50 keys and 50 docs examined |
+| E store reconciliation | 1 | 10 | 10.7 ms | 13.3 ms | 13.3 ms | 10/10 × 200 over 301 orders (121 paid) |
+
+**Errors: zero.** Every scenario asserts its invariant, so a regression fails the run
+rather than merely reporting a slower number.
+
+**Limitations — these are not production capacity evidence.** `app.inject` bypasses the
+network stack, so the latencies are a floor. Eight to twenty-four concurrent operations is
+contention, not load. The dataset is hundreds of rows, not the DEC-046 scale baseline. No
+agreed normal-load profile exists (OD-023), so nothing here can be compared against
+PERF-001, PERF-002 or PERF-003. Scenario E's seeded paid orders carry no line items, so it
+measures the query path rather than difference detection.
+
+**Classification: Measured locally.** PERF-004 moves to *Implemented* on this evidence —
+the scan examines exactly its configured bound and is index-backed. PERF-001, PERF-002,
+PERF-003, PERF-006, PERF-014 and OPS-014 remain **Blocked**, and the local numbers are
+recorded on those rows for orientation only, explicitly not as evidence for the targets.
+
+### Not attempted in this remediation
+
+- **The 29 remaining `Evidence pending` rows were not implemented.** They are recorded with their exact missing evidence and owner; building them is new product scope.
+- **The subject-scoped moderation queue read** — the product-level remedy — was not added.
+- **No load testing.** PERF-014 and OPS-014 stay blocked.
+
+## 15c. Corrected blocker classification
+
+The earlier statement that *"every remaining blocker is external"* was **wrong**. Three
+gaps remain that engineering owns and can close without any external input:
+
+### Remaining engineering blockers
+
+| Item | Why it is engineering-owned |
+|---|---|
+| 29 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, cache headers, and the two CI-scanning rows. No external input is needed to build any of them. |
+| 125 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
+| No CI pipeline | SEC-016, SEC-017 and TEST-026 all depend on it; the repository has no workflow at all. Authoring one needs no external decision — only the platform it eventually runs on does. |
+| Browser-suite instability | 3 failures in 17 full-suite runs, three different specs, all small-mobile element-wait timeouts. Cause not established. A release cannot be certified on a suite that is green 82% of the time. |
+
+Closed since the previous revision: the **moderation E2E flake** (test-only fix; the
+moderation test did not fail once in 17 full-suite runs), the **344 pending traceability
+rows** (dispositioned row by row), and the **absence of performance measurement** (bounded
+local measurements now recorded).
+
+Opened by this revision: **browser-suite instability under full parallelism**. Three
+different specs failed once each across those 17 runs, all on small-mobile, all as
+element-wait timeouts. The cause is not established and this is engineering-owned.
+
+### Remaining evidence gaps
+
+Manual accessibility certification (checklist prepared, human execution required),
+production observation under real load, and load testing at the DEC-046 scale baseline
+(OPS-014, PERF-014) — local contention measurement exists but is not load evidence.
+
+### Remaining external blockers
+
+Ten open decisions, payment-provider contract and credentials, authorized production
+sign-off, and authorized human accessibility certification. **These, and only these, are
+outside engineering's control.**
+
 ## 16. Release blockers
 
 1. **OD-013, OD-014** — Phase 2 NO-GO stands.
@@ -267,15 +484,16 @@ verified to have no route, state, collection, job, or UI action.
 5. **Phase 1 production deployment is not authorized** and 362 `Evidence pending` rows remain undispositioned under condition C1 of `RELEASE_DECISION.md`.
 6. **Authorized human sign-off is outstanding for every phase.** A model-generated recommendation is not human acceptance.
 7. **No live payment provider** — the entire money path runs on a deterministic mock.
-8. **Unresolved intermittent failure in a money-path concurrency test** (§7). Blocking for the economy scope until diagnosed.
-9. **No full browser run against the current commit** (§7). An evidence gap, not a known failure.
+8. ~~Unresolved intermittent money-path concurrency failure~~ — **resolved in DRAGON-28**; it was a real product defect and is fixed (§15b).
+9. ~~No full browser run against the current commit~~ — **obtained in DRAGON-28** (§15b).
 
 ## 17. Non-blocking risks
 
 - Stuck-reservation handling is **detection-only**; the remedy is policy-blocked.
 - Scale is unmeasured — every performance claim beyond the bundle is structural.
 - Bundle headroom is 3.73 kB; the next entry-chunk addition will need a split.
-- The browser suite has intermittently exited non-zero while reporting all tests passed (seen in DRAGON-24, 25, 26). Undiagnosed, and not reproducible this session because the suite could not be run.
+- **Corrected:** the browser suite does not exit non-zero with all tests passing. It has one flaky test — `moderation.spec.ts` *"report a tournament … and a moderator sees it (fa)"* — which fails roughly one run in three. Undiagnosed. The earlier "phantom exit code" reports were a reporting error on my part, not a defect (§15b).
+- Entry-bundle headroom improved to 38.87 kB, so this is no longer a near-term risk.
 - The `docker-compose.yml` working-tree change remains uncommitted.
 
 ## 18. Deferred work

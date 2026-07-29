@@ -102,6 +102,19 @@ for (const { locale, direction, stateOpen, severityLow } of LOCALES) {
     // The subject is rendered as `type · short-id` (SEC-001), so the row is matched on the
     // truncated identifier that is actually shown.
     const row = modPage.getByRole('row', { name: new RegExp(id.slice(0, 8)) });
+    // The queue is a paged, newest-first list. During a full parallel run, cases created by
+    // other specs land on top and push this one off the first page, so looking only at what
+    // loads initially made this assertion depend on how busy the rest of the suite was.
+    // Page forward through the queue's own control until the row is reachable — the
+    // assertion below is unchanged, and no product behaviour is altered to satisfy it.
+    const loadMore = modPage.getByTestId('load-more');
+    const allRows = modPage.getByRole('row');
+    for (let attempt = 0; attempt < 10; attempt += 1) {
+      if ((await row.count()) > 0 || (await loadMore.count()) === 0) break;
+      const before = await allRows.count();
+      await loadMore.click();
+      await expect.poll(async () => allRows.count(), { timeout: 5_000 }).toBeGreaterThan(before);
+    }
     await expect(row).toHaveCount(1);
     // Expected state and severity are shown, localized (not raw enum tokens or i18n keys).
     await expect(row).toContainText(stateOpen);
