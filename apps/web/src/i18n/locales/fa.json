@@ -1159,7 +1159,8 @@
       "completed": "پایان‌یافته",
       "archived": "بایگانی‌شده"
     },
-    "filteredByParticipant": "ورود: {type}"
+    "filteredByParticipant": "ورود: {type}",
+    "tbd": "تاریخ اعلام نشده"
   },
   "adminTournaments": {
     "heading": "تورنومنت‌ها",

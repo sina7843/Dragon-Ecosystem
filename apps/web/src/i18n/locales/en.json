@@ -1159,7 +1159,8 @@
       "completed": "Completed",
       "archived": "Archived"
     },
-    "filteredByParticipant": "Entry: {type}"
+    "filteredByParticipant": "Entry: {type}",
+    "tbd": "Date not announced"
   },
   "adminTournaments": {
     "heading": "Tournaments",
