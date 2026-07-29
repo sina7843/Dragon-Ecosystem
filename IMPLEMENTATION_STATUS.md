@@ -36,8 +36,60 @@
 - Phase 4 community release closure: complete (DRAGON-23) — implemented and verified, not yet committed. **Phase 4 release decision: NO-GO** (`RELEASE_DECISION_PHASE4.md`), blocked by OD-017 + OD-024 + OD-027; no implementation failure outstanding
 - Phase 5 store catalog, inventory, and fulfillment: complete (DRAGON-24) — implemented and verified, not yet committed
 - Phase 5 economy, rewards, peer transfer, and payouts: complete (DRAGON-25) — implemented and verified, not yet committed
-- Active prompt: DRAGON-25 (Phase 5 economy, rewards, peer transfer, and payouts); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Phase 5 commerce and economy release closure: complete (DRAGON-26) — implemented and verified, not yet committed. **Phase 5 release decision: NO-GO** (`RELEASE_DECISION_PHASE5.md`), blocked by OD-019 + OD-020 + OD-030; no implementation failure outstanding
+- Active prompt: DRAGON-26 (Phase 5 commerce and economy release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-26 — Phase 5 commerce and economy release closure
+
+Traceability reconciliation and a release verdict, not new product surface.
+
+**Twenty Phase 5 rows changed.** Twelve had sat `Evidence pending` since DRAGON-17a while
+the capability they describe was actually delivered by DRAGON-12, 24, or 25 — PAYOUT-001,
+002, 003, REWARD-001, REWARD-008, DATA-070, DATA-071, PAGE-058, PAGE-059, ROLE-022, BR-022,
+and JOURNEY-008. Eight requirements had **no row at all**: GOAL-009, UC-020, UC-021,
+JOURNEY-007, DATA-072, API-095, API-096, and PAGE-042. Several are recorded `Partial`
+rather than `Implemented`, each with the specific clause that is not satisfied — PAYOUT-002
+has no product prize components, PAGE-058 has no refund control because DEC-044 makes
+purchases final, and JOURNEY-007's delivery-validation and fulfilment steps are unreachable
+while OD-019 holds.
+
+**Four deviations recorded rather than hidden.**
+
+| Deviation | Why |
+|---|---|
+| A payout is the prize entitlement record (DATA-072), with `/admin/entitlements/…` paths instead of API-095/096's `/admin/prize-allocations/…` and `/admin/payouts/…` | Settlement is manual and off-platform under DEC-045, so a payout has no life independent of the entitlement it settles — a second record would be a copy that can disagree. Approval is per entitlement because BR-022 requires components to settle independently |
+| No mixed-payment order | DEC-050 permits no Toman balance to spend, so there is nothing to mix from. A split payment would also leave an order half-settled on failure, with no return workflow to unwind it (DEC-034) |
+| Prize entitlements on the wallet page, not `/account/prizes` (PAGE-042) | A cash prize is balance-adjacent; a second page splits one financial picture in two |
+| `/account/payouts` (PAGE-043) not built | Its own acceptance note is "no withdrawal capability is shown unless legally activated", and no withdrawal exists |
+
+**Phase 5 release decision: NO-GO**, recorded in `RELEASE_DECISION_PHASE5.md`. Blocked
+entirely by OD-019, OD-020, and OD-030, with **no implementation failure outstanding**. What
+the blockers leave is a commerce phase that cannot sell anything physical, cannot revoke
+anything digital, and cannot let one person buy from another — a shop with the shutters
+half down.
+
+**Review.** One focused `test-reviewer` release-readiness pass: **APPROVE WITH NOTES, no
+Critical and no High findings.** It verified by direct code reading that DRAGON-25's two
+Critical fixes and one High fix are in place and complete, that every gate default is
+fail-closed in both `config.ts` and `.env.example`, that each blocked capability is absent
+rather than simulated, and that all four deviations match the code. It found two Medium
+bookkeeping defects, both fixed: `REWARD-001` and `REWARD-008` had been re-tagged
+`PHASE_1, PHASE_5` when `Requirements.md` tags them `FOUNDATION, PHASE_1` and `PHASE_1`,
+and `ROLE-022` had lost its `FOUNDATION` tag. The phase-tag pass had pattern-matched
+instead of reading each requirement's own tag — a closure slice asserting a re-scope the
+requirement document never made is precisely the drift this file exists to prevent.
+
+### DRAGON-26 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — **0 errors**, 63 warnings (all pre-existing formatting warnings)
+- `npm test` — **450 passed, 0 failed** · `npm run test:integration` — **476 passed, 0 failed**
+- `npm run build` — pass · `npm run test:budget` — pass (entry bundle 376.21 kB against a 380 kB budget)
+- `npm run e2e` — **464 passed, 1 skipped, 0 failed** across three viewports in fa RTL + en LTR, exit 0
+- `npm run docker:up` — web, api, and mongo all **healthy**
+- `npm run verify:persistence` — **PASS**
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
 
 ## DRAGON-25 — Phase 5 economy, rewards, peer transfer, and payouts
 
