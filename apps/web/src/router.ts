@@ -307,6 +307,12 @@ export const router = createRouter({
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStreams' }
     },
     {
+      path: '/:locale(fa|en)/admin/prizes',
+      name: 'admin-prizes',
+      component: () => import('./views/AdminPrizesView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminPrizes' }
+    },
+    {
       path: '/:locale(fa|en)/admin/store',
       name: 'admin-store',
       component: () => import('./views/AdminStoreView.vue'),

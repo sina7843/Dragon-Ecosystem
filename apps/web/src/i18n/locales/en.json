@@ -49,7 +49,8 @@
       "checkout": "Checkout",
       "orders": "Orders",
       "adminStore": "Store administration",
-      "adminOrders": "Order operations"
+      "adminOrders": "Order operations",
+      "adminPrizes": "Prize settlement"
     }
   },
   "player": {
@@ -258,7 +259,8 @@
       "community": "Community moderation",
       "courses": "Courses",
       "store": "Store",
-      "orders": "Order operations"
+      "orders": "Order operations",
+      "prizes": "Prize settlement"
     },
     "community": {
       "title": "Community moderation",
@@ -608,6 +610,39 @@
       "viewFulfillment": "View fulfillment",
       "reason": "Reason",
       "markPacked": "Mark packed"
+    },
+    "prizes": {
+      "title": "Prize settlement",
+      "intro": "Cash prize entitlements, their settlement state, and the finance reconciliation. Settlement is manual and off-platform; no payout provider is called.",
+      "dualControl": "A payout must be settled by someone other than the actor who approved it, and the recipient must be verified first.",
+      "empty": "No cash entitlements yet.",
+      "reference": "Entitlement",
+      "amount": "Amount (Toman)",
+      "state": "State",
+      "reason": "Reason",
+      "evidence": "Settlement evidence",
+      "verify": "Verify recipient",
+      "approve": "Approve",
+      "pay": "Record settlement",
+      "fail": "Mark failed",
+      "retry": "Retry",
+      "reverse": "Reverse",
+      "reconciliation": "Reconciliation",
+      "reconciled": "Definition, allocation, ledger, and settlement all agree.",
+      "differences": "{count} difference(s) found.",
+      "outstanding": "Outstanding: {amount} Toman",
+      "settled": "Settled: {amount} Toman"
+    },
+    "entitlementState": {
+      "pending": "Pending",
+      "manual_review": "Manual review",
+      "approved": "Approved",
+      "processing": "Processing",
+      "paid": "Paid",
+      "failed": "Failed",
+      "cancelled": "Cancelled",
+      "reversed": "Reversed",
+      "superseded": "Superseded"
     }
   },
   "designSystem": {
@@ -1385,6 +1420,23 @@
       "paid": "Paid",
       "failed": "Failed",
       "superseded": "Superseded"
+    },
+    "transfer": {
+      "heading": "Send Dragon Coin",
+      "recipient": "Recipient username",
+      "amount": "Amount",
+      "note": "Note (optional)",
+      "send": "Send",
+      "sent": "Dragon Coin sent.",
+      "held": "Held for review. Nothing has moved yet.",
+      "empty": "You have not sent or received any Dragon Coin yet.",
+      "limits": "Up to {max} Dragon Coin per transfer. {review} or more is held for review before it moves.",
+      "noCashOut": "Dragon Coin cannot be sold back or redeemed for money. There is no cash-out.",
+      "state": {
+        "completed": "Sent",
+        "manual_review": "Held for review",
+        "rejected": "Rejected"
+      }
     }
   },
   "checkout": {

@@ -141,19 +141,115 @@ describe('cash entitlement lifecycle (finance)', () => {
     return { id: doc?._id as string, accountId: accA };
   }
 
-  test('approve then pay with settlement evidence advances the entitlement', async () => {
+  test('verify, approve, then pay with settlement evidence advances the entitlement', async () => {
     const { id } = await pendingEntitlement();
-    const approved = await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 1, reason: 'verified winner' });
+    const verified = await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'ID checked against the registration' });
+    assert.equal(verified.state, 'pending', 'verification annotates without advancing the state');
+    const approved = await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'verified winner' });
     assert.equal(approved.state, 'approved');
-    const paid = await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 2, reason: 'bank transfer done', settlementEvidence: 'REF-2026-0001' });
+    const paid = await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'bank transfer done', settlementEvidence: 'REF-2026-0001' });
     assert.equal(paid.state, 'paid');
     assert.equal(paid.settlementEvidence, 'REF-2026-0001');
   });
 
   test('paying without settlement evidence is rejected', async () => {
     const { id } = await pendingEntitlement();
-    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 1, reason: 'ok' });
-    await assert.rejects(() => prizes.payEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'x', settlementEvidence: '   ' }), (e: { fieldErrors?: Array<{ code: string }> }) => e.fieldErrors?.[0]?.code === 'SETTLEMENT_EVIDENCE_REQUIRED');
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'ok' });
+    await assert.rejects(() => prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'x', settlementEvidence: '   ' }), (e: { fieldErrors?: Array<{ code: string }> }) => e.fieldErrors?.[0]?.code === 'SETTLEMENT_EVIDENCE_REQUIRED');
+  });
+
+  test('PAYOUT-006: the actor who approved cannot also settle', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('same-actor'), id, { expectedVersion: 2, reason: 'approved' });
+    await assert.rejects(
+      () => prizes.payEntitlement(ctx('same-actor'), id, { expectedVersion: 3, reason: 'paying my own approval', settlementEvidence: 'REF' }),
+      (error: Error) => /someone other than the actor who approved/.test(error.message)
+    );
+  });
+
+  test('PAYOUT-006: an entitlement that reached approved without an approver cannot be settled', async () => {
+    // Regression for a dual-control bypass: fail a never-approved payout, retry it back to
+    // approved, and the approver comparison would have had nobody to compare against.
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.failEntitlement(ctx('solo'), id, { expectedVersion: 2, reason: 'bank rejected it' });
+    const retried = await prizes.retryEntitlement(ctx('solo'), id, { expectedVersion: 3, reason: 'retry' });
+    assert.equal(retried.state, 'approved');
+    // The retrying actor becomes the approver of record, so settling as the same actor is
+    // now refused by dual control rather than slipping past a null comparison.
+    assert.equal(retried.approvedBy, 'solo');
+    await assert.rejects(
+      () => prizes.payEntitlement(ctx('solo'), id, { expectedVersion: 4, reason: 'settling my own retry', settlementEvidence: 'REF' }),
+      (error: Error) => /someone other than the actor who approved/.test(error.message)
+    );
+  });
+
+  test('PAYOUT-012: reconciliation names a settled payout that has no approver at all', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'approved' });
+    await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'settled', settlementEvidence: 'REF-OK' });
+    // Force the condition: a paid entitlement whose approver is missing.
+    await coll(PRIZES_COLLECTIONS.entitlements).updateOne({ _id: id }, { $set: { approvedBy: null } });
+    const report = await prizes.reconcileFinance();
+    assert.ok(report.differences.some((d) => d.kind === 'settled_without_approver'), 'the report names it rather than passing in silence');
+  });
+
+  test('PAYOUT-011: settlement is refused while the recipient is unverified', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 1, reason: 'approved' });
+    await assert.rejects(
+      () => prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 2, reason: 'paying', settlementEvidence: 'REF' }),
+      (error: { code?: string }) => error.code === 'RECIPIENT_NOT_VERIFIED'
+    );
+  });
+
+  test('PAYOUT-009: a failed settlement is retried on the same record, not a new one', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'approved' });
+    const failed = await prizes.failEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'bank rejected the transfer' });
+    assert.equal(failed.state, 'failed');
+
+    const retried = await prizes.retryEntitlement(ctx('fin'), id, { expectedVersion: 4, reason: 'retry with corrected details' });
+    assert.equal(retried.state, 'approved');
+    assert.equal(retried._id, id, 'the same entitlement is reused, so a retry cannot become a second payment');
+
+    const paid = await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 5, reason: 'settled', settlementEvidence: 'REF-RETRY' });
+    assert.equal(paid.state, 'paid');
+    assert.equal(await coll(PRIZES_COLLECTIONS.entitlements).countDocuments({ _id: id }), 1, 'exactly one entitlement exists');
+  });
+
+  test('PAYOUT-010: a settled payout is reversed without altering the original evidence', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'approved' });
+    await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'settled', settlementEvidence: 'REF-ORIGINAL' });
+
+    const reversed = await prizes.reverseEntitlement(ctx('fin3'), id, { expectedVersion: 4, reason: 'paid to the wrong account' });
+    assert.equal(reversed.state, 'reversed');
+    assert.equal(reversed.settlementEvidence, 'REF-ORIGINAL', 'the original evidence survives the reversal');
+    assert.equal(reversed.reversalReason, 'paid to the wrong account');
+    // A reversal is terminal: the record shows both that it was paid and that it was undone.
+    await assert.rejects(() => prizes.payEntitlement(ctx('fin4'), id, { expectedVersion: 5, reason: 'again', settlementEvidence: 'REF-2' }));
+  });
+
+  test('PAYOUT-012: reconciliation names a dual-control violation rather than hiding it', async () => {
+    const { id } = await pendingEntitlement();
+    await prizes.verifyRecipient(ctx('fin'), id, { expectedVersion: 1, reason: 'checked' });
+    await prizes.approveEntitlement(ctx('fin'), id, { expectedVersion: 2, reason: 'approved' });
+    await prizes.payEntitlement(ctx('fin2'), id, { expectedVersion: 3, reason: 'settled', settlementEvidence: 'REF-OK' });
+
+    const clean = await prizes.reconcileFinance();
+    assert.deepEqual(clean.differences, [], 'a correctly settled payout raises nothing');
+    assert.equal(clean.cash.settledAmount, 5_000_000);
+
+    // Force the condition the report exists to catch: the same actor on both sides.
+    await coll(PRIZES_COLLECTIONS.entitlements).updateOne({ _id: id }, { $set: { paidBy: 'fin' } });
+    const dirty = await prizes.reconcileFinance();
+    assert.ok(dirty.differences.some((d) => d.kind === 'dual_control_violation'), 'the report names the violation');
   });
 
   test('an invalid transition (pay while pending) is rejected', async () => {

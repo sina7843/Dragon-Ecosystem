@@ -17,6 +17,7 @@ import {
 } from '../composables/usePaymentsApi.ts';
 import { getWalletSummary, listHolds, type HoldView, type WalletSummary } from '../composables/useHoldsApi.ts';
 import { listEntitlements, type EntitlementView } from '../composables/useCheckoutApi.ts';
+import { getEconomyConfig, listMyTransfers, sendCoins, type CoinTransferView, type EconomyConfig } from '../composables/useEconomyApi.ts';
 
 /**
  * Dragon Coin wallet (DRAGON-11b). Shows packages, the current balance, and
@@ -38,6 +39,11 @@ const summary = ref<WalletSummary>({ ledgerBalance: 0, heldAmount: 0, availableB
 const holds = ref<HoldView[]>([]);
 const entitlements = ref<EntitlementView[]>([]);
 const history = ref<PurchaseView[]>([]);
+const transfers = ref<CoinTransferView[]>([]);
+const economy = ref<EconomyConfig | null>(null);
+const transferForm = ref({ recipientUsername: '', amount: 0, note: '' });
+const transferError = ref<string | undefined>(undefined);
+const transferring = ref(false);
 const active = ref<PurchaseView | null>(null);
 const busy = ref(false);
 
@@ -57,11 +63,48 @@ async function refresh(): Promise<void> {
   holds.value = (await listHolds()).items;
   entitlements.value = (await listEntitlements()).items;
   history.value = (await listPurchases()).items;
+  transfers.value = (await listMyTransfers()).items;
+}
+
+/**
+ * Sends Dragon Coin to another player (REWARD-005).
+ *
+ * The key is generated per submission and reused only on an in-flight retry, so a double
+ * click cannot send twice. A transfer over the review threshold comes back held, and the
+ * page says so rather than implying the coin arrived.
+ */
+async function submitTransfer(): Promise<void> {
+  if (transferring.value || transferForm.value.recipientUsername.trim() === '') return;
+  transferring.value = true;
+  transferError.value = undefined;
+  try {
+    const result = await sendCoins({
+      recipientUsername: transferForm.value.recipientUsername.trim(),
+      amount: transferForm.value.amount,
+      note: transferForm.value.note,
+      idempotencyKey: `transfer-${String(Date.now())}-${Math.random().toString(36).slice(2, 10)}`
+    });
+    // A held transfer is reported as such, not as a success: nothing has moved yet.
+    if (result.state === 'completed') push('success', t('wallet.transfer.sent'));
+    else push('info', t('wallet.transfer.held'));
+    transferForm.value = { recipientUsername: '', amount: 0, note: '' };
+    await refresh();
+  } catch (error) {
+    transferError.value = messageFor(error);
+  } finally {
+    transferring.value = false;
+  }
 }
 
 onMounted(async () => {
   try {
     packages.value = (await listPackages()).packages;
+    // Informational: the limits notice must not be able to take the wallet down.
+    try {
+      economy.value = await getEconomyConfig();
+    } catch {
+      economy.value = null;
+    }
     await refresh();
     loadError.value = undefined;
   } catch (caught) {
@@ -313,6 +356,96 @@ async function simulate(outcome: 'success' | 'failed' | 'cancelled'): Promise<vo
           </tbody>
         </table>
       </div>
+
+      <h2>{{ t('wallet.transfer.heading') }}</h2>
+      <p
+        v-if="economy"
+        class="muted"
+        data-testid="transfer-limits"
+      >
+        {{ t('wallet.transfer.limits', { max: formatNumber(economy.limits.maxTransferAmount, activeLocale()), review: formatNumber(economy.limits.manualReviewThreshold, activeLocale()) }) }}
+      </p>
+      <!-- Stated plainly: Dragon Coin never turns back into money (DEC-024, REWARD-006). -->
+      <p
+        class="muted"
+        data-testid="no-cash-out"
+      >
+        {{ t('wallet.transfer.noCashOut') }}
+      </p>
+
+      <form
+        class="transfer-form"
+        novalidate
+        @submit.prevent="submitTransfer"
+      >
+        <label for="transfer-recipient">{{ t('wallet.transfer.recipient') }}</label>
+        <input
+          id="transfer-recipient"
+          v-model="transferForm.recipientUsername"
+          type="text"
+          autocomplete="off"
+          data-testid="transfer-recipient"
+        >
+
+        <label for="transfer-amount">{{ t('wallet.transfer.amount') }}</label>
+        <input
+          id="transfer-amount"
+          v-model.number="transferForm.amount"
+          type="number"
+          min="1"
+          data-testid="transfer-amount"
+        >
+
+        <label for="transfer-note">{{ t('wallet.transfer.note') }}</label>
+        <input
+          id="transfer-note"
+          v-model="transferForm.note"
+          type="text"
+          maxlength="200"
+          dir="auto"
+          data-testid="transfer-note"
+        >
+
+        <p
+          v-if="transferError"
+          class="error"
+          role="alert"
+          data-testid="transfer-error"
+        >
+          {{ transferError }}
+        </p>
+
+        <button
+          type="submit"
+          data-testid="transfer-submit"
+          :disabled="transferring || transferForm.recipientUsername.trim() === '' || transferForm.amount < 1"
+        >
+          {{ t('wallet.transfer.send') }}
+        </button>
+      </form>
+
+      <StateBlock
+        v-if="transfers.length === 0"
+        variant="empty"
+        :message="t('wallet.transfer.empty')"
+        :heading-level="3"
+      />
+      <ul
+        v-else
+        class="transfer-list"
+        data-testid="transfer-list"
+      >
+        <li
+          v-for="transfer in transfers"
+          :key="transfer.id"
+        >
+          {{ formatNumber(transfer.amount, activeLocale()) }} {{ t('money.dragonCoinUnit') }}
+          <span
+            class="muted"
+            data-testid="transfer-state"
+          >{{ t(`wallet.transfer.state.${transfer.state}`) }}</span>
+        </li>
+      </ul>
 
       <h2>{{ t('wallet.history') }}</h2>
       <StateBlock

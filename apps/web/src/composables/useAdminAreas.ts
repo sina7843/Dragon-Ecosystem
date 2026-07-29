@@ -51,6 +51,9 @@ export function useAdminAreas(): { areas: ComputedRef<AdminArea[]> } {
       { path: '/admin/chat', labelKey: 'admin.area.chat', visible: canModerateChat.value, testid: 'area-chat' },
       // Catalog and order operations share the shop-operator permission; neither can
       // reach a ledger, which is the ROLE-021 boundary.
+      // Prize settlement is finance work, gated on the finance permission rather than the
+      // tournament one: ROLE-021/022 keep goods and money apart.
+      { path: '/admin/prizes', labelKey: 'admin.area.prizes', visible: canManageFinance.value, testid: 'area-prizes' },
       { path: '/admin/store', labelKey: 'admin.area.store', visible: canManageStore.value, testid: 'area-store' },
       { path: '/admin/orders', labelKey: 'admin.area.orders', visible: canManageStore.value, testid: 'area-orders' },
       // Community review sits with the rest of moderation: same permission, same cases.

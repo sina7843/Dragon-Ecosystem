@@ -35,8 +35,68 @@
 - Phase 4 community and advanced team roles: complete (DRAGON-22) — committed (`c1cdd9a`)
 - Phase 4 community release closure: complete (DRAGON-23) — implemented and verified, not yet committed. **Phase 4 release decision: NO-GO** (`RELEASE_DECISION_PHASE4.md`), blocked by OD-017 + OD-024 + OD-027; no implementation failure outstanding
 - Phase 5 store catalog, inventory, and fulfillment: complete (DRAGON-24) — implemented and verified, not yet committed
-- Active prompt: DRAGON-24 (Phase 5 store catalog, inventory, and fulfillment); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Phase 5 economy, rewards, peer transfer, and payouts: complete (DRAGON-25) — implemented and verified, not yet committed
+- Active prompt: DRAGON-25 (Phase 5 economy, rewards, peer transfer, and payouts); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-25 — Phase 5 economy, rewards, peer transfer, and payouts
+
+A new `economy` module (migration `029-economy`) plus payout hardening inside `prizes`.
+
+- **A transfer is one balanced journal.** Both legs commit together, so there is no window
+  in which coin exists nowhere. The ledger reference is derived from the caller's
+  `(sender, idempotencyKey)` — not from a generated record id — which is what makes two
+  concurrent requests under one key collapse into a single posting.
+- **The rolling window is claimed, not read.** A read-then-decide check is not a limit:
+  concurrent requests all see the same pre-race totals and are all admitted. A single
+  conditional update claims both the count and the amount budget, so a losing racer matches
+  nothing. Budgets are handed back when the transfer is then refused.
+- **A held transfer moves nothing.** Recording a review while the coin has already arrived
+  is the worst of both — the recipient could spend it before anyone looked. A held
+  transfer therefore carries no ledger transaction at all, and the reconciliation report
+  treats "an unreleased transfer with a ledger transaction" as a difference it must name.
+- **Payout settlement takes two people and a verified recipient.** Dual control is checked
+  on the *actor*, because one person can hold both finance permissions. A retry reuses the
+  same entitlement id, so a second payment is structurally impossible; a reversal is
+  recorded alongside the original evidence, so the record shows both that it was paid and
+  that it was undone.
+- **Cash redemption is absent, not gated.** DEC-024 forbids it and DEC-023 defines trading
+  as direct transfer, so a feature flag would imply a decision that is not pending. Proven
+  three ways: no registered route, no price or counter-asset on the transfer contract, and
+  **no ledger transaction type that could balance a cash-out** even for a future caller.
+
+**The security review returned REQUEST-CHANGES, and it was right.** Two Critical and one
+High, all real, all fixed, each with a regression test:
+
+| Finding | What it allowed | Fix |
+|---|---|---|
+| Dual-control bypass (Critical) | Failing a never-approved payout and retrying it reached `approved` with `approvedBy` still null, so the approver comparison had nobody to compare against and one actor could settle alone | Settlement now refuses an entitlement with no recorded approver, a retry records the retrying actor as approver, and reconciliation names a settled payout with no approver |
+| Double ledger posting (Critical) | Two concurrent requests under one idempotency key each generated a record id, so each posted its own ledger transaction — the sender was debited twice while the API reported one transfer | The ledger reference derives from `(sender, idempotencyKey)`, so the ledger's own dedup collapses the race; reconciliation now also detects a ledger posting with no transfer record |
+| Window limits raceable (High) | Concurrent transfers each read the same pre-race window totals and were all admitted, collectively passing the configured limit | An atomic claim in a single conditional update, with the budget released when the transfer is subsequently refused |
+
+The reviewer also noted the reconciliation reports only checked one direction
+(record-without-transaction). Both now check the other direction too, which is the check
+that would have caught the second Critical.
+
+### DRAGON-25 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — **0 errors**, 63 warnings (all pre-existing formatting warnings)
+- `npm test` — **450 passed, 0 failed** (api 405, web 45)
+- `npm run test:integration` — **476 passed, 0 failed** (economy 20, prizes 16)
+- `npm run build` — pass · `npm run test:budget` — pass (entry bundle 376.21 kB against a 380 kB budget; **within 4 kB of the ceiling**, so the next slice adding to the entry chunk will need to split something)
+- `npm run e2e` — **464 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 10 economy tests × 3 viewports
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+
+**Known intermittent.** The browser suite occasionally exits non-zero while reporting every
+test passed; re-running is clean and no test failure is ever named. Seen in DRAGON-24 and
+again here, on runs whose reported results were identical to passing runs. Recorded rather
+than explained — it has not been diagnosed.
+
+**Deliberately out of scope.** `/account/payouts` (PAGE-043) is not built: its own
+acceptance note is "no withdrawal capability is shown unless legally activated", and no
+withdrawal exists. Peer commerce (user-to-user *purchase*) stays absent under OD-030.
+Automatic threshold-driven payout review is defined and surfaced but not auto-applied.
 
 ## DRAGON-24 — Phase 5 store catalog, inventory, and fulfillment
 

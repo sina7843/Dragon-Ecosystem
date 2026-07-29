@@ -25,6 +25,7 @@ import { chatMigration } from './modules/chat/migrations.ts';
 import { educationMigration } from './modules/education/migrations.ts';
 import { socialMigration } from './modules/social/migrations.ts';
 import { storeMigration } from './modules/store/migrations.ts';
+import { economyMigration } from './modules/economy/migrations.ts';
 import { perfIndexesMigration } from './migrations-perf-indexes.ts';
 import { auditIndexesMigration } from './migrations-audit-indexes.ts';
 
@@ -63,5 +64,6 @@ export const allMigrations: readonly Migration[] = [
   chatMigration,
   educationMigration,
   socialMigration,
-  storeMigration
+  storeMigration,
+  economyMigration
 ];

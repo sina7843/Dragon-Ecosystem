@@ -31,6 +31,7 @@ import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStr
 import { EducationService, registerEducationRoutes } from './modules/education/index.ts';
 import { SocialService, DEFAULT_SOCIAL_CONFIG, registerSocialRoutes, type SocialDirectory, type SocialModerationCases } from './modules/social/index.ts';
 import { StoreService, registerStoreRoutes, type StorePayments } from './modules/store/index.ts';
+import { EconomyService, DEFAULT_ECONOMY_LIMITS, registerEconomyRoutes, type EconomyDirectory } from './modules/economy/index.ts';
 import type { EntityId } from './shared/ids.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
@@ -109,6 +110,7 @@ export interface ServerDependencies {
   readonly education?: { service: EducationService };
   readonly social?: { service: SocialService };
   readonly store?: { service: StoreService };
+  readonly economy?: { service: EconomyService };
 }
 
 declare module 'fastify' {
@@ -355,6 +357,14 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               identity: deps.identity.service,
               authorization: deps.admin.authorization,
               education: deps.education.service
+            });
+          }
+          // The economy reaches identity through a port and money through the ledger only.
+          if (deps.economy !== undefined) {
+            registerEconomyRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              economy: deps.economy.service
             });
           }
           // The store reaches money only through the shared holds boundary, so it needs no
@@ -823,6 +833,22 @@ export function buildStore(database: Database, config: AppConfig, holds: { servi
   };
 }
 
+/**
+ * Wires the economy module.
+ *
+ * The recipient of a transfer is resolved through the same public-profile rule the rest of
+ * the product uses, so a private account cannot be discovered by sending coin at it.
+ */
+export function buildEconomy(database: Database, identity: { service: IdentityService }, ledger: { service: LedgerService }): { service: EconomyService } {
+  const directory: EconomyDirectory = {
+    async resolveRecipient(username) {
+      if (!(await identity.service.isProfilePublic(username))) return null;
+      return identity.service.findAccountIdByUsername(username);
+    }
+  };
+  return { service: new EconomyService(database, DEFAULT_ECONOMY_LIMITS, ledger.service, directory) };
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -901,7 +927,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     chat: buildChat(database, streams, moderation),
     education: buildEducation(database, config, holds),
     social: buildSocial(database, config, identity, moderation),
-    store: buildStore(database, config, holds)
+    store: buildStore(database, config, holds),
+    economy: buildEconomy(database, identity, ledger)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes
