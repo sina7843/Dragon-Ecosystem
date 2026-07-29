@@ -37,8 +37,63 @@
 - Phase 5 store catalog, inventory, and fulfillment: complete (DRAGON-24) — implemented and verified, not yet committed
 - Phase 5 economy, rewards, peer transfer, and payouts: complete (DRAGON-25) — implemented and verified, not yet committed
 - Phase 5 commerce and economy release closure: complete (DRAGON-26) — implemented and verified, not yet committed. **Phase 5 release decision: NO-GO** (`RELEASE_DECISION_PHASE5.md`), blocked by OD-019 + OD-020 + OD-030; no implementation failure outstanding
-- Active prompt: DRAGON-26 (Phase 5 commerce and economy release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Whole-ecosystem audit and release evidence: complete (DRAGON-27a, 27b, 27c). **Final ecosystem verdict: NO-GO** (`RELEASE_DECISION_ECOSYSTEM.md`). Implementation completeness and release approval are separate: the code is largely built and tested; the release is blocked by ten open external decisions, four standing phase NO-GOs, an unauthorized Phase 1 production deployment, and missing human sign-off
+- Active prompt: DRAGON-27c (final ecosystem release evidence and decision); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-27 — Whole-ecosystem audit and release evidence
+
+Three bounded slices. No new product capability was added in any of them.
+
+**27a — cross-phase integration audit.** Mechanical audits of the backend and frontend
+route registries, navigation links, API-client targets, i18n key usage, event payloads,
+admin authorization guards, and gate defaults. Results: no duplicate `(method, path)` pair,
+no navigation link without a route, **zero admin routes without a permission guard**, all
+gates fail-closed, and no secret in any event payload — `account.registered` publishes a
+masked mobile. One confirmed defect: `t('tournaments.tbd')` resolved in neither locale, so
+a game page with an undated tournament rendered the raw key. Fixed, plus a guardrail that
+every literal `t()` key must resolve in every locale — the pre-existing parity test could
+not have caught a key missing from *both* files, which is how it shipped.
+
+**27b — security, finance, data-integrity, and failure-recovery audit.** Six confirmed
+defects fixed:
+
+| Defect | Effect |
+|---|---|
+| Transfer-window opening used `$set: { count: 1 }` | Two concurrent openers each wrote 1, losing a claim and admitting an extra transfer past the limit. Surfaced by the parallel suite as *"admitted 21 transfers past a limit of 20"* |
+| Compensating decrement not scoped to its window generation | A delayed compensation could corrupt a newer window's budget |
+| Orphan-item reconciliation scan used `$nin` | Unindexed full scan, and its budget was consumed by ordinary unpaid-order items before reaching a real orphan |
+| Course enrolments had no `(state, createdAt)` index | The recovery scan would have been a collection scan; added with migration `030-recovery-indexes` |
+| Recovery adapter read `accountId` on enrolments | They name it `learnerId`; would have reported blank owners |
+| Store reconciliation was one-directional | Added `paid_without_reservation` and `item_without_order` |
+
+Added a shared **read-only** stuck-reservation detector for the crash window between domain
+commit and hold capture, exposed at a permission-protected
+`GET /admin/ops/stuck-reservations`. It is a **detector, not a recovery mechanism**: it
+repairs nothing, because a captured-but-unfinished order has no approved remedy under
+DEC-034.
+
+**27c — final release evidence and decision.** Reconciled the five phase decisions against
+the current code, confirmed every gate still fail-closed and every absent capability still
+absent, and produced `RELEASE_DECISION_ECOSYSTEM.md`. **Verdict: NO-GO**, driven by ten
+open external decisions and outstanding human sign-off rather than by any implementation
+failure.
+
+Two evidence gaps are recorded in that document rather than smoothed over: no full browser
+suite run exists against the 27a/27b commits, because the Docker engine began returning
+`500 Internal Server Error` partway through the slice and took the disposable test database
+with it; and a money-path concurrency test in `economy.itest.ts` failed once in four
+full-suite runs, passing in isolation and on re-runs, with its assertion message not
+captured before the environment went down. It is listed as a release blocker for the
+economy scope, not dismissed as a flake.
+
+### DRAGON-27c verification, 2026-07-29
+
+- `npm run typecheck` — pass · `npm run lint` — **0 errors** · `npm test` — **451/451**
+- `npm run test:integration` — 491 tests; **490/491 on one of four runs**, 491/491 on the other three (see above)
+- `npm run build` — pass · `npm run test:budget` — pass, 376.27 kB against 380 kB
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+- `npm run e2e`, `npm run verify:persistence`, Docker health — **not runnable this session** (engine unavailable); persistence and Docker health last passed at this same commit during 27b
 
 ## DRAGON-26 — Phase 5 commerce and economy release closure
 
