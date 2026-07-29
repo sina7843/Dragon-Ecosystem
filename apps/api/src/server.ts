@@ -30,6 +30,7 @@ import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPu
 import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStreamAccess } from './modules/chat/index.ts';
 import { EducationService, registerEducationRoutes } from './modules/education/index.ts';
 import { SocialService, DEFAULT_SOCIAL_CONFIG, registerSocialRoutes, type SocialDirectory, type SocialModerationCases } from './modules/social/index.ts';
+import { StoreService, registerStoreRoutes, type StorePayments } from './modules/store/index.ts';
 import type { EntityId } from './shared/ids.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
@@ -107,6 +108,7 @@ export interface ServerDependencies {
   readonly chat?: { service: ChatService };
   readonly education?: { service: EducationService };
   readonly social?: { service: SocialService };
+  readonly store?: { service: StoreService };
 }
 
 declare module 'fastify' {
@@ -353,6 +355,15 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               identity: deps.identity.service,
               authorization: deps.admin.authorization,
               education: deps.education.service
+            });
+          }
+          // The store reaches money only through the shared holds boundary, so it needs no
+          // other module and registers independently.
+          if (deps.store !== undefined) {
+            registerStoreRoutes(api, {
+              identity: deps.identity.service,
+              authorization: deps.admin.authorization,
+              store: deps.store.service
             });
           }
           // The community reaches identity and moderation through ports only, so it needs
@@ -786,6 +797,32 @@ export function buildSocial(
   };
 }
 
+/**
+ * Wires the store module.
+ *
+ * Commerce reaches money only through the shared holds service, which posts through the
+ * ledger — so there is no store-specific balance, and a shop operator (ROLE-021) cannot
+ * touch a ledger even indirectly. The only monetary effect the store can cause is the
+ * customer's own reservation and capture of their Dragon Coin.
+ */
+export function buildStore(database: Database, config: AppConfig, holds: { service: HoldsService }): { service: StoreService } {
+  const payments: StorePayments = {
+    createHold: (context, ownerId, input) => holds.service.createHold(context, ownerId, input),
+    captureHold: (context, holdId, input) => holds.service.captureHold(context, holdId, input),
+    releaseHold: (context, holdId, input) => holds.service.releaseHold(context, holdId, input)
+  };
+  return {
+    service: new StoreService(
+      database,
+      {
+        physicalFulfillmentEnabled: config.physicalFulfillmentEnabled,
+        entitlementRevocationEnabled: config.entitlementRevocationEnabled
+      },
+      payments
+    )
+  };
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -863,7 +900,8 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     streams,
     chat: buildChat(database, streams, moderation),
     education: buildEducation(database, config, holds),
-    social: buildSocial(database, config, identity, moderation)
+    social: buildSocial(database, config, identity, moderation),
+    store: buildStore(database, config, holds)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes

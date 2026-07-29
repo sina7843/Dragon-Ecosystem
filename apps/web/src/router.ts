@@ -148,6 +148,38 @@ export const router = createRouter({
       component: () => import('./views/CoursePlayerView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.academy' }
     },
+    // Store: the catalog and product pages are crawlable public pages; the cart, checkout,
+    // and orders are personalized and never indexed.
+    {
+      path: '/:locale(fa|en)/store',
+      name: 'store',
+      component: () => import('./views/StoreCatalogView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.store' }
+    },
+    {
+      path: '/:locale(fa|en)/store/products/:slug',
+      name: 'store-product',
+      component: () => import('./views/StoreProductView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.store' }
+    },
+    {
+      path: '/:locale(fa|en)/cart',
+      name: 'cart',
+      component: () => import('./views/CartView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.cart' }
+    },
+    {
+      path: '/:locale(fa|en)/checkout',
+      name: 'checkout',
+      component: () => import('./views/CheckoutView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.checkout' }
+    },
+    {
+      path: '/:locale(fa|en)/account/orders',
+      name: 'account-orders',
+      component: () => import('./views/AccountOrdersView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.orders' }
+    },
     // Community: a personalized, session-only surface. Never indexed — a feed is assembled
     // per viewer from their follows, so there is no stable public page to crawl.
     {
@@ -273,6 +305,18 @@ export const router = createRouter({
       name: 'admin-streams',
       component: () => import('./views/AdminStreamsView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStreams' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/store',
+      name: 'admin-store',
+      component: () => import('./views/AdminStoreView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStore' }
+    },
+    {
+      path: '/:locale(fa|en)/admin/orders',
+      name: 'admin-orders',
+      component: () => import('./views/AdminOrdersView.vue'),
+      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminOrders' }
     },
     {
       path: '/:locale(fa|en)/admin/community',

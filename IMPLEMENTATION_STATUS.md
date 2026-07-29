@@ -34,8 +34,78 @@
 - Phase 3 education release closure: complete (DRAGON-21) — implemented and verified, not yet committed. **Phase 3 release decision: NO-GO** (`RELEASE_DECISION_PHASE3.md`), blocked by OD-015 + OD-016; no implementation failure outstanding
 - Phase 4 community and advanced team roles: complete (DRAGON-22) — committed (`c1cdd9a`)
 - Phase 4 community release closure: complete (DRAGON-23) — implemented and verified, not yet committed. **Phase 4 release decision: NO-GO** (`RELEASE_DECISION_PHASE4.md`), blocked by OD-017 + OD-024 + OD-027; no implementation failure outstanding
-- Active prompt: DRAGON-23 (Phase 4 community release closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Phase 5 store catalog, inventory, and fulfillment: complete (DRAGON-24) — implemented and verified, not yet committed
+- Active prompt: DRAGON-24 (Phase 5 store catalog, inventory, and fulfillment); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-24 — Phase 5 store catalog, inventory, and fulfillment
+
+A new `store` module (migration `028-store`) plus a `store.manage` permission and the
+`shop_operator` role.
+
+- **Money is exact and server-owned.** Every total is recomputed from the catalog variant
+  rows at checkout; the cart's stored price is named `unitPricePreview` and is never read
+  there. The web client computes no total at all. Settlement is Dragon Coin through the
+  shared holds boundary — the store never posts to the ledger, which is the ROLE-021
+  boundary, and a test asserts the module does not so much as reference it. A Toman list
+  price may ride alongside for the rial representation COMMERCE-009 requires; it is a
+  separate asset that never enters settlement arithmetic.
+- **Stock cannot be oversold.** The claim is a single conditional `$inc` inside the write
+  transaction, so a losing concurrent buyer matches nothing. An integration test races two
+  real requests for the last unit and asserts exactly one order and a final stock of zero.
+  A payment that cannot be funded returns the stock, cancels the fulfillments, and grants
+  nothing.
+- **An order is a snapshot, not a set of references.** Title, SKU, unit price, discount,
+  and address are all captured at checkout, so archiving the product afterwards leaves the
+  historical order untouched — asserted directly.
+- **The receipt is checked, not asserted.** Its reconciliation figure is recomputed from
+  the stored line items rather than copied from the order, so a drifted total shows as a
+  visible mismatch instead of agreeing with itself. Shipping is shown as zero rather than
+  omitted, because a missing row reads as "forgotten" and a zero row says "not charged".
+
+**Both gates are fail-closed, and one of them is a sale gate rather than a catalog gate.**
+OD-019 blocks carrier selection, service regions, shipping-price rules, and service
+levels. Taking money for a physical item commits us to delivering it, so the fail-closed
+point is the **sale**: physical products can be authored, stocked, and browsed, and the
+product page says plainly that they cannot be bought yet. Gating the catalog instead would
+have made the acceptance criterion unimplementable; gating nothing would have sold a
+delivery nobody has agreed how to make. No carrier or shipping-rate concept exists in
+store code at all, asserted by a guardrail that strips comments and strings first so it
+checks identifiers rather than prose. OD-020 keeps entitlement revocation absent — no
+route, no `revoked` state. There is no returns, refund, or RMA surface anywhere
+(COMMERCE-010, DEC-034), and the store config endpoint reports `returnsWorkflow:
+not_offered` so a client cannot infer one.
+
+**Deliberately out of scope.** Prize and payout requirements (PAYOUT-001..012, API-095,
+API-096, PAGE-042/043/060) are not in this slice despite the prompt's requirements-scope
+line mentioning prizes and payouts — every acceptance criterion it lists is commerce, and
+payout settlement is its own separation-of-duties problem. Also absent: third-party
+marketplace vendors, international shipping, product categories, and a cart-expiry job.
+
+**Known limitation, recorded rather than hidden.** If the process dies between the order
+transaction committing and the Dragon Coin capture returning, the order stays
+`pending_payment` and its claimed stock is never released. In-process failures *are*
+handled and tested. This is the existing holds-integration shape — paid course enrolment
+has the same window — so the fix is one sweeper across every hold-based purchase flow
+rather than a store-specific patch. It matters more here because a stuck row makes a
+physical unit unsellable.
+
+### DRAGON-24 verification, 2026-07-29, all commands run from the repository root
+
+- `npm run typecheck` — pass (both workspaces)
+- `npm run lint` — **0 errors**, 63 warnings (all pre-existing formatting warnings)
+- `npm test` — **433 passed, 0 failed** (api 388 incl. 22 new store tests, web 45)
+- `npm run test:integration` — **449 passed, 0 failed** (store 25)
+- `npm run build` — pass · `npm run test:budget` — **pass**, entry bundle 357.96 → 371.78 kB against a 380 kB budget. All seven store views are lazy route chunks; the growth is the shared client and formatting helpers they pull in
+- `npm run e2e` — **434 passed, 1 skipped, 0 failed** across small-mobile 320px, mobile 375px, and desktop 1440px in fa RTL + en LTR. Adds 12 store tests × 3 viewports. The first invocation exited non-zero while still reporting every test passed; two immediate re-runs were clean at exit 0, so this is recorded as an unexplained single occurrence rather than a diagnosed failure
+- `npm run closure:check` — 14/14 · `npm run decision:check` — 12/12
+
+**Review.** One focused `test-reviewer` security pass over the money and stock paths:
+**verdict APPROVE, no Critical and no High findings, and no blockers.** Money correctness,
+stock integrity under concurrency, idempotency, IDOR, gate integrity, and test quality
+each checked out. Its one substantive note is the crash-window limitation recorded above,
+which it classified as a pre-existing characteristic of the holds integration rather than
+a defect introduced here.
 
 ## DRAGON-23 — Phase 4 community release closure
 

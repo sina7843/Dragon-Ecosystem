@@ -43,7 +43,13 @@
       "academy": "آکادمی",
       "adminCourses": "دوره‌ها",
       "community": "انجمن",
-      "adminCommunity": "نظارت بر انجمن"
+      "adminCommunity": "نظارت بر انجمن",
+      "store": "فروشگاه",
+      "cart": "سبد خرید",
+      "checkout": "تسویهٔ خرید",
+      "orders": "سفارش‌ها",
+      "adminStore": "مدیریت فروشگاه",
+      "adminOrders": "عملیات سفارش"
     }
   },
   "player": {
@@ -250,7 +256,9 @@
       "streams": "عملیات پخش زنده",
       "chat": "نظارت بر گفت‌وگو",
       "community": "نظارت بر انجمن",
-      "courses": "دوره‌ها"
+      "courses": "دوره‌ها",
+      "store": "مدیریت فروشگاه",
+      "orders": "عملیات سفارش"
     },
     "community": {
       "title": "نظارت بر انجمن",
@@ -570,6 +578,36 @@
       "reviewEntries": "بررسی ثبت‌نام‌ها",
       "competition": "مسابقه",
       "viewPublic": "مشاهده صفحه عمومی"
+    },
+    "store": {
+      "title": "مدیریت فروشگاه",
+      "intro": "کاتالوگ، گونه‌ها، موجودی و تخفیف‌ها. هیچ بخشی از این صفحه به دفتر مالی دست نمی‌زند.",
+      "physicalGate": "کالای فیزیکی قابل ثبت است اما قابل فروش نیست: مناطق ارسال و سطح خدمات هنوز تأیید نشده است.",
+      "newProduct": "انتشار محصول",
+      "titleFa": "عنوان فارسی",
+      "titleEn": "عنوان انگلیسی",
+      "sku": "کد کالا",
+      "price": "قیمت به دراگون کوین",
+      "stock": "موجودی اولیه",
+      "publish": "ایجاد و انتشار",
+      "catalog": "کاتالوگ منتشرشده",
+      "inventory": "اصلاح موجودی",
+      "variantId": "شناسهٔ گونه",
+      "delta": "تغییر (+/-)",
+      "reason": "دلیل",
+      "adjust": "اعمال اصلاح"
+    },
+    "orders": {
+      "title": "عملیات سفارش",
+      "intro": "سفارش‌ها، وضعیت پرداخت و مراحل داخلی آماده‌سازی. هیچ شرکت حملی رزرو نمی‌شود و هیچ تغییری در دفتر مالی از اینجا ممکن نیست.",
+      "reconciliation": "مغایرت‌گیری مالی",
+      "paidOrders": "{count} سفارش پرداخت‌شده بررسی شد.",
+      "reconciled": "جمع ردیف‌های هر سفارش پرداخت‌شده با مبلغ آن برابر است.",
+      "differences": "{count} سفارش با جمع ردیف‌های خود مغایرت دارد.",
+      "empty": "هنوز سفارشی ثبت نشده است.",
+      "viewFulfillment": "نمایش آماده‌سازی",
+      "reason": "دلیل",
+      "markPacked": "ثبت بسته‌بندی"
     }
   },
   "designSystem": {
@@ -1679,6 +1717,134 @@
       "multi_choice": "انتخاب چند گزینه",
       "file": "بارگذاری فایل",
       "image": "بارگذاری تصویر"
+    }
+  },
+  "store": {
+    "catalog": {
+      "title": "فروشگاه",
+      "intro": "کالاهای فیزیکی و دیجیتال، با قیمت دراگون کوین.",
+      "search": "جست‌وجوی محصول",
+      "searchAction": "جست‌وجو",
+      "type": "نوع",
+      "allTypes": "همهٔ نوع‌ها",
+      "availableOnly": "فقط موجود",
+      "empty": "هنوز محصولی با جست‌وجوی شما مطابقت ندارد."
+    },
+    "type": {
+      "physical": "فیزیکی",
+      "digital": "دیجیتال"
+    },
+    "available": "موجود",
+    "soldOut": "ناموجود",
+    "priceUnavailable": "قیمت در دسترس نیست",
+    "product": {
+      "variant": "گزینه",
+      "quantity": "تعداد",
+      "stock": "{count} عدد موجود",
+      "addToCart": "افزودن به سبد",
+      "added": "به سبد شما افزوده شد.",
+      "goToCart": "رفتن به سبد",
+      "domesticOnly": "ارسال کالای فیزیکی فقط در داخل ایران انجام می‌شود.",
+      "physicalGated": "خرید کالای فیزیکی هنوز ممکن نیست: مناطق ارسال و سطح خدمات تأیید نشده است."
+    },
+    "cart": {
+      "title": "سبد خرید",
+      "caption": "اقلام سبد خرید شما",
+      "empty": "سبد خرید شما خالی است.",
+      "item": "کالا",
+      "quantity": "تعداد",
+      "quantityFor": "تعداد برای {item}",
+      "lineTotal": "جمع ردیف",
+      "actions": "اقدام‌ها",
+      "remove": "حذف",
+      "discountCode": "کد تخفیف",
+      "apply": "اعمال",
+      "subtotal": "جمع کالاها",
+      "discount": "تخفیف",
+      "shipping": "هزینهٔ ارسال",
+      "grandTotal": "مبلغ کل",
+      "checkout": "ادامهٔ خرید",
+      "blocked": "خرید کالای فیزیکی موجود در سبد هنوز ممکن نیست. برای ادامه آن را حذف کنید."
+    },
+    "discountProblem": {
+      "UNKNOWN_DISCOUNT": "این کد وجود ندارد.",
+      "DISCOUNT_DISABLED": "این کد دیگر فعال نیست.",
+      "DISCOUNT_NOT_STARTED": "این کد هنوز معتبر نشده است.",
+      "DISCOUNT_EXPIRED": "این کد منقضی شده است.",
+      "DISCOUNT_EXHAUSTED": "سقف استفاده از این کد پر شده است.",
+      "DISCOUNT_NOT_APPLICABLE": "این کد بر هیچ‌یک از اقلام سبد شما اعمال نمی‌شود."
+    },
+    "checkout": {
+      "title": "تسویهٔ خرید",
+      "review": "بازبینی سفارش",
+      "paidWith": "از موجودی دراگون کوین شما پرداخت می‌شود.",
+      "delivery": "نشانی تحویل",
+      "fullName": "نام و نام خانوادگی",
+      "mobile": "شمارهٔ همراه",
+      "province": "استان",
+      "city": "شهر",
+      "postalCode": "کد پستی",
+      "line1": "نشانی",
+      "consent": "شرایط فروش را خوانده‌ام و می‌پذیرم.",
+      "placeOrder": "ثبت سفارش",
+      "placing": "در حال ثبت سفارش..."
+    },
+    "orders": {
+      "title": "سفارش‌ها",
+      "empty": "هنوز سفارشی ثبت نکرده‌اید.",
+      "viewReceipt": "نمایش رسید",
+      "receipt": "رسید {reference}",
+      "receiptCaption": "اقلام این سفارش",
+      "reconciles": "جمع ردیف‌ها با مبلغ کل سفارش برابر است.",
+      "mismatch": "این رسید با جمع ردیف‌ها همخوانی ندارد. پیش از هر اقدام با پشتیبانی تماس بگیرید.",
+      "entitlements": "{count} کالای دیجیتال آزاد شد."
+    },
+    "orderState": {
+      "pending_payment": "در انتظار پرداخت",
+      "paid": "پرداخت‌شده",
+      "cancelled": "لغوشده",
+      "failed": "ناموفق"
+    },
+    "fulfillmentState": {
+      "pending": "در انتظار",
+      "packed": "بسته‌بندی‌شده",
+      "shipped": "ارسال‌شده",
+      "delivered": "تحویل‌شده",
+      "cancelled": "لغوشده",
+      "failed": "ناموفق"
+    },
+    "province": {
+      "alborz": "البرز",
+      "ardabil": "اردبیل",
+      "bushehr": "بوشهر",
+      "chaharmahal_bakhtiari": "چهارمحال و بختیاری",
+      "east_azerbaijan": "آذربایجان شرقی",
+      "fars": "فارس",
+      "gilan": "گیلان",
+      "golestan": "گلستان",
+      "hamadan": "همدان",
+      "hormozgan": "هرمزگان",
+      "ilam": "ایلام",
+      "isfahan": "اصفهان",
+      "kerman": "کرمان",
+      "kermanshah": "کرمانشاه",
+      "khuzestan": "خوزستان",
+      "kohgiluyeh_boyerahmad": "کهگیلویه و بویراحمد",
+      "kurdistan": "کردستان",
+      "lorestan": "لرستان",
+      "markazi": "مرکزی",
+      "mazandaran": "مازندران",
+      "north_khorasan": "خراسان شمالی",
+      "qazvin": "قزوین",
+      "qom": "قم",
+      "razavi_khorasan": "خراسان رضوی",
+      "semnan": "سمنان",
+      "sistan_baluchestan": "سیستان و بلوچستان",
+      "south_khorasan": "خراسان جنوبی",
+      "tehran": "تهران",
+      "west_azerbaijan": "آذربایجان غربی",
+      "yazd": "یزد",
+      "zanjan": "زنجان"
     }
   }
 }

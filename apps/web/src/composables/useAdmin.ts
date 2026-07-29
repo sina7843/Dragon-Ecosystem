@@ -53,6 +53,7 @@ export function useAdmin(): {
   canModerateChat: ComputedRef<boolean>;
   /** Gates the education console (ROLE-023). */
   canManageEducation: ComputedRef<boolean>;
+  canManageStore: ComputedRef<boolean>;
   canManageTournaments: ComputedRef<boolean>;
   canManageModeration: ComputedRef<boolean>;
   refresh: () => Promise<void>;
@@ -110,6 +111,7 @@ export function useAdmin(): {
     canManageStreams: computed(() => has('stream.manage')),
     canModerateChat: computed(() => has('chat.moderate')),
     canManageEducation: computed(() => has('education.manage')),
+    canManageStore: computed(() => has('store.manage')),
     canManageTournaments: computed(() => has('tournament.manage')),
     canManageModeration: computed(() => has('moderation.manage')),
     refresh

@@ -46,6 +46,11 @@ export const PERMISSIONS = {
   // ROLE-023 is explicitly "no unrelated platform administration", so this is its own
   // permission rather than an extension of content or moderation.
   educationManage: 'education.manage',
+  // Store administration (DRAGON-24): catalog, variants, inventory, discounts, orders,
+  // and internal fulfillment states. Its own permission because ROLE-021 explicitly
+  // "cannot alter ledgers or execute payouts" — a shop operator moves goods, not money,
+  // and the only monetary effect it can cause is the customer's own captured payment.
+  storeManage: 'store.manage',
   // Domain bundles enforced by their modules in later prompts
   tournamentManage: 'tournament.manage',
   financeManage: 'finance.manage',
@@ -122,6 +127,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> =
   live_chat_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.chatModerate],
   // A community moderator also covers chat rooms, on top of platform moderation.
   community_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.moderationManage, PERMISSIONS.chatModerate],
+  // ROLE-021: catalog, inventory, orders, and fulfillment — and nothing financial. It
+  // holds no finance.manage or finance.approve, so it cannot reach ledgers or payouts.
+  shop_operator: [PERMISSIONS.adminAccess, PERMISSIONS.storeManage],
   // Support sees users but with masked sensitive fields (ROLE-020, ADMIN-008).
   support_operator: [PERMISSIONS.adminAccess, PERMISSIONS.supportManage, PERMISSIONS.usersRead],
   // Read-only security/audit visibility (ROLE-028).

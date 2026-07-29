@@ -43,7 +43,13 @@
       "academy": "Academy",
       "adminCourses": "Courses",
       "community": "Community",
-      "adminCommunity": "Community moderation"
+      "adminCommunity": "Community moderation",
+      "store": "Store",
+      "cart": "Cart",
+      "checkout": "Checkout",
+      "orders": "Orders",
+      "adminStore": "Store administration",
+      "adminOrders": "Order operations"
     }
   },
   "player": {
@@ -250,7 +256,9 @@
       "streams": "Stream operations",
       "chat": "Chat moderation",
       "community": "Community moderation",
-      "courses": "Courses"
+      "courses": "Courses",
+      "store": "Store",
+      "orders": "Order operations"
     },
     "community": {
       "title": "Community moderation",
@@ -570,6 +578,36 @@
       "reviewEntries": "Review entries",
       "competition": "Competition",
       "viewPublic": "View public page"
+    },
+    "store": {
+      "title": "Store administration",
+      "intro": "Catalog, variants, inventory, and discounts. Nothing on this page touches a ledger.",
+      "physicalGate": "Physical items can be authored but not sold: shipping regions and service levels are not approved yet.",
+      "newProduct": "Publish a product",
+      "titleFa": "Persian title",
+      "titleEn": "English title",
+      "sku": "SKU",
+      "price": "Dragon Coin price",
+      "stock": "Opening stock",
+      "publish": "Create and publish",
+      "catalog": "Published catalog",
+      "inventory": "Adjust stock",
+      "variantId": "Variant ID",
+      "delta": "Change (+/-)",
+      "reason": "Reason",
+      "adjust": "Apply adjustment"
+    },
+    "orders": {
+      "title": "Order operations",
+      "intro": "Orders, payment state, and internal fulfillment steps. No carrier is booked and no ledger change can be made here.",
+      "reconciliation": "Financial reconciliation",
+      "paidOrders": "{count} paid order(s) checked.",
+      "reconciled": "Every paid order matches the sum of its line items.",
+      "differences": "{count} order(s) do not match their line items.",
+      "empty": "No orders yet.",
+      "viewFulfillment": "View fulfillment",
+      "reason": "Reason",
+      "markPacked": "Mark packed"
     }
   },
   "designSystem": {
@@ -1679,6 +1717,134 @@
       "multi_choice": "Choose several",
       "file": "File upload",
       "image": "Image upload"
+    }
+  },
+  "store": {
+    "catalog": {
+      "title": "Store",
+      "intro": "Physical and digital goods, priced in Dragon Coin.",
+      "search": "Search products",
+      "searchAction": "Search",
+      "type": "Type",
+      "allTypes": "All types",
+      "availableOnly": "In stock only",
+      "empty": "No products match your search yet."
+    },
+    "type": {
+      "physical": "Physical",
+      "digital": "Digital"
+    },
+    "available": "In stock",
+    "soldOut": "Sold out",
+    "priceUnavailable": "Price unavailable",
+    "product": {
+      "variant": "Option",
+      "quantity": "Quantity",
+      "stock": "{count} in stock",
+      "addToCart": "Add to cart",
+      "added": "Added to your cart.",
+      "goToCart": "Go to cart",
+      "domesticOnly": "Physical delivery is available inside Iran only.",
+      "physicalGated": "Physical items cannot be bought yet: shipping regions and service levels are not approved."
+    },
+    "cart": {
+      "title": "Cart",
+      "caption": "Items in your cart",
+      "empty": "Your cart is empty.",
+      "item": "Item",
+      "quantity": "Quantity",
+      "quantityFor": "Quantity for {item}",
+      "lineTotal": "Line total",
+      "actions": "Actions",
+      "remove": "Remove",
+      "discountCode": "Discount code",
+      "apply": "Apply",
+      "subtotal": "Subtotal",
+      "discount": "Discount",
+      "shipping": "Shipping",
+      "grandTotal": "Total",
+      "checkout": "Go to checkout",
+      "blocked": "A physical item in your cart cannot be bought yet. Remove it to check out."
+    },
+    "discountProblem": {
+      "UNKNOWN_DISCOUNT": "That code does not exist.",
+      "DISCOUNT_DISABLED": "That code is no longer active.",
+      "DISCOUNT_NOT_STARTED": "That code is not valid yet.",
+      "DISCOUNT_EXPIRED": "That code has expired.",
+      "DISCOUNT_EXHAUSTED": "That code has reached its usage limit.",
+      "DISCOUNT_NOT_APPLICABLE": "That code does not apply to anything in your cart."
+    },
+    "checkout": {
+      "title": "Checkout",
+      "review": "Review your order",
+      "paidWith": "Paid from your Dragon Coin balance.",
+      "delivery": "Delivery address",
+      "fullName": "Full name",
+      "mobile": "Mobile number",
+      "province": "Province",
+      "city": "City",
+      "postalCode": "Postal code",
+      "line1": "Address",
+      "consent": "I have read and accept the terms of sale.",
+      "placeOrder": "Place order",
+      "placing": "Placing your order..."
+    },
+    "orders": {
+      "title": "Orders",
+      "empty": "You have not placed an order yet.",
+      "viewReceipt": "View receipt",
+      "receipt": "Receipt {reference}",
+      "receiptCaption": "Items on this order",
+      "reconciles": "The line items add up to the order total.",
+      "mismatch": "This receipt does not add up. Contact support before acting on it.",
+      "entitlements": "{count} digital item(s) unlocked."
+    },
+    "orderState": {
+      "pending_payment": "Awaiting payment",
+      "paid": "Paid",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "fulfillmentState": {
+      "pending": "Pending",
+      "packed": "Packed",
+      "shipped": "Shipped",
+      "delivered": "Delivered",
+      "cancelled": "Cancelled",
+      "failed": "Failed"
+    },
+    "province": {
+      "alborz": "Alborz",
+      "ardabil": "Ardabil",
+      "bushehr": "Bushehr",
+      "chaharmahal_bakhtiari": "Chaharmahal Bakhtiari",
+      "east_azerbaijan": "East Azerbaijan",
+      "fars": "Fars",
+      "gilan": "Gilan",
+      "golestan": "Golestan",
+      "hamadan": "Hamadan",
+      "hormozgan": "Hormozgan",
+      "ilam": "Ilam",
+      "isfahan": "Isfahan",
+      "kerman": "Kerman",
+      "kermanshah": "Kermanshah",
+      "khuzestan": "Khuzestan",
+      "kohgiluyeh_boyerahmad": "Kohgiluyeh Boyerahmad",
+      "kurdistan": "Kurdistan",
+      "lorestan": "Lorestan",
+      "markazi": "Markazi",
+      "mazandaran": "Mazandaran",
+      "north_khorasan": "North Khorasan",
+      "qazvin": "Qazvin",
+      "qom": "Qom",
+      "razavi_khorasan": "Razavi Khorasan",
+      "semnan": "Semnan",
+      "sistan_baluchestan": "Sistan Baluchestan",
+      "south_khorasan": "South Khorasan",
+      "tehran": "Tehran",
+      "west_azerbaijan": "West Azerbaijan",
+      "yazd": "Yazd",
+      "zanjan": "Zanjan"
     }
   }
 }

@@ -29,6 +29,7 @@ export function useAdminAreas(): { areas: ComputedRef<AdminArea[]> } {
     canManageStreams,
     canModerateChat,
     canManageEducation,
+    canManageStore,
     canManageTournaments,
     canManageModeration,
     canManageSupport,
@@ -48,6 +49,10 @@ export function useAdminAreas(): { areas: ComputedRef<AdminArea[]> } {
       { path: '/admin/tournaments', labelKey: 'admin.area.tournaments', visible: canManageTournaments.value, testid: 'area-tournaments' },
       { path: '/admin/streams', labelKey: 'admin.area.streams', visible: canManageStreams.value, testid: 'area-streams' },
       { path: '/admin/chat', labelKey: 'admin.area.chat', visible: canModerateChat.value, testid: 'area-chat' },
+      // Catalog and order operations share the shop-operator permission; neither can
+      // reach a ledger, which is the ROLE-021 boundary.
+      { path: '/admin/store', labelKey: 'admin.area.store', visible: canManageStore.value, testid: 'area-store' },
+      { path: '/admin/orders', labelKey: 'admin.area.orders', visible: canManageStore.value, testid: 'area-orders' },
       // Community review sits with the rest of moderation: same permission, same cases.
       { path: '/admin/community', labelKey: 'admin.area.community', visible: canManageModeration.value, testid: 'area-community' },
       { path: '/admin/courses', labelKey: 'admin.area.courses', visible: canManageEducation.value, testid: 'area-courses' },

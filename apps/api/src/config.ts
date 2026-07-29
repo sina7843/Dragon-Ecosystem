@@ -165,6 +165,20 @@ export interface AppConfig {
    * unaffected.
    */
   readonly pushNotificationsEnabled: boolean;
+  /**
+   * OD-019 gate for physical fulfillment. Fail-closed: while false a basket containing a
+   * physical variant cannot be checked out and a physical fulfillment cannot be advanced,
+   * because selling a physical item creates a delivery obligation and no carrier, service
+   * region, shipping-price rule, or service level has been approved. The physical catalog,
+   * its stock, and the internal fulfillment states all still exist — digital products are
+   * unaffected.
+   */
+  readonly physicalFulfillmentEnabled: boolean;
+  /**
+   * OD-020 gate for digital entitlement revocation. Fail-closed: while false no
+   * entitlement can be revoked, and there is no revocation route or state to reach.
+   */
+  readonly entitlementRevocationEnabled: boolean;
 }
 
 /** Safe non-secret default used only outside production. */
@@ -434,6 +448,10 @@ export function loadConfig(source: NodeJS.ProcessEnv = process.env): AppConfig {
     moderationAppealsEnabled: (source['MODERATION_APPEALS_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-027 fail-closed: web and mobile push stay off until the channel is approved.
     pushNotificationsEnabled: (source['PUSH_NOTIFICATIONS_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-019 fail-closed: physical items cannot be sold or dispatched until shipping is approved.
+    physicalFulfillmentEnabled: (source['PHYSICAL_FULFILLMENT_ENABLED'] ?? '').toLowerCase() === 'true',
+    // OD-020 fail-closed: digital entitlement revocation stays off until the rules are confirmed.
+    entitlementRevocationEnabled: (source['ENTITLEMENT_REVOCATION_ENABLED'] ?? '').toLowerCase() === 'true',
     // OD-008 / OD-003 fail-closed: notification SMS and email channels are off unless explicitly enabled.
     notificationsSmsEnabled: (source['NOTIFICATIONS_SMS_ENABLED'] ?? '').toLowerCase() === 'true',
     notificationsEmailEnabled: (source['NOTIFICATIONS_EMAIL_ENABLED'] ?? '').toLowerCase() === 'true',
