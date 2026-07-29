@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Community journey (DRAGON-22, PAGE-034/035/036/055).
@@ -9,8 +10,6 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from '@
  * reaches the shared moderation console, and that console is permission-gated.
  */
 
-const uniqueMobile = (): string => `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 /** A dotted lowercase token that looks like an untranslated i18n key leaking into the UI. */
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
 

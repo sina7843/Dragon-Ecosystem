@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Academy journey (DRAGON-20, PAGE-030/031/032/054).
@@ -10,8 +11,6 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from '@
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-const uniqueMobile = (): string => `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 
 async function apiWithRoles(browser: Browser, roles: string[]): Promise<APIRequestContext> {
   const api = (await browser.newContext()).request;

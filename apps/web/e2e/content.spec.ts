@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Content and games publishing journeys in both locales (CONTENT-001..010,
@@ -7,10 +8,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-}
 
 /** Signs in and returns the mobile, then grants the role via the dev-only helper. */
 async function signInAsPublisher(page: Page): Promise<void> {
@@ -30,8 +27,6 @@ async function signInAsPublisher(page: Page): Promise<void> {
   });
   expect(grant.ok()).toBe(true);
 }
-
-const uniqueSuffix = () => String(Date.now()).slice(-8) + String(Math.floor(Math.random() * 1000));
 
 test('publish content through the admin UI, then read it publicly in both locales', async ({ page }) => {
   await signInAsPublisher(page);

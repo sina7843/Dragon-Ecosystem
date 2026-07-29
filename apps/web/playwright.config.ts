@@ -1,3 +1,4 @@
+import { cpus } from 'node:os';
 import { defineConfig, devices } from '@playwright/test';
 
 /**
@@ -21,9 +22,29 @@ export default defineConfig({
   forbidOnly: isCi,
   retries: 0,
   reporter: 'list',
+  /**
+   * Playwright's default is one worker per two cores, which assumes a worker costs one
+   * browser page. It does not here: the multi-actor journeys (an owner and an invitee,
+   * an author and a moderator, a sender and a recipient) run two or three pages each,
+   * so the default put roughly three renderer processes per core against a single API
+   * process and one mongod. DRAGON-29A measured the consequence in a full parallel run:
+   * two tests failed with "Test timeout of 30000ms exceeded while setting up page" —
+   * Chromium could not even open a page inside thirty seconds — and three more failed
+   * with the application demonstrably mid-request when the assertion's budget ran out.
+   * One worker per four cores keeps the page count near the core count. This is a real
+   * shared-resource limit, not a way to slow the suite until failures stop.
+   */
+  workers: Number(process.env['E2E_WORKERS'] ?? Math.max(2, Math.floor(cpus().length / 4))),
   use: {
     baseURL: `http://127.0.0.1:${WEB_PORT}`,
-    trace: 'on-first-retry'
+    /**
+     * Retries are off, so `on-first-retry` never produced a single artifact: every
+     * browser failure so far had to be diagnosed from the reporter line alone.
+     * Retaining on failure costs nothing on a green run and is the only way an
+     * intermittent failure can be explained after the fact.
+     */
+    trace: 'retain-on-failure',
+    screenshot: 'only-on-failure'
   },
   /**
    * Representative viewports from Requirements section 22.1. Small mobile is the
@@ -47,7 +68,11 @@ export default defineConfig({
   webServer: [
     {
       command: 'node ../api/dist/server.js',
-      url: `http://127.0.0.1:${API_PORT}/health`,
+      // Readiness, not liveness. `/health` answers as soon as the process can serve a
+      // request, which is before the Mongo connection, the startup migrations, and the
+      // system-configuration seed have finished; the first tests were being dispatched
+      // into that window. `/health/ready` pings the database and only then reports 200.
+      url: `http://127.0.0.1:${API_PORT}/health/ready`,
       reuseExistingServer: !isCi,
       timeout: 30_000,
       env: {

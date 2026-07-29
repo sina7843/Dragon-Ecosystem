@@ -452,16 +452,61 @@ gaps remain that engineering owns and can close without any external input:
 | 29 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, cache headers, and the two CI-scanning rows. No external input is needed to build any of them. |
 | 125 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
 | No CI pipeline | SEC-016, SEC-017 and TEST-026 all depend on it; the repository has no workflow at all. Authoring one needs no external decision — only the platform it eventually runs on does. |
-| Browser-suite instability | 3 failures in 17 full-suite runs, three different specs, all small-mobile element-wait timeouts. Cause not established. A release cannot be certified on a suite that is green 82% of the time. |
 
 Closed since the previous revision: the **moderation E2E flake** (test-only fix; the
 moderation test did not fail once in 17 full-suite runs), the **344 pending traceability
 rows** (dispositioned row by row), and the **absence of performance measurement** (bounded
 local measurements now recorded).
 
-Opened by this revision: **browser-suite instability under full parallelism**. Three
-different specs failed once each across those 17 runs, all on small-mobile, all as
-element-wait timeouts. The cause is not established and this is engineering-owned.
+### Browser-suite instability — closed by DRAGON-29A
+
+The previous revision opened this as an engineering blocker with **no established cause**:
+three specs failing once each across 17 full-suite runs, all on small-mobile, all
+element-wait timeouts. It is now diagnosed and closed. The "all on small-mobile" reading
+was itself an artefact — small-mobile is simply the first project in the run order, so it
+absorbs the start-up contention. A deliberate full parallel reproduction produced **7
+failures across all three viewport projects**, which is what made the causes separable.
+
+**Root cause 1 — a stale toast satisfied the wait (test defect).**
+`teams.spec.ts:58` failed in all three projects at once, so it was never intermittent.
+After clicking *send invite* the test waited on `expect(getByTestId('toast')).toHaveCount(1)`.
+The toast queue is Vue module state that survives client-side navigation and nothing
+expires it, so the *"team created"* toast pushed a few lines earlier already satisfied the
+count. The assertion returned instantly and the invitee loaded their page while the
+invitation was still being written. Fixed by waiting on the invitation `POST` itself.
+
+**Root cause 2 — the disposable database was never disposed of (test-data isolation).**
+Every spec generated mobile numbers as `0912` + seven random digits, a 10^7 space, against
+a database that had accumulated **22,597 accounts and 90 collections** across runs. At
+roughly 800 sign-ins per run that reused an already existing account about twice per run —
+silently, since a reused number still signs in. Fixed by generators that are unique by
+construction and by dropping the database before each `npm run e2e`.
+
+**Root cause 3 — host CPU saturation, not an application fault.**
+The remaining failures were the machine, not the product. Two were `Test timeout of 30000ms
+exceeded while setting up "page"` — Chromium could not open a page inside thirty seconds —
+and the retained traces show the application mid-request when the assertion's budget ran
+out (in one, the API had answered `202` in 288 ms and the renderer had not run the
+continuation five seconds later). Playwright's default of one worker per two cores assumes
+a worker costs one page; the multi-actor journeys here run two or three. A control run at
+the old worker count **with every other fix already applied still failed 4 tests, all four
+of them the 30-second page-setup timeout**, which is what makes the worker cap load-bearing
+rather than a way to slow the suite until failures stop.
+
+No product defect was found behind any of the seven failures, and no product code changed.
+
+**Evidence — every run below at exit 0, no retries configured, no test disabled or skipped
+beyond the one intentional pre-existing skip:**
+
+| Run | Command | Result |
+|---|---|---|
+| Full suite, normal settings | `npm run e2e` | 464 passed, 1 skipped, 0 failed, exit 0 |
+| Full suite, no database reset | `npx playwright test` | 464 passed, 1 skipped, 0 failed, exit 0 |
+| Small-mobile only | `npx playwright test --project=small-mobile` | 155 passed, 0 failed, exit 0 |
+| Focused repetition ×3, all projects | `npx playwright test teams community registration economy moderation --repeat-each=3` | 297 passed, 0 failed, exit 0 |
+
+Recorded against working-tree state on top of commit `b752af2`; DRAGON-29A created no
+commit.
 
 ### Remaining evidence gaps
 

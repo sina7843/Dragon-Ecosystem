@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * SEO + media journey (DRAGON-15): robots.txt is environment-aware (SEO-006, the test
@@ -8,8 +9,6 @@ import { expect, test, type APIRequestContext, type Browser } from '@playwright/
  * once published (MEDIA-002/003/007). Uses the dev role-grant + mock OTP helpers.
  */
 
-const uniqueMobile = (): string => `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 const PNG_HEADER = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
 /** A valid-signature PNG with unique trailing bytes so content-addressed dedup does not
  * collapse this upload into an asset another parallel project already published. */

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Tournament authoring and discovery journey (TOURN-001..002, discovery): an
@@ -8,11 +9,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-}
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 
 /** Signs in and grants tournament + games management so the same user can set up a game and a tournament. */
 async function signInAsOrganizer(page: Page): Promise<void> {

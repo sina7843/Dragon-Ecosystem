@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile } from './helpers.ts';
 
 /**
  * Administration authorization UI (ADMIN-001, section 16.4).
@@ -10,11 +11,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  const suffix = String(Math.floor(Math.random() * 9_000_000) + 1_000_000);
-  return `0912${suffix}`;
-}
 
 async function signIn(page: Page, locale: 'fa' | 'en'): Promise<void> {
   const mobile = uniqueMobile();

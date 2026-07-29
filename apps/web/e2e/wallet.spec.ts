@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile } from './helpers.ts';
 
 /**
  * Dragon Coin wallet journey (DRAGON-11b): a signed-in user buys a package, the
@@ -8,10 +9,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-}
 
 async function signIn(page: Page, locale: 'fa' | 'en'): Promise<void> {
   const mobile = uniqueMobile();

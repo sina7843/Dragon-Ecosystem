@@ -22,7 +22,7 @@
     "seed:demo": "npm run seed:demo --workspace @dragon/api",
     "seed:demo:reset": "npm run seed:demo:reset --workspace @dragon/api",
     "build": "npm run build --workspaces --if-present",
-    "e2e": "node scripts/wait-for-test-db.mjs && npm run build && npm run e2e --workspace apps/web",
+    "e2e": "node scripts/wait-for-test-db.mjs && node scripts/reset-test-db.mjs && npm run build && npm run e2e --workspace apps/web",
     "migrate": "npm run migrate --workspace @dragon/api",
     "db:test:up": "node scripts/wait-for-test-db.mjs",
     "db:test:down": "docker compose -f docker-compose.test.yml down",

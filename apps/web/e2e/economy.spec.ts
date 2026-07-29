@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Economy journey (DRAGON-25, REWARD-005..008).
@@ -9,8 +10,6 @@ import { expect, test, type Page } from '@playwright/test';
  * Coin back into money.
  */
 
-const uniqueMobile = (): string => `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
 
 /** Signs in and gives the account a public profile, so it can receive a transfer. */

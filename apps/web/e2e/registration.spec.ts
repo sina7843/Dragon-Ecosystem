@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Free-tournament registration journeys (TOURN-004..016): a participant registers
@@ -7,11 +8,6 @@ import { expect, test, type APIRequestContext, type Page } from '@playwright/tes
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-}
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 
 /** Signs a fresh account in through the UI and completes its profile (eligibility needs it). */
 async function signInWithProfile(page: Page): Promise<void> {

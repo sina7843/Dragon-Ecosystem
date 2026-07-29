@@ -1,4 +1,5 @@
 import { expect, test, type APIRequestContext, type Browser, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Commerce journey (DRAGON-24, PAGE-037..041, PAGE-056, PAGE-057).
@@ -9,8 +10,6 @@ import { expect, test, type APIRequestContext, type Browser, type Page } from '@
  * OD-019 is unresolved, and the receipt reconciles to its own line items.
  */
 
-const uniqueMobile = (): string => `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
 
 async function apiWithRoles(browser: Browser, roles: string[]): Promise<APIRequestContext> {

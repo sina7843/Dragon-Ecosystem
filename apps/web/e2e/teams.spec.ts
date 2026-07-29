@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { actAndAwaitApi, uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Persistent-team journeys (TEAM-001..010) in the real UI: an owner creates a
@@ -8,11 +9,6 @@ import { expect, test, type Page } from '@playwright/test';
  */
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-function uniqueMobile(): string {
-  return `0912${String(Math.floor(Math.random() * 9_000_000) + 1_000_000)}`;
-}
-const uniqueSuffix = (): string => String(Date.now()).slice(-7) + String(Math.floor(Math.random() * 1000));
 
 /** Signs a fresh account in through the UI and returns its mobile number. */
 async function signIn(page: Page): Promise<string> {
@@ -36,8 +32,12 @@ async function completeProfile(page: Page, username: string): Promise<void> {
   await page.locator('#profile-display-name').fill(username);
   await page.locator('#profile-birth-date').fill('2000-01-01');
   await page.getByTestId('visibility-public').check();
-  await page.getByTestId('profile-submit').click();
-  await expect(page.getByTestId('toast')).toHaveCount(1);
+  // The username this returns is what the owner later invites by, so a rejected save
+  // has to fail here. A bare toast count would not: an error toast counts too, and the
+  // test would go on to invite a username that was never claimed.
+  await actAndAwaitApi(page, 'PUT', /^\/api\/v1\/account\/profile$/, async () => {
+    await page.getByTestId('profile-submit').click();
+  });
 }
 
 /** Creates and publishes a game via the API (the signed-in account is granted the role first). */
@@ -81,10 +81,15 @@ test('an owner creates a team, invites a player, and the player joins', async ({
   await expect(page.getByTestId('team-title')).toHaveText(teamName);
   await expect(page.getByTestId('roster')).toBeVisible();
 
-  // Owner invites the player by username.
+  // Owner invites the player by username. Waiting on a toast count was the defect that
+  // made this test fail in all three projects: creating the team above already pushed
+  // one, the queue survives the client-side navigation to the team page and nothing
+  // expires it, so `toHaveCount(1)` was satisfied the moment it ran and the invitee
+  // loaded their page while the invitation was still being written.
   await page.locator('#invite-username').fill(inviteeName);
-  await page.getByTestId('send-invite').click();
-  await expect(page.getByTestId('toast')).toHaveCount(1);
+  await actAndAwaitApi(page, 'POST', /^\/api\/v1\/teams\/[^/]+\/invitations$/, async () => {
+    await page.getByTestId('send-invite').click();
+  });
 
   // Invitee sees and accepts the invitation.
   await inviteePage.goto('/en/account/teams');

@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Mobile OTP authentication journey in both locales (UC-001, UC-002, TEST-005,
@@ -31,12 +32,6 @@ const LOCALE_CASES: readonly LocaleCase[] = [
 ];
 
 const RAW_KEY_PATTERN = /\b[a-z][a-zA-Z]*\.[a-z][a-zA-Z]*\.[a-zA-Z]+\b/;
-
-/** Distinct number per test so parallel workers never share OTP state. */
-function uniqueMobile(): string {
-  const suffix = String(Math.floor(Math.random() * 9_000_000) + 1_000_000);
-  return `0912${suffix}`;
-}
 
 async function readLatestCode(page: Page, mobile: string): Promise<string> {
   const response = await page.request.get(`/api/v1/dev/sms-inbox?mobile=${encodeURIComponent(mobile)}`);
@@ -107,7 +102,7 @@ for (const testCase of LOCALE_CASES) {
       const mobile = uniqueMobile();
       await signIn(page, testCase.locale, mobile);
 
-      const username = `player_${String(Date.now()).slice(-8)}${testCase.locale}`;
+      const username = `p_${uniqueSuffix()}${testCase.locale}`;
       await page.locator('#profile-username').fill(username);
       await page.locator('#profile-display-name').fill('Dragon Player');
 

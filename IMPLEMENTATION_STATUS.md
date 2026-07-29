@@ -39,8 +39,76 @@
 - Phase 5 commerce and economy release closure: complete (DRAGON-26) — implemented and verified, not yet committed. **Phase 5 release decision: NO-GO** (`RELEASE_DECISION_PHASE5.md`), blocked by OD-019 + OD-020 + OD-030; no implementation failure outstanding
 - Whole-ecosystem audit and release evidence: complete (DRAGON-27a, 27b, 27c). **Final ecosystem verdict: NO-GO** (`RELEASE_DECISION_ECOSYSTEM.md`). Implementation completeness and release approval are separate: the code is largely built and tested; the release is blocked by ten open external decisions, four standing phase NO-GOs, an unauthorized Phase 1 production deployment, and missing human sign-off
 - Release remediation and evidence closure: partial (DRAGON-28) — five engineering gaps closed, four remediation items not attempted and named as such. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-28 (release remediation and evidence closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Browser E2E stabilization: complete (DRAGON-29A) — the browser-suite instability DRAGON-28 opened with no established cause is diagnosed and closed; test-only fixes and harness configuration, no product change. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29A (browser E2E stabilization); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29A — Browser E2E stabilization
+
+**The suite was not flaky in the way it was recorded.** DRAGON-28 left three failures across
+17 full-suite runs, in three different specs, "all on small-mobile", cause unestablished.
+The viewport was a red herring: small-mobile is simply the first project in `projects[]`, so
+it absorbs the start-up contention of a run. One deliberate full parallel reproduction
+produced **7 failures spread across all three viewport projects**, and with artifacts
+retained they separated into three causes. Diagnosis rested on the retained traces, which
+had never existed before: `trace: 'on-first-retry'` was paired with `retries: 0`, so the
+suite had been configured to never write one.
+
+**Root cause 1 — a stale toast satisfied the wait (assertion defect).** `teams.spec.ts:58`
+failed in all three projects in the same run, which is not what intermittent looks like.
+After clicking *send invite* it waited on `expect(getByTestId('toast')).toHaveCount(1)`. The
+toast queue is Vue module state; it survives client-side navigation and nothing expires it,
+so the *"team created"* toast pushed a few lines earlier already satisfied the count. The
+assertion returned immediately and the invitee loaded their page while the invitation was
+still being written — the invitations panel was genuinely absent. The same weak wait guarded
+the profile save that produces the username being invited, where a rejected save would have
+been indistinguishable from an accepted one. Both now wait on the API response itself.
+
+**Root cause 2 — the disposable database was never disposed of (test-data isolation).**
+Every spec carried its own copy of `0912` + seven random digits, a 10^7 space, against a
+database holding **22,597 accounts and 90 collections** accumulated across runs. At about
+800 sign-ins per run that reused an already-existing account roughly twice per run, silently
+— a reused number still signs in, and only surfaces later as a username clash, a non-zero
+opening balance, or a role the test never granted. Fixed at both ends: one shared generator
+pair that is unique by construction (a per-process nonce plus a monotonic counter, neither
+truncated into a wrapping range), and a database drop before each `npm run e2e`. The drop
+runs in the root script rather than a Playwright global setup, because global setup runs
+*after* the web servers are already up and the API rebuilds its schema on boot.
+
+**Root cause 3 — host CPU saturation, not the application.** The remaining failures were the
+machine. Two were `Test timeout of 30000ms exceeded while setting up "page"` — Chromium
+could not open a page inside thirty seconds. The rest show the application demonstrably
+mid-request when the assertion's five-second budget expired; in one trace the API had
+answered `202` in 288 ms and the renderer had still not run the continuation five seconds
+later, then completed normally a moment after the failure. Playwright's default of one
+worker per two cores assumes a worker costs one page, and the multi-actor journeys here (an
+owner and an invitee, an author and a moderator, a sender and a recipient) run two or three.
+**The worker cap is load-bearing and was proven so rather than assumed:** a control run at
+the old worker count, with every other fix already applied, still failed 4 tests — all four
+of them the 30-second page-setup timeout. It is also faster, because the machine stops
+thrashing: 3.4 minutes clean against 4.3 minutes with failures.
+
+**No global timeout was raised, no sleep added, no assertion weakened, no test disabled, and
+no failure marked expected.** No product defect was found behind any of the seven failures
+and no product code changed; the one candidate examined and rejected was the wallet's
+five sequential refresh requests, which is a latency characteristic, not a defect.
+
+**Evidence — all at exit 0, `retries: 0`:**
+
+| Run | Command | Result |
+|---|---|---|
+| Full suite, normal settings | `npm run e2e` | 464 passed, 1 skipped, 0 failed |
+| Full suite, no database reset | `npx playwright test` | 464 passed, 1 skipped, 0 failed |
+| Small-mobile only | `npx playwright test --project=small-mobile` | 155 passed, 0 failed |
+| Focused ×3 over the five affected specs | `--repeat-each=3` | 297 passed, 0 failed |
+
+`npm run typecheck` pass · `npm run lint` 0 errors (63 pre-existing warnings) · `npm test`
+451 passed (api 405, web 46), 0 failed · `npm run build` pass · `npm run test:budget` pass.
+
+One independent read-only review was run; both findings it raised were real and are fixed —
+the mobile generator's counter was truncated at `% 1000` and shared with the suffix
+generator, so it wrapped within a worker's lifetime, and `reset-test-db.mjs` had no runtime
+check that its target is a test database.
 
 ## DRAGON-28 — Release remediation and evidence closure
 
@@ -98,8 +166,10 @@ behaviour was touched. Across **17 full-suite runs** the moderation test did not
 each (`community.spec.ts:92`, `registration.spec.ts:90`, and one run whose failure was not
 captured), all on small-mobile, all element-wait timeouts. That instability is a separate,
 newly-recorded engineering risk with **no established cause**; the suite must not be
-described as green. The subject-scoped queue read is still the better product remedy and is still not
-implemented, because that is new product scope.
+described as green. *(Superseded: DRAGON-29A established the causes and closed this — see
+the DRAGON-29A section above. The "all on small-mobile" pattern recorded here was an
+artefact of project order, not of the viewport.)* The subject-scoped queue read is still the
+better product remedy and is still not implemented, because that is new product scope.
 
 **Traceability reconciled.** All 344 `Evidence pending` rows were read against their source
 requirement, the registered route or collection, the module's tests and the applicable
