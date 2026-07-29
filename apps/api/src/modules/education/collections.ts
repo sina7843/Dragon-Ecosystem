@@ -39,6 +39,11 @@ export const EDUCATION_INDEXES: readonly IndexDeclaration[] = [
   },
   { collection: EDUCATION_COLLECTIONS.enrollments, name: 'enrollment_learner_created', keys: { learnerId: 1, createdAt: -1 } },
   { collection: EDUCATION_COLLECTIONS.enrollments, name: 'enrollment_course_state', keys: { courseId: 1, state: 1 } },
+  // Serves the stuck-reservation scan: `{ state: { $in: [...] }, createdAt: { $lt } }`
+  // sorted by createdAt. Without it that scan is a COLLSCAN over every enrolment ever
+  // made, which is the opposite of what a recovery check should cost. The store's
+  // equivalent `order_state_created` already existed.
+  { collection: EDUCATION_COLLECTIONS.enrollments, name: 'enrollment_state_created', keys: { state: 1, createdAt: 1 } },
   { collection: EDUCATION_COLLECTIONS.enrollments, name: 'enrollment_business_ref_unique', keys: { businessRef: 1 }, options: { unique: true } },
 
   // DATA-054: one progress row per enrollment/lesson, so an idempotent update converges.

@@ -23,7 +23,7 @@ import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/inde
 import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
 import { NotificationsService, KavenegarSmsChannel, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
 import { ModerationService, registerModerationRoutes } from './modules/moderation/index.ts';
-import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
+import { OperationsService, StuckReservationDetector, collectionReservationSource, registerOperationsRoutes, type JobRunner, type ReservationSource } from './modules/operations/index.ts';
 import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferences } from './modules/media/index.ts';
 import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, type Locale as SeoLocale } from './modules/seo/index.ts';
 import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPubliclyReadableStream, type StreamAlerts } from './modules/streams/index.ts';
@@ -102,7 +102,7 @@ export interface ServerDependencies {
   readonly prizes?: { service: PrizesService };
   readonly notifications?: { service: NotificationsService };
   readonly moderation?: { service: ModerationService };
-  readonly operations?: { service: OperationsService };
+  readonly operations?: { service: OperationsService; recovery?: StuckReservationDetector };
   readonly media?: { service: MediaService };
   readonly seo?: { service: SeoService };
   readonly streams?: { service: StreamsService };
@@ -470,7 +470,8 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               registerOperationsRoutes(api, {
                 identity: deps.identity.service,
                 authorization: deps.admin.authorization,
-                operations: deps.operations.service
+                operations: deps.operations.service,
+                ...(deps.operations.recovery === undefined ? {} : { recovery: deps.operations.recovery })
               });
             }
             if (deps.media !== undefined) {
@@ -849,6 +850,38 @@ export function buildEconomy(database: Database, identity: { service: IdentitySe
   return { service: new EconomyService(database, DEFAULT_ECONOMY_LIMITS, ledger.service, directory) };
 }
 
+/**
+ * Wires the stuck-reservation detector over every hold-backed workflow.
+ *
+ * Store checkout and course enrolment both commit their domain record — claiming stock or
+ * a place — before reserving and capturing the coin, so a dead process leaves the record
+ * stranded. Tournament checkout reserves inside its own transaction and has no such
+ * window, so it is not listed here; adding it would report records that cannot be stuck.
+ */
+export function buildRecoveryDetector(database: Database): StuckReservationDetector {
+  const sources: ReservationSource[] = [
+    collectionReservationSource(database.db, {
+      workflow: 'store_order',
+      collection: 'store_orders',
+      pendingStates: ['pending_payment'],
+      holdField: 'holdId',
+      accountField: 'accountId',
+      claim: 'reserved stock'
+    }),
+    collectionReservationSource(database.db, {
+      workflow: 'course_enrollment',
+      collection: 'course_enrollments',
+      pendingStates: ['pending_payment'],
+      // Education records its reservation in `entitlementId`.
+      holdField: 'entitlementId',
+      // The enrolment names its owner `learnerId`, not `accountId`.
+      accountField: 'learnerId',
+      claim: 'a place on the course'
+    })
+  ];
+  return new StuckReservationDetector(database, sources);
+}
+
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -920,7 +953,7 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
     notifications,
     moderation,
-    operations,
+    operations: { ...operations, recovery: buildRecoveryDetector(database) },
     media: buildMedia(database, config),
     seo: buildSeo(database, config),
     streams,

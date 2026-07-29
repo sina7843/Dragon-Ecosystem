@@ -596,6 +596,49 @@ describe('orders, receipts, and reconciliation', () => {
     assert.equal(balance.heldAmount, 0, 'nothing is left reserved after capture');
   });
 
+  test('reconciliation checks the reverse direction: a paid order with no reservation is named', async () => {
+    // Walking orders and summing their lines cannot see this: the totals still agree. The
+    // missing thing is the financial evidence that the order was ever settled.
+    const operator = await signIn(app, 'shop_operator');
+    const product = await publishedProduct(app, operator.cookie, { price: 30 });
+    const buyer = await signIn(app);
+    await creditCoins(buyer.accountId, 500);
+    const version = await addToCart(app, buyer.cookie, product.variantId, 1);
+    const order = await app.inject({ method: 'POST', url: '/api/v1/orders', ...auth(buyer.cookie), payload: { cartVersion: version, idempotencyKey: `rev-${String(++counter)}`, consent: true } });
+    const orderId = order.json<OrderBody>().id;
+
+    const clean = await app.inject({ method: 'GET', url: '/api/v1/admin/store/reconciliation', ...auth(operator.cookie) });
+    assert.deepEqual(clean.json<{ differences: unknown[] }>().differences, [], 'a correctly settled order raises nothing');
+
+    await fixture.database.db.collection(STORE_COLLECTIONS.orders).updateOne({ _id: orderId } as never, { $set: { holdId: null } });
+    const dirty = await app.inject({ method: 'GET', url: '/api/v1/admin/store/reconciliation', ...auth(operator.cookie) });
+    const differences = dirty.json<{ differences: Array<{ kind?: string }> }>().differences;
+    assert.ok(differences.some((d) => d.kind === 'paid_without_reservation'), 'the report names it');
+  });
+
+  test('reconciliation checks the reverse direction: a line item with no order is named', async () => {
+    const operator = await signIn(app, 'shop_operator');
+    await fixture.database.db.collection(STORE_COLLECTIONS.orderItems).insertOne({
+      _id: newId(),
+      orderId: newId(),
+      variantId: newId(),
+      productId: newId(),
+      type: 'digital',
+      titleSnapshot: { fa: 'یتیم', en: 'Orphan' },
+      skuSnapshot: 'ORPHAN-1',
+      quantity: 1,
+      unitPrice: [],
+      lineSubtotal: [],
+      lineDiscount: [],
+      lineTotal: [],
+      createdAt: utcNow()
+    } as never);
+
+    const report = await app.inject({ method: 'GET', url: '/api/v1/admin/store/reconciliation', ...auth(operator.cookie) });
+    const differences = report.json<{ differences: Array<{ kind?: string }> }>().differences;
+    assert.ok(differences.some((d) => d.kind === 'item_without_order'), 'an order item whose parent is gone is reported');
+  });
+
   test('the gate surface reports physical fulfillment, revocation, and returns as unavailable', async () => {
     const response = await app.inject({ method: 'GET', url: '/api/v1/store/config' });
     assert.equal(response.statusCode, 200, response.body);

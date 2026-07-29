@@ -54,30 +54,37 @@ export async function claimTransferWindow(
     return 'amount_exceeded';
   }
 
-  // No live window: open one already carrying this transfer. `upsert` on the primary key
-  // means a concurrent opener collides rather than creating a second window.
+  // No live window. Drop a lapsed one first so its stale totals are not inherited, then
+  // open a new one by *incrementing* rather than assigning.
+  //
+  // Assigning `count: 1` here was wrong: two concurrent openers both found no live window
+  // and both wrote 1, so one claim was silently lost and the window admitted an extra
+  // transfer. `$inc` with `$setOnInsert` accumulates instead, so concurrent openers add up.
+  await collection.deleteOne({ _id: key, expiresAt: { $lte: now } });
   const expiresAt = new Date(now.getTime() + limits.windowSeconds * 1000);
-  try {
-    await collection.updateOne(
-      { _id: key },
-      { $set: { count: 1, amount, expiresAt } },
-      { upsert: true }
-    );
+  const opened = await collection.findOneAndUpdate(
+    { _id: key },
+    { $inc: { count: 1, amount }, $setOnInsert: { expiresAt } },
+    { upsert: true, returnDocument: 'after' }
+  );
+
+  // Read back rather than assume: a racer may have opened the window microseconds earlier,
+  // in which case this increment landed on theirs and may have passed a budget.
+  if (opened !== null && opened.count <= limits.transfersPerWindow && opened.amount <= limits.transferAmountPerWindow) {
     return 'claimed';
-  } catch {
-    // A racing opener won. Retry the claim once against the window it created.
-    const retried = await collection.findOneAndUpdate(
-      {
-        _id: key,
-        expiresAt: { $gt: now },
-        count: { $lte: limits.transfersPerWindow - 1 },
-        amount: { $lte: limits.transferAmountPerWindow - amount }
-      },
-      { $inc: { count: 1, amount } },
-      { returnDocument: 'after' }
-    );
-    return retried === null ? 'amount_exceeded' : 'claimed';
   }
+  // Over budget: hand back exactly what this attempt added, so a refusal costs the sender
+  // nothing and the counter still reflects only claims that were granted.
+  //
+  // Scoped to the exact window generation this attempt incremented. Matching on `_id`
+  // alone would let a compensation delayed across a full expiry land on a *newer* window
+  // that some other request had just opened, corrupting a budget this call never touched.
+  // Filtering on `expiresAt` makes a stale compensation match nothing instead.
+  if (opened !== null) {
+    await collection.updateOne({ _id: key, expiresAt: opened.expiresAt }, { $inc: { count: -1, amount: -amount } });
+  }
+  if (opened !== null && opened.count > limits.transfersPerWindow) return 'count_exceeded';
+  return 'amount_exceeded';
 }
 
 /** Returns a claimed budget when the transfer is refused after the claim (REWARD-007). */

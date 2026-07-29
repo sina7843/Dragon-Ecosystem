@@ -860,7 +860,7 @@ export class StoreService {
    * Recomputed from order items every time rather than stored, so a stored total that
    * drifted from its lines shows up as a difference instead of agreeing with itself.
    */
-  async reconcile(): Promise<{ paidOrders: number; itemSum: number; orderSum: number; differences: Array<{ orderId: EntityId; reference: string; itemSum: number; orderSum: number }> }> {
+  async reconcile(): Promise<{ paidOrders: number; itemSum: number; orderSum: number; differences: Array<{ orderId: EntityId; reference: string; itemSum: number; orderSum: number; kind?: string }> }> {
     const orders = await this.#orders().find({ state: 'paid' }).limit(1000).toArray();
     const items = await this.#orderItems().find({ orderId: { $in: orders.map((o) => o._id) } }).toArray();
     const byOrder = new Map<EntityId, number>();
@@ -869,14 +869,47 @@ export class StoreService {
     }
     let itemSum = 0;
     let orderSum = 0;
-    const differences: Array<{ orderId: EntityId; reference: string; itemSum: number; orderSum: number }> = [];
+    const differences: Array<{ orderId: EntityId; reference: string; itemSum: number; orderSum: number; kind?: string }> = [];
     for (const order of orders) {
       const lines = byOrder.get(order._id) ?? 0;
       const stored = settlementAmount(order.grandTotal);
       itemSum += lines;
       orderSum += stored;
       if (lines !== stored) differences.push({ orderId: order._id, reference: order.reference, itemSum: lines, orderSum: stored });
+      // The reverse direction for money: an order that claims to be settled must carry the
+      // reservation that settled it. Walking orders alone would never notice one that was
+      // marked paid without any financial evidence behind it.
+      if (order.holdId === null) {
+        differences.push({ orderId: order._id, reference: order.reference, itemSum: lines, orderSum: stored, kind: 'paid_without_reservation' });
+      }
     }
+
+    // The reverse direction for line items: a line pointing at an order that is missing or
+    // not paid. Checking only order → items cannot see these, because the walk never
+    // visits them.
+    // Sampled newest-first over the primary key rather than filtered with `$nin`. A `$nin`
+    // over the paid-order ids cannot use an index, so it scanned every order item ever
+    // written, and its budget was consumed by the ordinary items of legitimately unpaid
+    // orders before it ever reached a genuine orphan. This walks a bounded, indexed slice
+    // and then asks only about the parents it actually saw.
+    const recentItems = await this.#orderItems()
+      .find({}, { projection: { _id: 1, orderId: 1 } })
+      .sort({ _id: -1 })
+      .limit(1000)
+      .toArray();
+    const orphanOrderIds = [...new Set(recentItems.map((item) => item.orderId))];
+    const liveOrders = orphanOrderIds.length === 0
+      ? []
+      : await this.#orders().find({ _id: { $in: orphanOrderIds } }, { projection: { _id: 1 } }).toArray();
+    const liveIds = new Set(liveOrders.map((o) => o._id));
+    for (const orderId of orphanOrderIds) {
+      // A line under an unpaid order is ordinary; a line under *no* order is evidence of a
+      // write that lost its parent.
+      if (!liveIds.has(orderId)) {
+        differences.push({ orderId, reference: '(missing order)', itemSum: 0, orderSum: 0, kind: 'item_without_order' });
+      }
+    }
+
     return { paidOrders: orders.length, itemSum, orderSum, differences };
   }
 

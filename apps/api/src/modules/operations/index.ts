@@ -4,3 +4,11 @@ export { registerOperationsRoutes, type OperationsDeps } from './routes.ts';
 export { operationsMigration } from './migrations.ts';
 export { OPERATIONS_COLLECTIONS, OPERATIONS_INDEXES } from './collections.ts';
 export type { AnalyticsEventRecord, AlertRecord, JobExecutionRecord, AlertCategory } from './state.ts';
+export {
+  StuckReservationDetector,
+  collectionReservationSource,
+  type ReservationSource,
+  type StaleReservation,
+  type StuckFinding,
+  type StuckKind
+} from './recovery.ts';
