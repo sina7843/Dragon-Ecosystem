@@ -1,5 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
-import { uniqueMobile, uniqueSuffix } from './helpers.ts';
+import { actAndAwaitApi, uniqueMobile, uniqueSuffix } from './helpers.ts';
 
 /**
  * Mobile OTP authentication journey in both locales (UC-001, UC-002, TEST-005,
@@ -14,6 +14,8 @@ interface LocaleCase {
   readonly heading: string;
   readonly invalidMobile: string;
   readonly invalidCode: string;
+  /** `profile.saved`, so the profile save can be identified by its own message. */
+  readonly profileSaved: string;
 }
 
 const LOCALE_CASES: readonly LocaleCase[] = [
@@ -21,13 +23,15 @@ const LOCALE_CASES: readonly LocaleCase[] = [
     locale: 'fa',
     heading: 'ورود',
     invalidMobile: 'یک شماره موبایل معتبر ایران وارد کنید.',
-    invalidCode: 'کد معتبر نیست یا منقضی شده است.'
+    invalidCode: 'کد معتبر نیست یا منقضی شده است.',
+    profileSaved: 'پروفایل شما ذخیره شد.'
   },
   {
     locale: 'en',
     heading: 'Sign in',
     invalidMobile: 'Enter a valid Iranian mobile number.',
-    invalidCode: 'The code is not valid or has expired.'
+    invalidCode: 'The code is not valid or has expired.',
+    profileSaved: 'Your profile was saved.'
   }
 ];
 
@@ -111,14 +115,24 @@ for (const testCase of LOCALE_CASES) {
       await page.getByTestId('profile-submit').click();
       await expect(page.getByTestId('field-error').first()).toBeVisible();
 
+      /**
+       * The save is identified by its own outcome, not by how many toasts exist.
+       *
+       * Signing in pushes `auth.signedIn` and reaches this page through client-side
+       * navigation, so the queue already holds a message — and that message is itself a
+       * *success*, which is why narrowing the earlier assertion to `.success` fixed
+       * nothing: `toHaveCount(1)` then passed on the leftover sign-in toast alone and
+       * failed as soon as the save's own toast arrived beside it. Waiting for the
+       * authoritative `PUT /account/profile` and then matching the profile-saved message
+       * makes this observe the save and nothing else, however many other toasts are live.
+       */
       await page.locator('#profile-birth-date').fill('2000-01-01');
-      await page.getByTestId('profile-submit').click();
+      await actAndAwaitApi(page, 'PUT', /^\/api\/v1\/account\/profile$/, async () => {
+        await page.getByTestId('profile-submit').click();
+      });
+      const savedToast = page.locator('[data-testid="toast"].success').filter({ hasText: testCase.profileSaved });
+      await expect(savedToast).toHaveCount(1);
 
-      // The success toast specifically, not a count. Signing in pushes its own toast and
-      // reaches this page by client-side navigation, so the queue is already non-empty:
-      // `toHaveCount(1)` was satisfied by that leftover message and passed before the save
-      // had produced anything, then failed the moment the save's own toast arrived first.
-      await expect(page.locator('[data-testid="toast"].success')).toHaveCount(1);
       const bodyText = await page.locator('body').innerText();
       expect(bodyText).not.toMatch(RAW_KEY_PATTERN);
     });

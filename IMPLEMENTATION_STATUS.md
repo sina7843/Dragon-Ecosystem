@@ -42,8 +42,101 @@
 - Browser E2E stabilization: complete (DRAGON-29A) — the browser-suite instability DRAGON-28 opened with no established cause is diagnosed and closed; test-only fixes and harness configuration, no product change. Committed (`caf9c34`). **Ecosystem verdict unchanged: NO-GO**
 - Production-grade CI pipeline: complete (DRAGON-29B) — `.github/workflows/ci.yml` + `CI.md`; the repository had no CI configuration at all. **Never executed (no Git remote) and branch protection not activated: CI implementation complete, repository administrator activation pending.** **Ecosystem verdict unchanged: NO-GO**
 - First remote CI failure remediation: complete (DRAGON-29B.1) — three failed jobs diagnosed and fixed, including two real product defects and one high-severity shipped dependency advisory. **A second remote run is required to confirm; no green run exists yet.** **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29B.1 (first remote CI failure remediation); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Performance-evidence integration: complete (DRAGON-29B.2) — `apps/api/src/perf/perf.itest.ts` audited, hardened, and made commit-ready, so the release documents no longer cite a file absent from Git and CI. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29B.2 (commit and validate performance evidence); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29B.2 — Commit and validate performance evidence
+
+**The problem was a documentation-integrity one, not a testing one.** `RELEASE_DECISION_ECOSYSTEM.md`
+carried a full measurement table, and PERF-004 and PERF-014 cited `apps/api/src/perf/perf.itest.ts`
+as evidence — for a file that had **never been committed**. Nothing in CI ran it, nobody
+cloning the repository had it, and the eight-test gap between the local integration count
+(501) and the remote one (493) was exactly this file. Evidence that exists on one machine is
+not evidence.
+
+**Audited by content, not by history**, since a never-committed file has no history to appeal
+to. One source file, 489 lines. No generated benchmark output, no results file, no logs, no
+database dumps, no secrets, no machine-specific paths, no timestamps written anywhere —
+`report()` goes to stdout and nothing touches disk. It follows the existing integration
+convention (`*.itest.ts`, `node:test`, `createTestDatabase`), which is why
+`npm run test:integration` already discovered it locally. `tsconfig.build.json` excludes
+`src/**/*.itest.ts`, so committing it puts no test code in the production image — verified:
+`apps/api/dist/perf` does not exist after a build. **Verdict: suitable for source control,
+retained in full. No test was removed or weakened.**
+
+**Safety and isolation verified.** `createTestDatabase()` gives every run its own
+`dragon_test_<uuid>` on the disposable `docker-compose.test.yml` replica set, dropped by
+`dispose()`; no production or developer database is reachable. Datasets are bounded (301 rows,
+8–24 concurrent operations); every account, username, SKU, business reference and idempotency
+key is derived from a monotonic counter, so nothing is reused and nothing collides with the
+other integration files, which each hold their own database. Scenario E reads counts that
+scenario D seeded, but its assertion does not depend on them, so there is no ordering
+requirement. The full suite was not serialised.
+
+**No latency is asserted anywhere.** This was the property to confirm before committing,
+because a timing assertion would have made a slower GitHub runner fail the job. Every one of
+the eight tests asserts a correctness invariant and only reports timing:
+
+| Scenario | Invariant asserted |
+|---|---|
+| A1/A2 one key, cold and open window | value moves exactly once; exactly one ledger transaction for the key; losers get 409, not an error |
+| A3/A4 distinct keys, cold and open window | all 8 accepted and each moved its own amount — the DRAGON-28 cold-window defect surfaces here |
+| B rolling-window claims | 24 claims against a budget of 20 admit ≤20, and the stored counter equals what was admitted, so every refusal was compensated |
+| C store last-unit contention | exactly one winner, stock floors at 0, exactly one order line for the contested variant |
+| D stale-reservation scan | findings within the configured bound, stale rows actually detected, and the query is `IXSCAN`, not `COLLSCAN` |
+| E store reconciliation | an authorized operator gets 200 on all ten sequential reads |
+
+The plan assertion in D was checked for meaningfulness rather than taken on trust: it
+reproduces the detector's real query shape exactly — both registered recovery sources use
+`pendingStates: ['pending_payment']`, so the single-element `$in`, the `$lt` on `createdAt`,
+the ascending sort and the bounded limit all match `findStale`. A simplified reproduction
+could have passed while the real query did a collection scan; this one cannot.
+
+**Two hygiene fixes.** The run banner printed `MONGODB_TEST_URI`, which may legitimately carry
+credentials and is written to a CI log — it now prints host and port only, userinfo stripped.
+And `buildApp` assigns the shared `ledger` handle on both calls; both apps are wired to the
+same database so the two services are two handles on one set of balances, which is now stated
+instead of left looking like a bug.
+
+**`npm run test:performance` added** as a bounded focused entry point for exactly the
+repetition this slice needed. It does **not** remove the tests from `test:integration`; they
+run in both, and CI runs the integration job unchanged.
+
+**CI compatibility — no workflow change was needed.** The file needs Node ≥22.18 (satisfied by
+the pinned 22.23.1), the `mongo:8.0` replica set the integration job already starts, and
+nothing else: `MONGODB_TEST_URI` has a default, there is no Windows-specific path, no
+local-only variable, and no dependency on `docker-compose.yml`. The workflow hard-codes no
+test count, so the integration job simply reports 501 instead of 493. The green pipeline was
+left alone.
+
+**Verification:**
+
+| Command | Result | Exit |
+|---|---|---|
+| `npm run typecheck` | pass | 0 |
+| `npm run lint` | 0 errors, 60 pre-existing warnings | 0 |
+| `npm test` | 451 passed, 0 failed (api 405, web 46) | 0 |
+| `npm run test:integration` | **501 passed**, 0 failed, 0 skipped, 25.3 s | 0 |
+| `npm run test:performance` | **8 passed**, 0 failed, 4.3 s | 0 |
+| `npm run test:performance` ×5 (determinism) | 8/8 passed every run; `IXSCAN` every run | 0 |
+| `npm run build` / `npm run test:budget` | pass / 1 passed | 0 / 0 |
+| `npm run closure:check` / `decision:check` | 14/14 / 12/12 | 0 / 0 |
+| `npm run ci:validate` | 11 checks passed | 0 |
+
+The E2E suite and Docker persistence were **not** re-run: no product, browser, or storage
+behaviour changed in this slice.
+
+**Documentation corrected, no claim strengthened.** The statements that the directory was
+untracked and absent from CI are now false and were fixed; PROJECT_STATUS's "five contention
+scenarios" is now "five scenario groups totalling eight tests". The classification is stated
+explicitly: timing figures **measured locally** on the named machine, invariants
+**structurally verified in CI**, production-scale load **not measured**, PERF-014/OPS-014
+**blocked by external decisions**. Every required limitation is preserved verbatim —
+`app.inject` excludes network, TLS and proxy so the latencies are a floor; 8–24 operations is
+contention, not load; hundreds of rows do not meet the DEC-046 scale baseline; none of it is
+production SLO evidence. PERF-004 stays *Implemented* and PERF-001/002/003/014 and OPS-014
+stay *Blocked*. **Ecosystem verdict unchanged: NO-GO.**
 
 ## DRAGON-29B.1 — First remote CI failure remediation
 
@@ -234,7 +327,8 @@ named approver the repository does not have. Neither call was invented here.
 
 The integration count is 501 locally but would be **493 in CI**: `apps/api/src/perf/` is
 untracked, so its eight performance-contention tests do not exist for a fresh clone. That
-directory belongs to DRAGON-28 and was deliberately not absorbed here.
+directory belongs to DRAGON-28 and was deliberately not absorbed here. *(Resolved by
+DRAGON-29B.2, which committed the file; both counts are now 501.)*
 
 `npm run e2e` needed `E2E_WEB_PORT=4400` on this host: Windows WinNAT had reserved
 4144-4243, which contains the default 4173, and a reserved port fails to bind even with

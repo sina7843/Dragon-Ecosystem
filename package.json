@@ -17,6 +17,7 @@
     "test": "npm run test --workspaces --if-present",
     "test:integration": "node scripts/wait-for-test-db.mjs && npm run test:integration --workspace @dragon/api",
     "test:budget": "npm run test:budget --workspace apps/web",
+    "test:performance": "node scripts/wait-for-test-db.mjs && node --test apps/api/src/perf/perf.itest.ts",
     "closure:check": "node --test scripts/closure-check.test.mjs",
     "decision:check": "node --test scripts/release-decision.test.mjs",
     "ci:validate": "node scripts/ci-validate.mjs",
