@@ -41,7 +41,14 @@ export const EVENT_TEMPLATES: readonly EventTemplate[] = [
   // community activity can leave the product through push while that decision is open.
   // The params carry ids and a surface name — never the post body, which would leak the
   // text of a post the recipient may not be allowed to read.
-  { eventName: 'social.mentioned', templateKey: 'social_mentioned', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['postId', 'surface'] }
+  { eventName: 'social.mentioned', templateKey: 'social_mentioned', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['postId', 'surface'] },
+  // TOURN-020: a moved match reaches the accounts holding the two entries. The competitions
+  // service publishes one event per participant, so `accountId` resolves a single recipient
+  // exactly as every other row here does. SMS is a candidate because a time change the
+  // participant does not see is a forfeit; it is still gated by OD-008, and the attempt is
+  // recorded either way. The params carry the two times and the ids — never the operator's
+  // reason, which is written for staff and may name another participant.
+  { eventName: 'competition.match_rescheduled', templateKey: 'match_rescheduled', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['tournamentId', 'matchId', 'scheduledAt', 'priorScheduledAt'] }
 ];
 
 const BY_EVENT = new Map(EVENT_TEMPLATES.map((template) => [template.eventName, template]));

@@ -17,11 +17,13 @@ import { validateCompetitionConfig } from './validation.ts';
 import { computeStandings, STANDINGS_POLICY_VERSION, type AcceptedMatch } from './standings.ts';
 import {
   canRecordResult,
+  canScheduleMatch,
   type BracketVersionRecord,
   type CompetitionFormat,
   type CompetitionRecord,
   type CompetitionState,
   type MatchRecord,
+  type MatchScheduleRecord,
   type ParticipantRef,
   type ResultCorrectionRecord,
   type StandingsSnapshotRecord
@@ -59,6 +61,8 @@ export interface TournamentAccess {
 }
 export interface RegistrationAccess {
   listApprovedParticipants(tournamentId: EntityId): Promise<ParticipantRef[]>;
+  /** Resolves fixture slots back to the accounts that hold the entries (TOURN-020). */
+  listByIds(registrationIds: readonly EntityId[]): Promise<Array<{ _id: EntityId; accountId: EntityId }>>;
 }
 
 export interface GenerateOptions {
@@ -95,6 +99,9 @@ export class CompetitionsService {
   }
   #corrections(db: Db = this.#db) {
     return db.collection<ResultCorrectionRecord>(COMPETITIONS_COLLECTIONS.corrections);
+  }
+  #schedules(db: Db = this.#db) {
+    return db.collection<MatchScheduleRecord>(COMPETITIONS_COLLECTIONS.schedules);
   }
   #versions(db: Db = this.#db) {
     return db.collection<BracketVersionRecord>(COMPETITIONS_COLLECTIONS.versions);
@@ -223,6 +230,9 @@ export class CompetitionsService {
         slotAEmpty: m.aEmpty,
         slotBEmpty: m.bEmpty,
         state,
+        // Generation decides who plays whom, never when: an organizer schedules explicitly
+        // (TOURN-019). A fabricated time here would be indistinguishable from a real one.
+        scheduledAt: null,
         winner,
         scoreA: null,
         scoreB: null,
@@ -581,6 +591,135 @@ export class CompetitionsService {
       uow.publish({ eventName: 'competition.result_corrected', eventVersion: 1, aggregateId: match._id, payload: { competitionId: competition._id, revisionNumber } });
       return correction;
     });
+  }
+
+  /**
+   * Sets or moves a match's scheduled start (API-043, TOURN-019, TOURN-020).
+   *
+   * The same shape as `correctResult`: a required reason, an optimistic version guard, and
+   * an append-only revision row, so the prior time survives as evidence rather than being
+   * overwritten. One event is published **per participant account**, matching how
+   * `social.mentioned` fans out, because a notification template resolves exactly one
+   * recipient field per event.
+   */
+  async rescheduleMatch(
+    context: RequestContext,
+    tournamentId: EntityId,
+    matchId: EntityId,
+    input: { expectedVersion: number; scheduledAt: string; reason: string }
+  ): Promise<MatchScheduleRecord> {
+    if (input.reason.trim() === '') {
+      throw new ValidationError('A reason is required.', [{ field: 'reason', code: 'REASON_REQUIRED', message: 'Provide a reason.' }]);
+    }
+    // Parsed rather than pattern-matched, then re-serialized: an offset-bearing input is
+    // accepted and normalized to UTC instead of being stored as the organizer's local wall
+    // clock, which is what TOURN-019 exists to prevent.
+    const parsed = new Date(input.scheduledAt);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new ValidationError('The scheduled time is not a valid date.', [
+        { field: 'scheduledAt', code: 'INVALID_DATETIME', message: 'Provide an ISO 8601 date-time.' }
+      ]);
+    }
+    const scheduledAt = parsed.toISOString();
+
+    const match = await this.#matches().findOne({ _id: matchId, tournamentId });
+    if (match === null) throw new NotFoundError('Unknown match.');
+    const competition = await this.#competitions().findOne({ _id: match.competitionId });
+    if (competition === null) throw new NotFoundError('Unknown competition.');
+    if (competition.lockState === 'locked') {
+      throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; scheduling requires an explicit unlock.');
+    }
+    if (!canScheduleMatch(match.state)) {
+      throw new ConflictError('MATCH_NOT_SCHEDULABLE', 'Only a match that can still be played may be scheduled.');
+    }
+
+    return runUnitOfWork(this.#database, context, async (uow) => {
+      const now = utcNow();
+      // Re-check the lock inside the transaction: a concurrent lock between the outer read
+      // and this write would otherwise slip a schedule change past a finalized competition.
+      const fresh = await this.#competitions(uow.db).findOne({ _id: competition._id }, { session: uow.session });
+      if (fresh !== null && fresh.lockState === 'locked') {
+        throw new ConflictError('COMPETITION_LOCKED', 'This competition is finalized; scheduling requires an explicit unlock.');
+      }
+
+      // Optimistic guard, and also the idempotency boundary: a retry carrying the same
+      // expectedVersion finds the version already incremented and writes nothing, so no
+      // second history row and no duplicate event can be produced.
+      const claimed = await this.#matches(uow.db).updateOne(
+        { _id: match._id, version: input.expectedVersion, state: { $in: ['pending', 'ready'] } },
+        { $set: { scheduledAt, updatedAt: now }, $inc: { version: 1 } },
+        { session: uow.session }
+      );
+      if (claimed.matchedCount === 0) {
+        throw new ConflictError('MATCH_VERSION_STALE', 'This match changed since you opened it. Reload and retry.');
+      }
+
+      const prior = await this.#schedules(uow.db).findOne({ matchId: match._id }, { sort: { revisionNumber: -1 }, session: uow.session });
+      const revision: MatchScheduleRecord = {
+        _id: newId(),
+        matchId: match._id,
+        competitionId: competition._id,
+        tournamentId: competition.tournamentId,
+        revisionNumber: (prior?.revisionNumber ?? 0) + 1,
+        priorScheduledAt: match.scheduledAt,
+        scheduledAt,
+        reason: input.reason,
+        actorId: context.actor.accountId ?? 'system',
+        correlationId: context.correlationId,
+        createdAt: now
+      };
+      await this.#schedules(uow.db).insertOne(revision, { session: uow.session });
+
+      uow.audit({
+        action: 'competition.match_rescheduled',
+        resourceType: 'match',
+        resourceId: match._id,
+        before: { scheduledAt: match.scheduledAt },
+        after: { scheduledAt, revision: revision.revisionNumber },
+        reason: input.reason
+      });
+
+      // One event per affected participant account. The payload carries only what the
+      // template renders — tournament, match, and the two times — and never the reason,
+      // which is operator-facing and may name a third party.
+      for (const accountId of await this.#participantAccounts(match)) {
+        uow.publish({
+          eventName: 'competition.match_rescheduled',
+          eventVersion: 1,
+          aggregateId: match._id,
+          payload: {
+            accountId,
+            tournamentId: competition.tournamentId,
+            matchId: match._id,
+            scheduledAt,
+            priorScheduledAt: match.scheduledAt
+          }
+        });
+      }
+      return revision;
+    });
+  }
+
+  /**
+   * Accounts to notify for a match, resolved from the authoritative registration records
+   * rather than from anything denormalized onto the fixture.
+   *
+   * A team entry resolves to the registering account, which the registrations module
+   * defines as the team owner — there is no per-member notification anywhere in the
+   * platform, so this notifies the account that holds the entry, not every roster member.
+   */
+  async #participantAccounts(match: MatchRecord): Promise<string[]> {
+    const registrationIds = [match.slotA?.registrationId, match.slotB?.registrationId].filter((id): id is EntityId => typeof id === 'string');
+    if (registrationIds.length === 0) return [];
+    const registrations = await this.#registrations.listByIds(registrationIds);
+    return [...new Set(registrations.map((r) => r.accountId))];
+  }
+
+  /** Append-only schedule history for a match, newest first (TOURN-020 evidence). */
+  async listScheduleHistory(tournamentId: EntityId, matchId: EntityId): Promise<MatchScheduleRecord[]> {
+    const match = await this.#matches().findOne({ _id: matchId, tournamentId }, { projection: { _id: 1 } });
+    if (match === null) throw new NotFoundError('Unknown match.');
+    return this.#schedules().find({ matchId }).sort({ revisionNumber: -1 }).limit(50).toArray();
   }
 
   /** Overwrites a downstream slot when a correction changes who advanced. */

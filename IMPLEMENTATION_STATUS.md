@@ -44,8 +44,134 @@
 - First remote CI failure remediation: complete (DRAGON-29B.1) — three failed jobs diagnosed and fixed, including two real product defects and one high-severity shipped dependency advisory. **A second remote run is required to confirm; no green run exists yet.** **Ecosystem verdict unchanged: NO-GO**
 - Performance-evidence integration: complete (DRAGON-29B.2) — `apps/api/src/perf/perf.itest.ts` audited, hardened, and made commit-ready, so the release documents no longer cite a file absent from Git and CI. **Ecosystem verdict unchanged: NO-GO**
 - Remaining evidence-pending closure: complete (DRAGON-29C) — all 27 pending rows reviewed individually; 27 → 8, with nine reclassified as decision-blocked after correcting a wrong claim that none needed external input. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29C (remaining evidence-pending closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Final evidence-pending remediation: complete (DRAGON-29D) — match scheduling and rescheduling implemented end to end (API-043, TOURN-020; TOURN-019 corrected); 8 → 6 pending. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29D (final eight evidence-pending requirements); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29D — Final eight evidence-pending requirements
+
+**8 → 6.** All eight read against `Requirements.md` rather than their traceability notes,
+which changed the picture for two of them.
+
+### Match scheduling was mis-scoped, not merely missing
+
+The prior note said match times "are set by generation" and only a reschedule operation was
+absent. **Matches had no time field at all.** `MatchRecord` carried no `scheduledAt`, which
+also means TOURN-019 — *"Match schedules MUST use UTC storage and localized user display"* —
+was rowed **Implemented** citing the display-side formatters while there was nothing stored to
+display. That row is corrected, and the capability now exists.
+
+| Piece | Detail |
+|---|---|
+| Model | `scheduledAt: string \| null` on the match. Generation sets `null`: a bracket says who plays whom, never when, and a fabricated time is indistinguishable from a real commitment |
+| Migration | `031-match-scheduling` — creates the history collection and its indexes, then `$set: { scheduledAt: null }` filtered on `$exists: false`, which makes it idempotent and a no-op on a second run. **Backfills only the absence**: no time is invented and no revision is fabricated for a match nobody moved |
+| History | `competition_match_schedules`, append-only, carrying `priorScheduledAt`, `scheduledAt`, `reason`, `actorId`, `correlationId`. `schedule_match_revision_unique` on `(matchId, revisionNumber)` is the integrity authority, so two racers that computed the same next revision collapse to one row rather than forking the history |
+| Route | `PATCH /admin/tournaments/:id/matches/:mid/schedule` plus a `GET` history read. Registered under the owning tournament — the documented deviation API-044 and API-045 already use, because a match is addressed as (tournament, match) everywhere in this module |
+| Authorization | `tournament.manage`, resource-scoped (TOURN-018), through the same `gate()` every other admin competition route uses. A direct API call cannot bypass it |
+| Time handling | Parsed and **re-serialized to UTC**. An integration test schedules `2100-03-01T18:30:00+03:30` and asserts `15:00:00.000Z` — storing the wall clock is precisely what TOURN-019 exists to prevent |
+| Eligibility | `pending` and `ready` only. `completed` has no future to set; `bye` is never played. A locked competition is refused, **re-checked inside the transaction** so a concurrent lock cannot be raced |
+| Concurrency | Optimistic `expectedVersion` guard. Three simultaneous reschedules → exactly one wins, one history row, losers write nothing |
+| Idempotency | The version guard **is** the boundary: a retry with the same `expectedVersion` finds the version incremented, writes nothing, and so cannot append a second revision or publish a duplicate event |
+| Notification | One `competition.match_rescheduled` per participant account — the `social.mentioned` fan-out pattern, because a template resolves exactly one `recipientField` per event. Recipients resolve from the authoritative registration records |
+| Privacy | The payload carries the two times and the ids and **not the operator's reason**, which is staff-facing and may name another participant. Asserted explicitly |
+
+**A missing guard was found and closed.** Nothing asserted that a notification template key has
+a localized string: the inbox renders `notifications.template.<templateKey>`, a *computed* key
+the literal-key guard in `locales.test.ts` cannot see, so a template added without strings
+would have reached users as an empty message. `notifications.test.ts` now fails until both
+locales have an entry for every `KNOWN_TEMPLATE_KEYS` member.
+
+Deviation recorded: a **team entry notifies the registering account** (the team owner, per the
+registrations model). No per-roster-member notification exists anywhere in the platform.
+
+### Three rows blocked by policy that has no decision id
+
+OPS-008, PAGE-025 and PAGE-051 are each blocked by an input nobody has registered as an open
+decision. They were briefly rowed `Blocked by open decision` and the closure check correctly
+rejected it: that status requires citing a decision id, and **OD ids are defined in the
+protected `Requirements.md` (OD-003…OD-030)**. Inventing OD-031 would fabricate an external
+decision, so they stay `Evidence pending` with the gap stated on the row.
+
+That is itself a finding: **three requirements are blocked by policy inputs invisible to the
+decision-tracking mechanism**, because the mechanism only tracks decisions someone already
+wrote down.
+
+**OPS-008 was deliberately not implemented.** The requirement defines the localization clause
+and implies administrative reachability, but not fail-open versus fail-closed, which routes are
+affected, which health or staff routes are exempt, who may activate it, what is audited, or how
+recovery is confirmed — and no decision record covers it. Choosing those by assumption would
+decide whether a misread configuration takes the whole site down, and whether a degraded system
+grants privileged access it would not otherwise grant. Current fail-closed behaviour: no
+maintenance mode exists, so no request path can be disabled by configuration and none can be
+opened by one.
+
+**PAGE-025** would be fed by the readiness probe of the host it reports on, which is
+unavailable exactly when it is needed; the alternative source (operator-published state) has no
+publish path and no disclosure rule against the "no sensitive infrastructure detail" clause.
+**PAGE-051** cannot satisfy "staff action needs permission and reason" because **no
+team-administration permission exists** — the declared set has no team scope at all.
+
+### Three rows remain engineering work
+
+**PAGE-023** — verified rather than assumed: a user-facing support entry point **already
+exists** (`POST /support/cases`, `GET /support/cases`), it simply has no web surface, so that
+clause is unbuilt work rather than a dependency. The blocking clause is the FAQ and
+tournament-help copy, which is approved product content.
+
+**PAGE-017** — no per-account read, and the registration record has **no transition-history
+array**, so "status history" cannot be rendered from it. Needs an append-only history (the
+schedule-revision shape added here is the working precedent), a `{accountId, createdAt, _id}`
+index, and the page.
+
+**PAGE-018** — the hard blocker is now removed: matches carry a UTC time and every change
+leaves a revision, so both "time" and "changes are highlighted" have authoritative data. What
+remains is a participant-scoped match read and the page.
+
+### Verification
+
+| Command | Result | Exit |
+|---|---|---|
+| `npm run ci:validate` | 11 checks passed | 0 |
+| `npm run typecheck` | pass | 0 |
+| `npm run lint` | 0 errors, 60 pre-existing warnings | 0 |
+| `npm test` | **457 passed** (api 407, web 50) | 0 |
+| `npm run test:integration` | **514 passed**, 0 failed, 0 skipped (+13 scheduling) | 0 |
+| `npm run verify:migrations` | 23 checks; **31 migrations** apply on a fresh database, second pass applies nothing, pre-existing records not rewritten | 0 |
+| `npm run build` / `npm run test:budget` | pass / 1 passed | 0 / 0 |
+| `npm run closure:check` / `decision:check` | 14/14 / 12/12 | 0 / 0 |
+| Focused browser: `notifications.spec.ts` | 9 passed, all 3 viewports × both locales | 0 |
+
+The full E2E suite was not run: no route, navigation, authentication or availability behaviour
+changed. The only web change is two locale strings, whose key parity is asserted by
+`locales.test.ts`, whose renderability is now asserted by `notifications.test.ts`, and whose
+surface is covered by the focused inbox spec above.
+
+### Review
+
+One independent read-only reviewer: **APPROVE WITH NOTES, no findings at any severity.**
+Verified clean: authorization on both new routes (same resource-scoped `tournament.manage`
+gate, and a cross-tournament match 404s rather than being reachable); the optimistic guard and
+its idempotency boundary; one event per participant with no operator reason in the payload and
+no publication on an aborted transaction; migration idempotency and the absence of fabricated
+data; history immutability (insert-only, with the unique index as the authority); test
+substance including the concurrency and stale-version cases; the traceability citations; the
+retained-row claims (no team-scoped permission exists; `POST /support/cases` does); the NO-GO
+verdict and the counts; and the Git diff.
+
+The reviewer recorded three areas it did not verify: the full `state.ts` type content, the
+prose changes to `COMPETITION_GUIDE.md` and `DOMAIN_EVENTS.md`, and it did not execute any
+suite — its test-quality conclusion is from static reading. The suites were executed here, with
+the counts recorded above.
+
+### Final counts
+
+| Status | Before | After |
+|---|---|---|
+| Evidence pending | 8 | **6** |
+| Implemented | 412 | 414 |
+| Blocked by open decision | 19 | 19 |
+
+**Ecosystem verdict unchanged: NO-GO.**
 
 ## DRAGON-29C — Remaining evidence-pending closure
 

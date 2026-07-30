@@ -1469,7 +1469,8 @@
       "prize_paid": "جایزهٔ نقدی شما پرداخت‌شده علامت خورد.",
       "stream_schedule_changed": "زمان‌بندی پخش {streamSlug} تغییر کرد.",
       "course_completed": "دورهٔ {courseSlug} را به پایان رساندید.",
-      "social_mentioned": "در یک {surface} انجمن از شما نام برده شد."
+      "social_mentioned": "در یک {surface} انجمن از شما نام برده شد.",
+      "match_rescheduled": "زمان مسابقهٔ شما تغییر کرد."
     },
     "open": "مشاهده"
   },

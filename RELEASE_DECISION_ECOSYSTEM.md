@@ -398,7 +398,26 @@ identity method with no provider to verify against, a deletion path with no poli
 must be retained, or a report whose computation site the tooling decision may move, would each
 have produced a capability the platform could not honestly complete.
 
-### The 8 rows that remain pending
+### DRAGON-29D: 8 → 6, and a tracking gap worth naming
+
+Match scheduling and rescheduling are implemented (API-043, TOURN-020), which also corrected
+**TOURN-019** — that row was `Implemented` citing the display-side formatters while matches had
+**no time field at all**, so there was nothing stored to display. It now cites the real
+`scheduledAt` field and a test proving an offset-bearing input is normalized to UTC.
+
+The remediation surfaced a gap in the decision-tracking model itself. **OPS-008, PAGE-025 and
+PAGE-051 are each blocked by a policy input that nobody has registered as an open decision** —
+the operational availability rule, what public service state may be published and by whom, and
+the permitted staff-action set over a team owner. The closure check correctly refuses to let
+them sit as `Blocked by open decision`, because that status must cite a decision id and the
+OD register in `Requirements.md` runs OD-003…OD-030 with no entry for any of them. They
+therefore remain `Evidence pending` with the gap stated on the row.
+
+The consequence for release reading: the open-decision list understates what is actually
+undecided. Three requirements are waiting on policy that no decision record is tracking, so
+they will not appear in any count of open decisions.
+
+### The rows that remain pending
 
 All eight are engineering-owned and none is blocked by an external decision, so they are
 recorded as pending work rather than reclassified into a status that would flatter the count.
@@ -494,7 +513,7 @@ gaps remain that engineering owns and can close without any external input:
 
 | Item | Why it is engineering-owned |
 |---|---|
-| 8 `Evidence pending` rows | Match rescheduling (API-043, TOURN-020), per-account registration and match views (PAGE-017, PAGE-018), help, status and staff team administration (PAGE-023, PAGE-025, PAGE-051), and maintenance mode (OPS-008). Engineering owns all eight; three need one product or operational input before the surface is worth building. See §above for each row's next action. |
+| 6 `Evidence pending` rows | Down from 8: DRAGON-29D implemented match scheduling and rescheduling (API-043, TOURN-020). Remaining: per-account registration and match views (PAGE-017, PAGE-018) and a help page (PAGE-023), all engineering work with verified next actions; plus **three blocked by policy inputs that have no registered open-decision id** — maintenance mode (OPS-008), the public status page (PAGE-025) and staff team administration (PAGE-051). Those three cannot honestly be rowed `Blocked by open decision`, because that status requires citing a decision and OD ids are defined in `Requirements.md` (OD-003…OD-030); inventing one would fabricate an external decision. |
 | 129 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006), no CDN (PERF-009), no cross-user access-review report or last-use record (ADMIN-011). |
 | 19 `Blocked by open decision` rows | Up from 10. DRAGON-29C moved nine rows here that had been mis-filed as engineering-owned: email identity needs a contracted provider (**OD-003**), deletion, consent and legal documents need the data-class and retention policy (**DEC-043**), and analytics reporting needs the tooling decision (**OD-026**). None is engineering's to close. |
 | No risk-acceptance mechanism (SEC-017) | The dependency gate exists and works — its first remote run caught `find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 7.5), which DRAGON-29B.1 fixed by updating that transitive dependency to `9.7.0`; the audit now reports 0 vulnerabilities. What is still missing is the requirement's other half: the repository names no approver and defines no waiver record, so there is no way to *formally risk-accept* a finding that cannot be fixed. That is not an engineering decision. |
