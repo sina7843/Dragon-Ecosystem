@@ -74,6 +74,7 @@ recorded.
 | `stream.schedule_changed` | `stream_schedule_changed` | transactional | `accountId` | in_app, sms | `streamSlug`, `scheduledStartAt` |
 | `course.completed` | `course_completed` | transactional | `accountId` | in_app | `courseSlug` |
 | `social.mentioned` | `social_mentioned` | transactional | `accountId` | in_app | `postId`, `surface` |
+| `competition.match_rescheduled` | `match_rescheduled` | transactional | `accountId` | in_app, sms | `tournamentId`, `matchId`, `scheduledAt`, `priorScheduledAt` |
 
 `in_app` is always delivered. `sms` and `email` are consent- and gate-checked per delivery
 (OD-008 / OD-003); a channel with no approved template or no contact address is recorded
@@ -122,6 +123,13 @@ name**. A new state that needs a notification also needs a `templates.ts` entry.
 | `competition.swiss_round` | as above | — |
 | `competition.regenerated` | as above | — |
 | `competition.rolled_back` | as above | — |
+| `competition.match_rescheduled` | as above | notifications → `match_rescheduled` |
+
+`competition.match_rescheduled` is published **once per participant account**, not once per
+match, because a template resolves exactly one `recipientField` per event — the same fan-out
+`social.mentioned` uses. Its payload carries `accountId`, `tournamentId`, `matchId`,
+`scheduledAt` and `priorScheduledAt`, and deliberately **not** the operator's reason, which is
+staff-facing and may name another participant.
 
 ### Money: ledger, payments, holds, checkout, prizes, economy
 

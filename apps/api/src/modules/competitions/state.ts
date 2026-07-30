@@ -116,7 +116,42 @@ export interface ResultCorrectionRecord {
   createdAt: string;
 }
 
+/**
+ * One append-only schedule revision for a match (TOURN-020, API-043).
+ *
+ * Mirrors `ResultCorrectionRecord`: the current time lives on the match, and every change
+ * to it leaves an immutable row here carrying the prior value, the actor and the reason.
+ * Nothing rewrites a revision, so "record old/new time, actor, reason" is satisfied by the
+ * history rather than by reading an audit log the API does not expose.
+ */
+export interface MatchScheduleRecord {
+  _id: EntityId;
+  matchId: EntityId;
+  competitionId: EntityId;
+  tournamentId: EntityId;
+  revisionNumber: number;
+  /** UTC ISO 8601, or null when the match had no scheduled time before this revision. */
+  priorScheduledAt: string | null;
+  /** UTC ISO 8601 (TOURN-019: stored UTC, displayed in the viewer's zone). */
+  scheduledAt: string;
+  reason: string;
+  actorId: EntityId;
+  correlationId: string;
+  createdAt: string;
+}
+
 export type MatchState = 'pending' | 'ready' | 'bye' | 'completed';
+
+/**
+ * A match may only be scheduled while it can still be played.
+ *
+ * `completed` is excluded because a played fixture has no future time to set, and `bye`
+ * because a structural bye is never played at all — scheduling either would record a
+ * commitment the tournament cannot honour.
+ */
+export function canScheduleMatch(state: MatchState): boolean {
+  return state === 'pending' || state === 'ready';
+}
 
 export interface MatchRecord {
   _id: EntityId;
@@ -134,6 +169,11 @@ export interface MatchRecord {
   slotAEmpty: boolean;
   slotBEmpty: boolean;
   state: MatchState;
+  /**
+   * Scheduled start, UTC ISO 8601, or null when the organizer has not scheduled it
+   * (TOURN-019). Generation never invents a time: a bracket says who plays whom, not when.
+   */
+  scheduledAt: string | null;
   winner: ParticipantRef | null;
   scoreA: number | null;
   scoreB: number | null;

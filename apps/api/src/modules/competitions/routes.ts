@@ -190,6 +190,64 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
     }
   );
 
+  /**
+   * API-043 (`PATCH /admin/matches/{id}/schedule`) is registered under the tournament that
+   * owns the match, the same documented deviation API-044 and API-045 already use: a match
+   * is addressed as `(tournament, match)` everywhere in this module, and a bare
+   * `/admin/matches/{id}` would be the only path that is not.
+   */
+  app.patch(
+    '/admin/tournaments/:id/matches/:mid/schedule',
+    {
+      ...gate(),
+      schema: {
+        tags: ['competitions'],
+        summary: 'Schedule or reschedule a match (versioned, reasoned, audited).',
+        params: matchParams,
+        body: {
+          type: 'object',
+          required: ['expectedVersion', 'scheduledAt', 'reason'],
+          additionalProperties: false,
+          properties: {
+            expectedVersion: { type: 'integer', minimum: 0 },
+            scheduledAt: { type: 'string', format: 'date-time' },
+            reason: { type: 'string', minLength: 1, maxLength: 500 }
+          }
+        },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const p = request.params as { id: string; mid: string };
+      const revision = await deps.competitions.rescheduleMatch(
+        request.requestContext,
+        p.id,
+        p.mid,
+        request.body as { expectedVersion: number; scheduledAt: string; reason: string }
+      );
+      const { _id, ...rest } = revision;
+      return { id: _id, ...rest };
+    }
+  );
+
+  app.get(
+    '/admin/tournaments/:id/matches/:mid/schedule',
+    {
+      ...gate(),
+      schema: {
+        tags: ['competitions'],
+        summary: 'Append-only schedule history for a match.',
+        params: matchParams,
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const p = request.params as { id: string; mid: string };
+      const items = await deps.competitions.listScheduleHistory(p.id, p.mid);
+      return { items: items.map(({ _id, ...rest }) => ({ id: _id, ...rest })) };
+    }
+  );
+
   app.post(
     '/admin/tournaments/:id/matches/:mid/correct',
     {

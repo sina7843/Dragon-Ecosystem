@@ -1,9 +1,36 @@
 import assert from 'node:assert/strict';
 import { describe, test } from 'node:test';
+import { readFileSync } from 'node:fs';
+import { fileURLToPath } from 'node:url';
+import { dirname, join } from 'node:path';
 import { templateForEvent, renderTemplate, KNOWN_TEMPLATE_KEYS } from './templates.ts';
 import { maskRecipient } from './channels.ts';
 
 /** Event mapping, template rendering, and recipient masking (DRAGON-13) — database-free. */
+
+// apps/api/src/modules/notifications/ -> apps/api/src/
+const apiSrc = join(dirname(fileURLToPath(import.meta.url)), '..', '..');
+const webLocales = join(apiSrc, '..', '..', 'web', 'src', 'i18n', 'locales');
+
+describe('every template key is renderable in every locale', () => {
+  /**
+   * The inbox renders `notifications.template.<templateKey>`, a *computed* key, so the
+   * literal-key guard in `locales.test.ts` cannot see it and a template added without its
+   * strings would reach a user as an empty message. This closes that gap from the side that
+   * owns the key list: adding a row to `EVENT_TEMPLATES` now fails until both locales have
+   * a string for it.
+   */
+  for (const locale of ['fa', 'en']) {
+    test(`${locale} has a message for every mapped template key`, () => {
+      const messages = JSON.parse(readFileSync(join(webLocales, `${locale}.json`), 'utf8')) as {
+        notifications?: { template?: Record<string, string> };
+      };
+      const templates = messages.notifications?.template ?? {};
+      const missing = KNOWN_TEMPLATE_KEYS.filter((key) => (templates[key] ?? '').trim() === '');
+      assert.deepEqual(missing, [], `${locale}.json is missing notifications.template entries: ${missing.join(', ')}`);
+    });
+  }
+});
 
 describe('event-to-template mapping', () => {
   test('maps known transactional events; unknown events map to nothing', () => {

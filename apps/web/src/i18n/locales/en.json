@@ -1469,7 +1469,8 @@
       "prize_paid": "Your cash prize has been marked paid.",
       "stream_schedule_changed": "The schedule for stream {streamSlug} changed.",
       "course_completed": "You have completed the course {courseSlug}.",
-      "social_mentioned": "You were mentioned in a community {surface}."
+      "social_mentioned": "You were mentioned in a community {surface}.",
+      "match_rescheduled": "The time of your match was changed."
     },
     "open": "Open"
   },
