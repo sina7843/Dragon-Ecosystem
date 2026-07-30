@@ -409,6 +409,18 @@ it, and who must supply it.
 disposable database and reports both a latency distribution and the correctness invariant
 that must hold while the contention is happening.
 
+**The file is committed** (DRAGON-29B.2). Until then it was untracked, so every claim on this
+page rested on a file absent from Git and from CI — the integration count read 501 locally
+and 493 remotely, and the eight-test difference was exactly this file. It now runs in the
+remote `integration` job, so the correctness invariants below are verified on every push and
+pull request rather than only on one developer's machine.
+
+**What CI verifies, and what it does not.** The scenarios assert **correctness only**; no
+latency threshold is asserted anywhere, so a slower runner cannot fail the job and CI
+publishes no timing claim. The latency figures in the table below remain a **local**
+measurement on the machine named beneath it, and re-running reproduces the same invariants
+with different numbers.
+
 **Environment:** Node v24.13.1, win32 x64, MongoDB replica set on `127.0.0.1:27018`,
 throwaway database dropped after the run, requests via `app.inject` — in process, with no
 network, TLS, proxy or connection pool in the path.
@@ -434,7 +446,14 @@ agreed normal-load profile exists (OD-023), so nothing here can be compared agai
 PERF-001, PERF-002 or PERF-003. Scenario E's seeded paid orders carry no line items, so it
 measures the query path rather than difference detection.
 
-**Classification: Measured locally.** PERF-004 moves to *Implemented* on this evidence —
+**Classification: Measured locally; invariants structurally verified in CI.** The timing
+figures are *measured locally* and nothing more. The invariants each scenario asserts are
+*structurally verified* on every CI run now that the file is committed. Production-scale load
+remains **not measured** and PERF-014/OPS-014 remain **blocked by external decisions**
+(OD-023 for the load profile, DEC-046 for the scale baseline). Committing the file changed
+where these tests run — it changed no claim about what they prove.
+
+PERF-004 moves to *Implemented* on this evidence —
 the scan examines exactly its configured bound and is index-backed. PERF-001, PERF-002,
 PERF-003, PERF-006, PERF-014 and OPS-014 remain **Blocked**, and the local numbers are
 recorded on those rows for orientation only, explicitly not as evidence for the targets.

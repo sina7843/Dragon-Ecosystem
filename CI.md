@@ -424,9 +424,13 @@ and confirming the test fails: the follow assertion failed with `aria-pressed="f
   contention symptom — no page-setup timeout, no browser-launch failure — so the value was
   left alone; the eight failures were defects, not saturation. The suite took 12.2 minutes
   there against roughly 6 locally, which is runner speed, not a worker problem.
-- **`apps/api/src/perf/` is untracked**, so the five performance-contention integration
-  tests it holds do not exist for CI and its `perf.itest.ts` will not run there. It belongs
-  to DRAGON-28 and is not absorbed here; committing it is that slice's decision.
+- **The bounded performance measurements now run in CI.** `apps/api/src/perf/perf.itest.ts`
+  was untracked until DRAGON-29B.2, which is why the integration count read 501 locally and
+  493 remotely. It is committed, so `npm run test:integration` discovers its 8 tests (5
+  scenario groups) on both sides and the counts agree. The scenarios assert correctness
+  invariants only — **no latency threshold is asserted anywhere**, so a slower runner cannot
+  fail the job. `npm run test:performance` runs just this file for a bounded focused pass;
+  it does not remove the tests from the integration job.
 - **`persistence` does not run on pull requests.** The static topology contract does
   (`compose-topology.test.ts` in `unit`); the runtime stop/start cycle runs on `main` and on
   manual dispatch.
