@@ -28,6 +28,7 @@ import { storeMigration } from './modules/store/migrations.ts';
 import { economyMigration } from './modules/economy/migrations.ts';
 import { recoveryIndexesMigration } from './migrations-recovery-indexes.ts';
 import { matchSchedulingMigration } from './migrations-match-scheduling.ts';
+import { registrationHistoryMigration } from './migrations-registration-history.ts';
 import { perfIndexesMigration } from './migrations-perf-indexes.ts';
 import { auditIndexesMigration } from './migrations-audit-indexes.ts';
 
@@ -69,5 +70,6 @@ export const allMigrations: readonly Migration[] = [
   storeMigration,
   economyMigration,
   recoveryIndexesMigration,
-  matchSchedulingMigration
+  matchSchedulingMigration,
+  registrationHistoryMigration
 ];

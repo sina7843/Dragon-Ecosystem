@@ -50,7 +50,9 @@
       "orders": "Orders",
       "adminStore": "Store administration",
       "adminOrders": "Order operations",
-      "adminPrizes": "Prize settlement"
+      "adminPrizes": "Prize settlement",
+      "registrations": "My registrations",
+      "matches": "My matches"
     }
   },
   "player": {
@@ -88,7 +90,9 @@
     "teamsDirectory": "Teams",
     "playersDirectory": "Players",
     "streams": "Streams",
-    "academy": "Academy"
+    "academy": "Academy",
+    "registrations": "Registrations",
+    "matches": "Matches"
   },
   "theme": {
     "label": "Theme",
@@ -1899,6 +1903,52 @@
       "west_azerbaijan": "West Azerbaijan",
       "yazd": "Yazd",
       "zanjan": "Zanjan"
+    }
+  },
+  "registrations": {
+    "mine": {
+      "title": "My registrations",
+      "intro": "Every tournament you have entered, newest first.",
+      "empty": "You have not entered a tournament yet.",
+      "tournamentUnavailable": "Tournament no longer available",
+      "participantType": "Entry",
+      "type": {
+        "individual": "Individual",
+        "team": "Team"
+      },
+      "submitted": "Submitted",
+      "waitlistPosition": "Waitlist position",
+      "showHistory": "Show status history",
+      "hideHistory": "Hide status history",
+      "historyUnavailable": "Earlier status changes were not recorded for this registration.",
+      "actor": {
+        "participant": "by you",
+        "staff": "by tournament staff",
+        "system": "automatic"
+      },
+      "more": "Load more",
+      "loadingMore": "Loading…"
+    }
+  },
+  "matches": {
+    "mine": {
+      "title": "My matches",
+      "intro": "Times are shown in your time zone ({zone}).",
+      "empty": "You have no matches yet.",
+      "upcoming": "Upcoming",
+      "completed": "Completed",
+      "noUpcoming": "No upcoming matches.",
+      "noCompleted": "No completed matches.",
+      "opponent": "Opponent",
+      "opponentPending": "Not decided yet",
+      "opponentUnavailable": "Opponent no longer available",
+      "notScheduled": "Not scheduled yet",
+      "rescheduled": "This match was rescheduled.",
+      "previously": "previously",
+      "tournamentUnavailable": "Tournament no longer available",
+      "won": "Won",
+      "lost": "Lost",
+      "truncated": "Only the first 200 matches are shown."
     }
   }
 }

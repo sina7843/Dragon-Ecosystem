@@ -12,6 +12,42 @@ import type { EntityId } from '../../shared/ids.ts';
 export const REGISTRATION_STATES = ['pending_payment', 'pending', 'approved', 'waitlisted', 'rejected', 'cancelled'] as const;
 export type RegistrationState = (typeof REGISTRATION_STATES)[number];
 
+/**
+ * Who caused a transition, at the granularity a participant may see (PAGE-017).
+ *
+ * Deliberately not the acting account id: a participant is entitled to know that staff
+ * decided their entry, not which staff member did. The identity stays in the audit record,
+ * which is staff-facing.
+ */
+export type TransitionActor = 'participant' | 'staff' | 'system';
+
+/**
+ * One append-only registration transition (PAGE-017, "status history").
+ *
+ * `revision` is the registration `version` this transition produced. Because the
+ * registration write is version-guarded inside the same transaction, the pair
+ * (registrationId, revision) is unique by construction — a retry or a losing racer aborts
+ * before reaching this insert, so history can neither duplicate nor fork.
+ *
+ * The staff `reason` is **not** carried here. `statusView` — the established
+ * participant-facing projection — already omits it, and this history is read by the same
+ * audience; changing that boundary would be a privacy decision, not a rendering one.
+ */
+export interface RegistrationTransitionRecord {
+  _id: EntityId;
+  registrationId: EntityId;
+  tournamentId: EntityId;
+  /** Denormalized so the owner check never needs to join back to the registration. */
+  accountId: EntityId;
+  /** Null for the entry that created the registration. */
+  fromState: RegistrationState | null;
+  toState: RegistrationState;
+  actor: TransitionActor;
+  occurredAt: string;
+  correlationId: string;
+  revision: number;
+}
+
 const ALLOWED: Readonly<Record<RegistrationState, readonly RegistrationState[]>> = {
   // Paid checkout (DRAGON-12): a seat is reserved while payment settles; completion
   // activates it, cancellation/expiry releases it. It never becomes waitlisted.

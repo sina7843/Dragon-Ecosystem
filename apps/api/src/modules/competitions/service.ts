@@ -52,6 +52,9 @@ const DUPLICATE_KEY = 11000;
  * to spare while still refusing to load an unbounded collection.
  */
 const MAX_MATCHES_PER_COMPETITION = 4000;
+
+/** Upper bound on one participant's own fixture list; the caller is told when it is hit. */
+const MATCH_PAGE_CAP = 200;
 function isDuplicateKey(error: unknown): boolean {
   return typeof error === 'object' && error !== null && (error as { code?: number }).code === DUPLICATE_KEY;
 }
@@ -713,6 +716,72 @@ export class CompetitionsService {
     if (registrationIds.length === 0) return [];
     const registrations = await this.#registrations.listByIds(registrationIds);
     return [...new Set(registrations.map((r) => r.accountId))];
+  }
+
+  /**
+   * The fixtures of the caller's own entries (PAGE-018).
+   *
+   * Ownership is derived entirely from the registration ids passed in, which the caller's
+   * route resolves from the authenticated account — no caller-supplied id reaches this, so a
+   * substituted registration or tournament id cannot widen the result. A participant sees
+   * only fixtures they are actually in.
+   *
+   * `rescheduled` is a boolean derived from the schedule history rather than the history
+   * itself: TOURN-020's operator reason is staff-facing, so the participant learns *that* the
+   * time moved, and the current and previous times, but not the operator's note.
+   */
+  async listMatchesForRegistrations(
+    registrationIds: readonly EntityId[]
+  ): Promise<{
+    truncated: boolean;
+    fixtures: Array<{
+      match: MatchRecord;
+      /** Which of the caller's registrations is in this fixture. */
+      ownRegistrationId: EntityId;
+      opponentRegistrationId: EntityId | null;
+      rescheduled: boolean;
+      previousScheduledAt: string | null;
+    }>;
+  }> {
+    const ids = [...new Set(registrationIds)];
+    if (ids.length === 0) return { truncated: false, fixtures: [] };
+    // Bounded, and the bound is reported rather than applied silently: a participant shown a
+    // quietly truncated schedule would believe they had seen all of their fixtures.
+    const matches = await this.#matches()
+      .find({ $or: [{ 'slotA.registrationId': { $in: ids } }, { 'slotB.registrationId': { $in: ids } }] })
+      .sort({ scheduledAt: 1, round: 1, index: 1 })
+      .limit(MATCH_PAGE_CAP + 1)
+      .toArray();
+    if (matches.length === 0) return { truncated: false, fixtures: [] };
+
+    // One query for every fixture's latest revision, rather than one per fixture.
+    const revisions = await this.#schedules()
+      .find({ matchId: { $in: matches.map((m) => m._id) } })
+      .sort({ revisionNumber: -1 })
+      .toArray();
+    const latest = new Map<EntityId, MatchScheduleRecord>();
+    for (const revision of revisions) {
+      if (!latest.has(revision.matchId)) latest.set(revision.matchId, revision);
+    }
+
+    const owned = new Set(ids);
+    const truncated = matches.length > MATCH_PAGE_CAP;
+    const fixtures = matches.slice(0, MATCH_PAGE_CAP).map((match) => {
+      const aOwned = match.slotA !== null && owned.has(match.slotA.registrationId);
+      const ownSlot = aOwned ? match.slotA : match.slotB;
+      const otherSlot = aOwned ? match.slotB : match.slotA;
+      const revision = latest.get(match._id);
+      return {
+        match,
+        ownRegistrationId: ownSlot?.registrationId as EntityId,
+        opponentRegistrationId: otherSlot?.registrationId ?? null,
+        // A first scheduling is not a reschedule: only a revision that replaced a real time
+        // is a change the participant needs flagged.
+        rescheduled: revision !== undefined && revision.priorScheduledAt !== null,
+        previousScheduledAt: revision?.priorScheduledAt ?? null
+      };
+    });
+    return { truncated, fixtures };
   }
 
   /** Append-only schedule history for a match, newest first (TOURN-020 evidence). */

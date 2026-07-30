@@ -44,9 +44,127 @@
 - First remote CI failure remediation: complete (DRAGON-29B.1) — three failed jobs diagnosed and fixed, including two real product defects and one high-severity shipped dependency advisory. **A second remote run is required to confirm; no green run exists yet.** **Ecosystem verdict unchanged: NO-GO**
 - Performance-evidence integration: complete (DRAGON-29B.2) — `apps/api/src/perf/perf.itest.ts` audited, hardened, and made commit-ready, so the release documents no longer cite a file absent from Git and CI. **Ecosystem verdict unchanged: NO-GO**
 - Remaining evidence-pending closure: complete (DRAGON-29C) — all 27 pending rows reviewed individually; 27 → 8, with nine reclassified as decision-blocked after correcting a wrong claim that none needed external input. **Ecosystem verdict unchanged: NO-GO**
+- Registration history and participant views: complete (DRAGON-29E) — PAGE-018 Implemented, PAGE-017 Partial with three clauses named; 6 → 4 pending. **Ecosystem verdict unchanged: NO-GO**
 - Final evidence-pending remediation: complete (DRAGON-29D) — match scheduling and rescheduling implemented end to end (API-043, TOURN-020; TOURN-019 corrected); 8 → 6 pending. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29D (final eight evidence-pending requirements); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Active prompt: DRAGON-29E (registration history and participant views); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29E — Registration history and participant views
+
+**6 → 4 pending.** PAGE-018 → **Implemented**, PAGE-017 → **Partial** with three clauses named.
+
+The prior audit's four findings were re-verified against the code before anything changed,
+and all four held: no per-account registration read, no transition history, no index able to
+serve a newest-first account query (`registration_account` is `{accountId, tournamentId}`),
+and no participant-scoped match read.
+
+### Transition history
+
+`registration_transitions`, created by migration **`032-registration-history`** together with
+`registration_account_created` `{accountId, createdAt: -1, _id: -1}`.
+
+The history is written from the single `#audit` helper that all four transition paths already
+call — submit, paid activation/cancellation, the automatic-approval path, and the shared
+admin/self decision — so it cannot miss a path or drift from the audit trail. It lands inside
+the caller's unit of work, and the registration write that precedes it is version-guarded, so
+the guarantees follow from the existing mechanism rather than from new checks:
+
+| Property | Why it holds |
+|---|---|
+| Current state and latest entry agree | Same transaction; `revision` is the version the transition produced |
+| Append-only | Insert is the only operation; no product path updates or deletes a row |
+| No forked history | `transition_registration_revision_unique` on `(registrationId, revision)` |
+| Nothing on an invalid transition | The transition check throws before the write |
+| Nothing on an abort | Written with the session |
+| No duplicate on retry | The version guard rejects the second attempt first |
+
+**Legacy registrations are not backfilled.** They keep their current state and report
+`historyAvailable: false`. Inventing an actor, a reason or a timestamp for transitions nobody
+recorded would manufacture evidence; an explicit "not recorded" is the honest statement, and
+the page says exactly that.
+
+### Reads, and the privacy boundary
+
+`GET /me/tournament-registrations` (paged, newest-first), `GET /me/tournament-registrations/:id`
+(with history), and `GET /me/matches`. All three follow the `/me/*` owned-collection convention
+`/me/orders` and `/me/enrollments` already use.
+
+**Ownership is always derived from the session.** No endpoint accepts an account id. `/me/matches`
+resolves the caller's active registrations first and queries only those ids, so there is no
+participant selector to substitute. A registration belonging to someone else is reported exactly
+as a missing one, so the refusal cannot be used to probe whether a record exists.
+
+The privacy boundary was the main design constraint, and it was inherited rather than invented:
+`statusView` — the participant projection that has existed since DRAGON-08 — excludes the staff
+`reason`, `decidedBy`, `decidedAt` and the submitted answers. So:
+
+- the transition record **never stores** the staff reason, and carries an actor **role**
+  (`participant`/`staff`/`system`) instead of an acting identity;
+- DRAGON-29D's reschedule reason stays server-side; the participant sees **that** the time moved
+  and **what it was**, which is what they need in order to act. The browser suite asserts the
+  reason text is absent from the rendered page.
+
+### Pages
+
+`/{locale}/account/registrations` and `/{locale}/account/matches`, lazy-loaded, in the account
+shell and its navigation, both locales, RTL and LTR, with loading, empty, error and
+unavailable-reference states. A removed tournament keeps the record readable and renders a named
+fallback rather than a dead link — the entry is the participant's own record and does not
+disappear with the event. The matches page separates upcoming from completed, marks a moved
+fixture, and renders an explicit "not scheduled" state, since generation never invents a time.
+
+### PAGE-017 is Partial, deliberately
+
+Three clauses of *"Status, tournament, participant, payment, reason, cancellation"* are not met:
+
+1. **The staff reason is not shown** — the privacy boundary above. Surfacing it is a policy
+   decision, not a rendering one.
+2. **Payment detail** is limited to the `pending_payment` state; hold and ledger internals are
+   out of participant scope.
+3. **The withdraw action is not on this page.** It exists and is authorized
+   (`POST /tournaments/:id/registration/withdraw`, TOURN-016) but is offered on the tournament
+   page, so "permitted actions" is satisfied by the product and not by this surface.
+
+### Review
+
+One independent read-only reviewer: **APPROVE WITH NOTES**, no Critical or High. Both Mediums
+were real and both are fixed.
+
+**`historyAvailable` conflated "rows exist" with "the history is known."** A registration that
+predates the migration and is decided *afterwards* has exactly one row — the decision — and the
+flag would have reported `true`, presenting a partial list as the whole story. That is the
+quieter kind of wrong: an empty history is obviously incomplete, a nearly-complete one is not.
+Renamed to **`historyComplete`**, derived from whether the trail reaches back to the creating
+transition (`history[0].fromState === null`), and the view now shows the rows it has **and** the
+"earlier changes were not recorded" note together. Covered by a new test for exactly that case.
+
+**`/me/matches` truncated silently at 200.** A participant shown a trimmed schedule would
+believe they had seen all of their fixtures. The read now fetches one past the cap and returns
+`truncated`, which the page states in both locales — the same discipline the repository already
+applies elsewhere by refusing to cap without saying so.
+
+The Low finding (the transitions query filters on `accountId`, which is not in
+`transition_registration_occurred`) is left as noted: `registrationId` already bounds the result
+to a handful of rows, and the redundant equality is a defence-in-depth ownership check, not a
+scan.
+
+The reviewer executed no suites; its test-quality view is from reading. The suites were run here.
+
+### Verification
+
+| Command | Result | Exit |
+|---|---|---|
+| `npm run ci:validate` | 11 checks passed | 0 |
+| `npm run typecheck` | pass | 0 |
+| `npm run lint` | 0 errors, 67 pre-existing warnings | 0 |
+| `npm test` | **457 passed** (api 407, web 50) | 0 |
+| `npm run test:integration` | **526 passed**, 0 failed, 0 skipped (+12) | 0 |
+| `npm run verify:migrations` | **32 migrations** apply fresh; second pass applies nothing; records not rewritten | 0 |
+| `npm run verify:persistence` | PASS | 0 |
+| `npm run build` / `npm run test:budget` | pass / 1 passed | 0 / 0 |
+| `npm run closure:check` / `decision:check` | 14/14 / 12/12 | 0 / 0 |
+| `account-participation.spec.ts`, all 3 projects | **39 passed** | 0 |
+| Full `npm run e2e` (account navigation changed) | **503 passed, 1 skipped, 0 failed** | 0 |
 
 ## DRAGON-29D — Final eight evidence-pending requirements
 
