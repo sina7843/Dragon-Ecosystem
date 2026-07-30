@@ -180,6 +180,20 @@ export const router = createRouter({
       component: () => import('./views/AccountOrdersView.vue'),
       meta: { shell: 'account', indexable: false, titleKey: 'meta.title.orders' }
     },
+    // A participant's own registrations and fixtures (PAGE-017, PAGE-018). Session-only
+    // and never indexed: both are a single account's private record.
+    {
+      path: '/:locale(fa|en)/account/registrations',
+      name: 'account-registrations',
+      component: () => import('./views/AccountRegistrationsView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.registrations' }
+    },
+    {
+      path: '/:locale(fa|en)/account/matches',
+      name: 'account-matches',
+      component: () => import('./views/AccountMatchesView.vue'),
+      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.matches' }
+    },
     // Community: a personalized, session-only surface. Never indexed — a feed is assembled
     // per viewer from their follows, so there is no stable public page to crawl.
     {

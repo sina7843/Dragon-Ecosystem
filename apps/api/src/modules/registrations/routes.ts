@@ -54,6 +54,29 @@ function statusView(reg: RegistrationRecord) {
   };
 }
 
+/**
+ * A participant's own registration for the account list (PAGE-017).
+ *
+ * Extends `statusView` with the tournament reference and the updated timestamp, and keeps
+ * every one of its exclusions: no staff `reason`, no `decidedBy`/`decidedAt`, no submitted
+ * `answers`, no roster snapshot id, no internal `version`. `updatedAt` is when the entry
+ * last changed state, which is what a status list shows.
+ */
+function myRegistrationView(reg: RegistrationRecord) {
+  return { ...statusView(reg), updatedAt: reg.updatedAt };
+}
+
+/**
+ * One transition, as the participant may see it.
+ *
+ * The staff `reason` is absent by construction — it is never written to the transition
+ * record. `actor` is a role, not an identity: a participant is entitled to know that staff
+ * decided their entry, not which staff member did.
+ */
+function transitionView(t: { fromState: string | null; toState: string; actor: string; occurredAt: string; revision: number }) {
+  return { fromState: t.fromState, toState: t.toState, actor: t.actor, occurredAt: t.occurredAt, revision: t.revision };
+}
+
 export function registerRegistrationsRoutes(app: FastifyInstance, deps: RegistrationsDeps): void {
   const guards = createSessionGuards(deps.identity);
   const authed = () => ({ preHandler: [guards.requireSession] });
@@ -124,6 +147,70 @@ export function registerRegistrationsRoutes(app: FastifyInstance, deps: Registra
       const reg = await deps.registrations.myRegistration(actorId(request), (request.params as { id: string }).id);
       if (reg === null) throw new NotFoundError('No registration.');
       return statusView(reg);
+    }
+  );
+
+  /**
+   * The caller's own registrations (PAGE-017). Follows the `/me/*` owned-collection
+   * convention used by `/me/orders` and `/me/enrollments`, cursor-paginated newest-first.
+   *
+   * Tournament names are resolved for the page only, so the list stays two queries rather
+   * than one per row. A tournament that has since been removed resolves to `null`, which the
+   * page renders as an explicit unavailable-reference fallback instead of a dangling link.
+   */
+  app.get(
+    '/me/tournament-registrations',
+    {
+      ...authed(),
+      schema: {
+        tags: ['registrations'],
+        summary: 'The caller’s own tournament registrations, newest first.',
+        querystring: { type: 'object', additionalProperties: false, properties: { cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } },
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const page = await deps.registrations.listMyRegistrations(actorId(request), request.query as { cursor?: string; limit?: number });
+      const tournaments = await deps.registrations.resolveTournamentSummaries(page.items.map((r) => r.tournamentId));
+      return {
+        items: page.items.map((reg) => ({ ...myRegistrationView(reg), tournament: tournaments.get(reg.tournamentId) ?? null })),
+        nextCursor: page.nextCursor
+      };
+    }
+  );
+
+  app.get(
+    '/me/tournament-registrations/:id',
+    {
+      ...authed(),
+      schema: {
+        tags: ['registrations'],
+        summary: 'One of the caller’s own registrations with its transition history.',
+        params: idParam,
+        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
+      }
+    },
+    async (request) => {
+      const detail = await deps.registrations.myRegistrationDetail(actorId(request), (request.params as { id: string }).id);
+      // A registration owned by someone else is reported exactly as a missing one, so the
+      // refusal cannot be used to probe whether a record exists.
+      if (detail === null) throw new NotFoundError('Unknown registration.');
+      const tournaments = await deps.registrations.resolveTournamentSummaries([detail.registration.tournamentId]);
+      return {
+        ...myRegistrationView(detail.registration),
+        tournament: tournaments.get(detail.registration.tournamentId) ?? null,
+        history: detail.history.map(transitionView),
+        /**
+         * Whether the history is *complete*, not merely non-empty.
+         *
+         * A complete history begins with the transition that created the registration, which
+         * is the only entry with no prior state. A registration that predates the history
+         * migration and has since been decided has exactly one row — the decision — and a
+         * bare "is it non-empty" flag would present that partial list as the whole story.
+         * The page shows the rows it has *and* says the earlier ones were not recorded.
+         */
+        historyComplete: detail.history[0]?.fromState === null
+      };
     }
   );
 

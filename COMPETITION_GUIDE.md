@@ -151,6 +151,35 @@ append a second revision or publish a duplicate event.
 **Team entries notify the registering account**, which the registrations module defines as the
 team owner. There is no per-roster-member notification anywhere in the platform.
 
+## What a participant sees
+
+Two account surfaces read this data, and both derive ownership from the session rather than
+from anything the caller sends (PAGE-017, PAGE-018).
+
+| Surface | Route | Reads |
+|---|---|---|
+| My registrations | `/{locale}/account/registrations` | `GET /me/tournament-registrations`, `GET /me/tournament-registrations/:id` |
+| My matches | `/{locale}/account/matches` | `GET /me/matches` |
+
+`GET /me/matches` resolves the caller's **active registrations** first and queries only those
+registration ids, so there is no id a caller could substitute to widen the result. For each
+fixture it returns the tournament reference, opponent, `scheduledAt` (UTC), state and outcome,
+plus two derived fields:
+
+- **`rescheduled`** — true only when a revision replaced a *real* previous time. A first
+  scheduling is not a change, so it is not flagged as one.
+- **`previousScheduledAt`** — what the time was.
+
+**The operator's reschedule reason never leaves the server.** It is written to the revision
+row and the audit record, both staff-facing; the participant learns that the time moved and
+what it was, which is what they need to act on. The browser suite asserts the reason text is
+absent from the rendered page.
+
+Registration transition history follows the same rule: `registration_transitions` records
+`fromState`, `toState`, an actor **role** (`participant` / `staff` / `system`) and the
+timestamp, and deliberately stores no staff `reason` and no acting account id — a participant
+is entitled to know that staff decided their entry, not which staff member did.
+
 ## Events
 
 The engine emits no events. The service publishes, through the transactional outbox
@@ -180,8 +209,8 @@ rest are recorded for audit and future consumers and message nobody.
 
 - **No draw result.** The result model has a single winner; `draws` is structurally always 0.
 - **No opponent-strength tiebreak** (gated, OD-006). Unbroken ties are reported as shared.
-- **No per-account match schedule page** (PAGE-018) and **no scheduling UI** in the operator
-  console (PAGE-050). The API exists; the surfaces do not.
+- **No scheduling UI** in the operator console (PAGE-050). The API exists; the operator
+  surface does not. The *participant* view exists — see below.
 - **No per-match referee scope.** TOURN-021 and ROLE-010 remain partial: authorization is
   tournament-level, not per match.
 - **No player check-in.** Deliberate — asserted absent by the closure check

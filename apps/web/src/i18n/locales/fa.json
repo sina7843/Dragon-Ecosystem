@@ -50,7 +50,9 @@
       "orders": "سفارش‌ها",
       "adminStore": "مدیریت فروشگاه",
       "adminOrders": "عملیات سفارش",
-      "adminPrizes": "تسویهٔ جوایز"
+      "adminPrizes": "تسویهٔ جوایز",
+      "registrations": "ثبت‌نام‌های من",
+      "matches": "مسابقه‌های من"
     }
   },
   "player": {
@@ -88,7 +90,9 @@
     "teamsDirectory": "تیم‌ها",
     "playersDirectory": "بازیکنان",
     "streams": "پخش زنده",
-    "academy": "آکادمی"
+    "academy": "آکادمی",
+    "registrations": "ثبت‌نام‌ها",
+    "matches": "مسابقه‌ها"
   },
   "theme": {
     "label": "پوسته",
@@ -1899,6 +1903,52 @@
       "west_azerbaijan": "آذربایجان غربی",
       "yazd": "یزد",
       "zanjan": "زنجان"
+    }
+  },
+  "registrations": {
+    "mine": {
+      "title": "ثبت‌نام‌های من",
+      "intro": "همهٔ تورنمنت‌هایی که در آن‌ها ثبت‌نام کرده‌اید، از جدیدترین.",
+      "empty": "هنوز در هیچ تورنمنتی ثبت‌نام نکرده‌اید.",
+      "tournamentUnavailable": "تورنمنت دیگر در دسترس نیست",
+      "participantType": "نوع ثبت‌نام",
+      "type": {
+        "individual": "انفرادی",
+        "team": "تیمی"
+      },
+      "submitted": "زمان ثبت",
+      "waitlistPosition": "جایگاه در فهرست انتظار",
+      "showHistory": "نمایش تاریخچهٔ وضعیت",
+      "hideHistory": "پنهان کردن تاریخچهٔ وضعیت",
+      "historyUnavailable": "تغییرهای پیشین وضعیت برای این ثبت‌نام ثبت نشده است.",
+      "actor": {
+        "participant": "توسط شما",
+        "staff": "توسط عوامل تورنمنت",
+        "system": "خودکار"
+      },
+      "more": "نمایش بیشتر",
+      "loadingMore": "در حال بارگذاری…"
+    }
+  },
+  "matches": {
+    "mine": {
+      "title": "مسابقه‌های من",
+      "intro": "زمان‌ها در منطقهٔ زمانی شما نمایش داده می‌شوند ({zone}).",
+      "empty": "هنوز مسابقه‌ای ندارید.",
+      "upcoming": "پیش‌رو",
+      "completed": "برگزارشده",
+      "noUpcoming": "مسابقهٔ پیش‌رویی ندارید.",
+      "noCompleted": "مسابقهٔ برگزارشده‌ای ندارید.",
+      "opponent": "حریف",
+      "opponentPending": "هنوز مشخص نشده",
+      "opponentUnavailable": "حریف دیگر در دسترس نیست",
+      "notScheduled": "هنوز زمان‌بندی نشده",
+      "rescheduled": "زمان این مسابقه تغییر کرد.",
+      "previously": "پیش‌تر",
+      "tournamentUnavailable": "تورنمنت دیگر در دسترس نیست",
+      "won": "برد",
+      "lost": "باخت",
+      "truncated": "تنها ۲۰۰ مسابقهٔ نخست نمایش داده می‌شود."
     }
   }
 }
