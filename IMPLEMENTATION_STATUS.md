@@ -43,8 +43,156 @@
 - Production-grade CI pipeline: complete (DRAGON-29B) — `.github/workflows/ci.yml` + `CI.md`; the repository had no CI configuration at all. **Never executed (no Git remote) and branch protection not activated: CI implementation complete, repository administrator activation pending.** **Ecosystem verdict unchanged: NO-GO**
 - First remote CI failure remediation: complete (DRAGON-29B.1) — three failed jobs diagnosed and fixed, including two real product defects and one high-severity shipped dependency advisory. **A second remote run is required to confirm; no green run exists yet.** **Ecosystem verdict unchanged: NO-GO**
 - Performance-evidence integration: complete (DRAGON-29B.2) — `apps/api/src/perf/perf.itest.ts` audited, hardened, and made commit-ready, so the release documents no longer cite a file absent from Git and CI. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29B.2 (commit and validate performance evidence); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Remaining evidence-pending closure: complete (DRAGON-29C) — all 27 pending rows reviewed individually; 27 → 8, with nine reclassified as decision-blocked after correcting a wrong claim that none needed external input. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29C (remaining evidence-pending closure); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29C — Remaining evidence-pending closure
+
+Recalculated the count from the committed file rather than trusting the last report: **27**,
+which matched. All 27 were then read against their authoritative requirement in
+`Requirements.md`, not against their ID, prefix or existing traceability wording.
+
+**Result: 27 → 8.** Nineteen rows dispositioned; eight retained deliberately.
+
+### Eight rows → Implemented (six documents)
+
+Each document describes the code as it is and states its own limitations, so none of them
+implies a completeness the repository does not have.
+
+| Document | Rows | What it establishes |
+|---|---|---|
+| `DOMAIN_EVENTS.md` | DOC-009, EVENT-012 | Every event with producer, payload fields and consumer; the envelope and its validation; the transactional-outbox guarantee; the complete event→notification mapping; that there is exactly **one** consumer and an unmapped event is dispatched and dropped. Event names built from a state (`tournament.registration.<state>`, `hold.<terminalReason>`, `checkout.<terminal>`, `prize.entitlement_<action>`) are documented as families, so adding a state adds an event name. Test-only names are named as such so nothing subscribes to them |
+| `COMPETITION_GUIDE.md` | DOC-011 | Five formats and bracket bands; the bye distinction that matters (**pending** vs **permanently empty**) and bye pre-advancement, which is why the structure does not depend on result arrival order; deterministic standings; the one-point policy and per-format tiebreak inputs; that opponent-strength tiebreaks are gated by OD-006 and an unbroken tie is reported `shared` rather than resolved by an invented rule |
+| `FINANCIAL_GUIDE.md` | DOC-012 | The Money contract and CON-002; six account types with the no-negative user liability rule; five transaction types; that the integrity authority is **unique indexes, not read-before-write**; hold purposes with their gates; the four fully-gated transfer boundaries; the mock-only payment path; all four reconciliation reports. Refunds are documented as **deliberately absent** with their decisions, not as pending work |
+| `LOCALIZATION_GUIDE.md` | DOC-013, DOC-014 | Locale policy and resolution; URL-prefixed routing; the empty-string missing-key fallback and its two guards; the **logical-property CSS rule** (a physical `left`/`right` is a bug here, not a preference); the three bidirectional mechanisms (`dir="auto"`, `isolate()`, `.latin-value`). DOC-014 is a ten-step sequence naming every file, plus the two consequences code cannot cover: existing records carry no translation for a new locale, and approved notification templates have no localized entry |
+| `AUTHORING_GUIDE.md` | DOC-015 | The `content.write`/`content.publish` split; the four-state lifecycle and why publishing straight from draft is impossible; media validated by **magic-byte signature, never filename or client MIME**; staged-until-published; content addressing and dedup; `expectedVersion` concurrency; that an empty `alt` **means decorative** and is the wrong value for anything informational |
+| `METRICS.md` | ANALYTICS-008 | Every metric with its exact query and its **single calculation site**; that all figures are computed on read, so there is no staleness and the four operational counters are lifetime totals rather than rates; the pseudonymization and redaction rules on the analytics sink; and a table of what is deliberately **not** measured |
+
+### Two rows → Partial
+
+**PERF-009 — cache headers implemented, no CDN.** `apps/web/nginx.conf` now serves
+content-hashed bundles under `/assets/` as `public, max-age=31536000, immutable` and
+`index.html` as `no-cache`. The pairing is the point: hashed bundles may be kept forever
+*because* the document is never kept, and the **build hash in the filename is the invalidation
+mechanism**, so no purge API is needed for bundled assets. A trap was found and closed while
+doing it: `add_header` inside a `location` **replaces** the server-level set rather than adding
+to it, so adding a cache header would have silently dropped every security header from asset
+and SPA responses. Both locations restate them, and the new `nginx-cache.test.ts` (4 tests,
+static — no Docker needed, following `compose-topology.test.ts`) asserts the cache pair, the
+surviving security headers, and that the build still emits hashed filenames — because
+`immutable` becomes a deployment bug the moment hashing stops. Unsatisfied clause: **no CDN**
+(infrastructure, CON-001/INT-005).
+
+**ADMIN-011 — reviewable per user, not as a report.** `role_assignments` stores grantor and
+timestamp, `GET /admin/users/:id/roles` lists a user's active grants and
+`POST /admin/roles/:assignmentId/revoke` acts on one, so access *is* inspectable and revocable
+under authorization. Unsatisfied clauses: no cross-user active-grant report, so a periodic
+review is a per-user walk; and **last use is recorded nowhere**, so a review cannot tell an
+active grant from a dormant one. The last-use field is a write on the authorization path and
+needs a cost decision before it is added.
+
+### Nine rows → Blocked by open decision — the correction that matters
+
+The previous revision stated that of the pending rows **"no external input is needed to build
+any of them"**. That was **wrong for nine of them**, and the error was mine.
+
+| Rows | Decision | Why engineering cannot close it |
+|---|---|---|
+| API-008, API-009, FORM-004 | **OD-003** | No email provider is contracted, so a verification message cannot be sent and an unverified address is a dead record. The approved identity model is mobile-first; adding email as an identity method now creates an unverifiable second factor |
+| AUTH-011, DATA-088, PAGE-024 | **DEC-043** | No data-class or retention policy exists. The platform holds immutable ledger postings, order snapshots, audit events, moderation evidence and entitlements; a deletion built before the policy would either destroy required evidence or quietly retain data the user was told was deleted. A consent record's shape is a *consequence* of the policy, and there are no legal documents to serve or version |
+| ANALYTICS-002, ANALYTICS-009, PAGE-068 | **OD-026** | The tooling decision determines where a report is computed and what may leave the platform. Building reports now fixes a computation site the decision may move, and a freshness indicator has nothing to describe until a report is materialized |
+
+Per the slice boundaries, no email subsystem was invented, no consent policy was written, and
+no destructive deletion was implemented.
+
+### Eight rows retained as Evidence pending — deliberately
+
+All eight are engineering-owned with no external blocker, so they are recorded as pending work
+rather than moved into a status that would flatter the count. `Not started` exists in the
+vocabulary and was **not** used: moving them there would change the number and nothing else.
+Each row now names its missing evidence, why what exists is insufficient, its owner, and a
+concrete next action.
+
+| Rows | Retained because |
+|---|---|
+| API-043, TOURN-020 | One feature, two rows. No reschedule operation exists, so nothing records an old/new time, actor or reason. Also needs a `competition.match_rescheduled` event **and** its `templates.ts` mapping — no competition event is currently mapped to any template, so the write alone would notify nobody |
+| PAGE-017, PAGE-018 | **No per-account read exists** in the API (`/tournaments/:id/registration/me` is per tournament), and the registration record stores `state`, `createdAt`, `updatedAt`, `decidedBy` but **no state-history array**, so the "status history" clause cannot be met from it. PAGE-017 additionally needs a new `{accountId, createdAt, _id}` index in a migration, since `registration_account` is `{accountId, tournamentId}` and would force an in-memory sort |
+| PAGE-023, PAGE-025, PAGE-051 | Each needs one non-engineering input first: approved help copy; a status source that is not the readiness probe on the host being reported about; and the permitted staff-action set over a team owner. **PAGE-025 and PAGE-023 were buildable and deliberately not built** — a status page fed only by `/health/ready` states nothing useful during the outage it exists for, and a help page would ship guidance nobody approved |
+| OPS-008 | Needs a server-controlled flag (fail-open, so a misread never takes the site down), a localized public 503, and an operational rule for which staff paths stay reachable |
+
+While writing PAGE-051's next action I named a `teams.manage` permission that does not exist;
+corrected to state that **no team permission exists today** and name the nearest two.
+
+### Verification
+
+| Command | Result | Exit |
+|---|---|---|
+| `npm run ci:validate` | 11 checks passed | 0 |
+| `npm run typecheck` | pass | 0 |
+| `npm run lint` | 0 errors, 60 pre-existing warnings | 0 |
+| `npm test` | **455 passed**, 0 failed (api 405, web 50 — +4 from `nginx-cache.test.ts`) | 0 |
+| `npm run test:integration` | 501 passed, 0 failed, 0 skipped | 0 |
+| `npm run build` / `npm run test:budget` | pass / 1 passed | 0 / 0 |
+| `npm run closure:check` / `decision:check` | 14/14 / 12/12 | 0 / 0 |
+
+Every file, test, route, index and decision id referenced by the 19 changed rows was checked to
+resolve. The full E2E suite, migration verification and persistence verification were **not**
+run: no browser code, page, navigation, migration, index or storage behaviour changed. The
+nginx cache change is served-response configuration, guarded statically by the new test; it is
+not exercised by the browser suite, which runs against `vite preview` rather than nginx.
+
+### Review
+
+One independent read-only reviewer: **REQUEST-CHANGES**, one Critical and one High. Both were
+real and both are fixed.
+
+**Critical — three security headers dropped on `/assets/`.** Found independently while
+self-checking, and confirmed by the reviewer. Adding a cache header to a new `/assets/`
+location meant those responses stopped inheriting the server-level set — and only three of the
+six were restated, silently dropping `X-Frame-Options`, `Content-Security-Policy` and
+`Permissions-Policy`. Before the change, assets fell through to `location /` and inherited all
+six, so this was a **regression introduced by the cache work**, and the nginx comment claiming
+"the security headers are restated here" was false. All six are now restated in both locations,
+and `nginx-cache.test.ts` **derives the required set from the server block** instead of
+hardcoding names, so adding a header to the server block now fails until every header-setting
+location mirrors it. Verified to fail when a header is removed. While writing that derivation a
+second trap appeared: slicing the config at the bare word `location` cuts inside the
+Permissions-Policy value (`geolocation=()`) and loses HSTS — the test's own sanity assertion
+caught it, and the match is now anchored to the directive at a line start.
+
+**High — `AUTHORING_GUIDE.md` claimed scheduled publication does not exist.** It does. The
+publish transition accepts an optional `publishAt`, stores `scheduledFor`/`publishedAt`, and
+every public read filters `publishedAt <= now`, so a future-dated item is invisible until its
+time with **no background job to miss** — covered by `content.itest.ts` ("a scheduled (future)
+publish is not visible yet"). Verified in the code before acting rather than taken on the
+reviewer's word. The false limitation is removed, the capability is now documented with its
+visibility rule and its two consequences (the item is `published` immediately with a
+`scheduledFor` value; a past `publishAt` back-dates list position), and the DOC-015 traceability
+note, which repeated the same false claim, is corrected.
+
+That a documentation slice shipped a false capability claim is the finding worth remembering:
+the six documents were written from source, and the one error was an *absence* asserted without
+checking, not a mechanism described wrongly.
+
+The reviewer marked areas 3, 4, 5 and 6 partially or not verified (it did not re-derive all 19
+statuses or every citation from `Requirements.md`). Its verified-clean areas were the
+neutral-row rule, privacy/deletion/money/authorization safety, count accuracy, and the Git
+diff. Every claim it did check in the other five documents was confirmed true against code,
+including the four-disabled-transfer-types claim, the `/admin/ops/metrics` field definitions,
+the event→notification mapping, the 1,497-key count, and the absence of physical `left`/`right`
+CSS.
+
+### Final counts
+
+| Status | Before | After |
+|---|---|---|
+| Evidence pending | 27 | **8** |
+| Implemented | 404 | 412 |
+| Partial | 127 | 129 |
+| Blocked by open decision | 10 | 19 |
+
+**Ecosystem verdict unchanged: NO-GO.** The count fell; no blocker was resolved.
 
 ## DRAGON-29B.2 — Commit and validate performance evidence
 

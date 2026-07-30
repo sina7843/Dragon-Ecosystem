@@ -380,21 +380,42 @@ disputed state. Catalogued API paths the implementation deviates from (`/auth/se
 `/account/sessions`, `/me/profile` → `/account/profile`, and others) are recorded as
 deviations on an otherwise Implemented row rather than quietly accepted.
 
-The **27 rows that remain pending** are the ones where nothing is implemented and no
-external party is blocking — the honest reading is that engineering has not built these
-yet, and no test can prove otherwise. (It was 29 before DRAGON-29B: SEC-016 and SEC-017
-moved to `Partial` once the pipeline that runs the dependency scan and gates on it
-existed. Both still name what is unsatisfied.)
+**DRAGON-29C reviewed all 27 pending rows individually and dispositioned 19 of them.** The
+count is **8**. It was 29 before DRAGON-29B (SEC-016 and SEC-017 moved to `Partial` once the
+dependency scan existed), then 27, and now 8.
 
-| Category | Rows |
+What moved, and why:
+
+| Moved to | Rows | Basis |
+|---|---|---|
+| **Implemented** (8) | DOC-009, DOC-011, DOC-012, DOC-013, DOC-014, DOC-015, EVENT-012, ANALYTICS-008 | Six documents written against the code as it is: `DOMAIN_EVENTS.md`, `COMPETITION_GUIDE.md`, `FINANCIAL_GUIDE.md`, `LOCALIZATION_GUIDE.md`, `AUTHORING_GUIDE.md`, `METRICS.md`. Each states its own limitations rather than implying completeness |
+| **Partial** (2) | PERF-009, ADMIN-011 | PERF-009: cache headers implemented and test-guarded; **no CDN**. ADMIN-011: per-user role reads and revocation exist; **no cross-user report and no last-use recorded** |
+| **Blocked by open decision** (9) | API-008, API-009, FORM-004 (**OD-003**); AUTH-011, DATA-088, PAGE-024 (**DEC-043**); ANALYTICS-002, ANALYTICS-009, PAGE-068 (**OD-026**) | These were mis-filed as engineering-owned. They are not: email identity needs a contracted provider, deletion/consent/legal needs the data-class and retention policy, and analytics reporting needs the tooling decision that determines where a report is even computed |
+
+The correction matters more than the count. The previous revision asserted that **"no external
+input is needed to build any of them"**. That was wrong for nine rows. Building an email
+identity method with no provider to verify against, a deletion path with no policy saying what
+must be retained, or a report whose computation site the tooling decision may move, would each
+have produced a capability the platform could not honestly complete.
+
+### The 8 rows that remain pending
+
+All eight are engineering-owned and none is blocked by an external decision, so they are
+recorded as pending work rather than reclassified into a status that would flatter the count.
+Each row now names its missing evidence, why what exists is insufficient, its owner, and a
+concrete next action.
+
+| Rows | Why still pending |
 |---|---|
-| Missing pages | PAGE-017 registrations, PAGE-018 matches, PAGE-023 help, PAGE-024 legal, PAGE-025 status, PAGE-051 admin teams, PAGE-068 analytics |
-| Missing documents | DOC-009, DOC-011, DOC-012, DOC-013, DOC-014, DOC-015, EVENT-012 |
-| Email identity | API-008, API-009, FORM-004 (owner: engineering, after OD-003) |
-| Match scheduling | API-043, TOURN-020 |
-| Analytics reporting | ANALYTICS-002, ANALYTICS-008, ANALYTICS-009 (owner: engineering, after OD-026) |
-| Privacy and consent | DATA-088, AUTH-011 (owner: product/legal sets the DEC-043 policy, then engineering) |
-| Operations | OPS-008 maintenance mode, ADMIN-011 access review, PERF-009 cache/CDN headers |
+| API-043, TOURN-020 | Match rescheduling: no reschedule operation, so no old/new time, actor, reason, or notification. One feature, two rows; needs a versioned write plus a new event-to-template mapping |
+| PAGE-017, PAGE-018 | Per-account registration and match views: **no per-account read exists** in the API, and the registration record stores no state history, so the "status history" clause cannot be met from it. PAGE-017 also needs a new index and migration |
+| PAGE-023, PAGE-025, PAGE-051 | Help, status and staff team administration: each needs one non-engineering input first — approved help copy, a status source that is not the probe on the host being reported about, and the permitted staff-action set over a team owner |
+| OPS-008 | Maintenance mode: needs a server-controlled flag, a localized public response, and an operational rule for which staff paths stay reachable |
+
+Two of these were deliberately **not** built in this slice despite being buildable. PAGE-025
+over `/health/ready` alone would state nothing useful during the outage it exists for, and
+PAGE-023 would ship help text nobody approved. Shipping either to reduce a count would be the
+kind of hollow surface the repository has avoided elsewhere (MOD-008 appeals).
 *(The CI-pipeline category that stood here — SEC-016 dependency and image scanning, SEC-017
 vulnerability gate — left this table in DRAGON-29B. Both are now `Partial`: the dependency
 scan and the high/critical gate exist and run; container-image scanning and a formal
@@ -473,8 +494,9 @@ gaps remain that engineering owns and can close without any external input:
 
 | Item | Why it is engineering-owned |
 |---|---|
-| 27 `Evidence pending` rows | Seven missing pages, seven missing documents, email identity, match scheduling, analytics reporting, consent and deletion, maintenance mode, access review, and cache headers. No external input is needed to build any of them. |
-| 127 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006). |
+| 8 `Evidence pending` rows | Match rescheduling (API-043, TOURN-020), per-account registration and match views (PAGE-017, PAGE-018), help, status and staff team administration (PAGE-023, PAGE-025, PAGE-051), and maintenance mode (OPS-008). Engineering owns all eight; three need one product or operational input before the surface is worth building. See §above for each row's next action. |
+| 129 `Partial` rows | Each names an unsatisfied clause — no malware scanning (SEC-013), no periodic access review (SEC-014), no refund states (PAY-005), no per-match referee scope (TOURN-021, ROLE-010), no URL-persisted admin query state (ADMIN-006), no CDN (PERF-009), no cross-user access-review report or last-use record (ADMIN-011). |
+| 19 `Blocked by open decision` rows | Up from 10. DRAGON-29C moved nine rows here that had been mis-filed as engineering-owned: email identity needs a contracted provider (**OD-003**), deletion, consent and legal documents need the data-class and retention policy (**DEC-043**), and analytics reporting needs the tooling decision (**OD-026**). None is engineering's to close. |
 | No risk-acceptance mechanism (SEC-017) | The dependency gate exists and works — its first remote run caught `find-my-way <=9.6.0` (GHSA-c96f-x56v-gq3h, CVSS 7.5), which DRAGON-29B.1 fixed by updating that transitive dependency to `9.7.0`; the audit now reports 0 vulnerabilities. What is still missing is the requirement's other half: the repository names no approver and defines no waiver record, so there is no way to *formally risk-accept* a finding that cannot be fixed. That is not an engineering decision. |
 | CI activation | The pipeline has run remotely once. Branch protection has **not** been switched on, so nothing yet compels the checks to pass before a merge, and no green run exists yet — the three jobs that failed were fixed but need a second run to confirm. Both remaining steps are repository-administrator actions, documented in `CI.md`. |
 
