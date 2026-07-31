@@ -89,7 +89,7 @@ repository, publishes a package, pushes an image, or comments on a pull request.
 - The mock payment provider stays test-only: `config.ts` keeps `PAYMENTS_MOCK_ENABLED`
   fail-closed in production, asserted by `config.test.ts` in the `validate` job.
 - No provider credential is needed. `SMS_PROVIDER` is unset, so the mock SMS adapter is
-  selected; `STREAMING_PROVIDER=arvan` fails startup by design (OD-013).
+  selected.
 - No `.env` file is created, read, or uploaded. `ci-validate.mjs` fails if any `.env` other
   than `.env.example`, or any `*.pem`/`*.key`/`*.p12`/`*.pfx`, is tracked by Git.
 
@@ -152,7 +152,7 @@ CI uses the repository's **own disposable database**, `docker-compose.test.yml`,
 GitHub service container. That is deliberate:
 
 - It is a single-node **replica set**. MongoDB only supports transactions on one, and the
-  ledger, store, and economy suites depend on them. A service container cannot run
+  ledger, holds, checkout, and registration suites depend on them. A service container cannot run
   `rs.initiate`, so it could not provide transactions at all.
 - Data lives on `tmpfs`, so it is disposable by construction.
 - It binds `127.0.0.1:27018` only — never reachable from the network — and the default
@@ -183,13 +183,12 @@ name from both the developer stack (`dragon`, internal-only) and anything produc
 `npm run verify:migrations` covers both scenarios in one bounded run and drops its own
 database at the end.
 
-**Fresh database** — start empty, apply all 30 migrations, assert every registered version
-is recorded as applied, assert `030-recovery-indexes` specifically, assert the indexes it
-exists for (`enrollment_state_created` on `course_enrollments`, `order_state_created` on
-`store_orders`), then run a second pass and require it to apply nothing.
+**Fresh database** — start empty, apply every registered migration, assert each version is
+recorded as applied, assert `023-audit-indexes` specifically and the audit-list indexes it
+creates, then run a second pass and require it to apply nothing.
 
-**Existing database** — write test-only records into the four collections the system treats
-as immutable (a ledger entry, a store order, an audit event, a course enrolment), run a
+**Existing database** — write test-only records into the collections the system treats
+as immutable (a ledger entry, a hold, an audit event), run a
 further full pass, then require each record to still exist, to be byte-for-byte unchanged,
 and to remain queryable by field.
 
@@ -387,29 +386,13 @@ the empty or default state and passes without ever seeing the result. Locally, f
 passed. On a slower runner the first poll landed after the state settled and the truth came
 out.
 
-1. **The player page never read the viewer's follow state.** `following` was a local ref
-   defaulting to `false` and never reconciled with the server, so after any reload the
-   toggle read "Follow" for someone already following, and pressing it followed again.
-   *Unfollowing from that page was impossible after a reload.* A forced local trace confirmed
-   the second click sent `POST /follows/...` → 201, never a `DELETE`. Fixed in the product:
-   `getPublicProfile` now returns `viewerFollows` (the endpoint already had the viewer's id
-   and already queried the follows collection; served by the existing
-   `follow_follower_state` index) and the view initialises the toggle from it.
-2. **The store operator console rendered for anyone signed in.** `AdminStoreView` decided
-   `forbidden` from `/store/config` and `/products` — both public storefront endpoints that
-   answer 200 for everybody — so it never detected a missing permission and showed the create
-   form, SKU and price fields, and inventory controls to any user, who could then only watch
-   the server reject each action. The server was never the hole; the page never asked. Fixed
-   by probing `store.manage` through the existing `useAdmin()` capability probe, the same
-   mechanism the other consoles use.
-3. **An auth assertion counted a leftover toast.** Signing in pushes "You are signed in" and
+1. **An auth assertion counted a leftover toast.** Signing in pushes "You are signed in" and
    reaches the profile page by client-side navigation, so the queue was already non-empty;
    `toHaveCount(1)` was satisfied by that message before the save produced anything. Now it
    asserts the *success* toast, which is what the test always meant.
 
-Each strengthened assertion was verified to have teeth by temporarily reinstating the defect
-and confirming the test fails: the follow assertion failed with `aria-pressed="false"` and a
-"Follow" label; the store assertion failed on a missing `state-forbidden` block.
+The strengthened assertion was verified to have teeth by temporarily reinstating the defect
+and confirming the test fails.
 
 ## Limitations
 
@@ -424,13 +407,6 @@ and confirming the test fails: the follow assertion failed with `aria-pressed="f
   contention symptom — no page-setup timeout, no browser-launch failure — so the value was
   left alone; the eight failures were defects, not saturation. The suite took 12.2 minutes
   there against roughly 6 locally, which is runner speed, not a worker problem.
-- **The bounded performance measurements now run in CI.** `apps/api/src/perf/perf.itest.ts`
-  was untracked until DRAGON-29B.2, which is why the integration count read 501 locally and
-  493 remotely. It is committed, so `npm run test:integration` discovers its 8 tests (5
-  scenario groups) on both sides and the counts agree. The scenarios assert correctness
-  invariants only — **no latency threshold is asserted anywhere**, so a slower runner cannot
-  fail the job. `npm run test:performance` runs just this file for a bounded focused pass;
-  it does not remove the tests from the integration job.
 - **`persistence` does not run on pull requests.** The static topology contract does
   (`compose-topology.test.ts` in `unit`); the runtime stop/start cycle runs on `main` and on
   manual dispatch.

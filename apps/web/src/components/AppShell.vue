@@ -37,26 +37,19 @@ const NAV_KEYS: Readonly<Record<ShellVariant, ReadonlyArray<{ path: string; key:
     { path: '/content', key: 'nav.content' },
     { path: '/games', key: 'nav.games' },
     { path: '/tournaments', key: 'nav.tournaments' },
-    { path: '/streams', key: 'nav.streams' },
-    { path: '/academy', key: 'nav.academy' },
     // The team and player directories existed only as detail URLs until now; without a
     // nav entry nothing on the site linked to them at all.
     { path: '/teams', key: 'nav.teamsDirectory' },
-    { path: '/players', key: 'nav.playersDirectory' },
-    // PAGE-023 asks for support *entry points*; a help page nothing links to is not one.
-    { path: '/help', key: 'nav.help' }
+    { path: '/players', key: 'nav.playersDirectory' }
   ],
   account: [
     { path: '/account', key: 'nav.dashboard' },
     { path: '/account/profile', key: 'nav.profile' },
     { path: '/account/teams', key: 'nav.teams' },
-    { path: '/account/registrations', key: 'nav.registrations' },
-    { path: '/account/matches', key: 'nav.matches' },
     { path: '/account/gaming-identities', key: 'nav.gamingIdentities' },
     { path: '/account/wallet', key: 'nav.wallet' },
     { path: '/account/notifications', key: 'nav.notifications' },
     { path: '/account/security', key: 'nav.security' },
-    { path: '/help', key: 'nav.help' },
     { path: '', key: 'nav.home' }
   ],
   admin: [

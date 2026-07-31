@@ -34,23 +34,6 @@ export const PERMISSIONS = {
   contentWrite: 'content.write',
   contentPublish: 'content.publish',
   gamesManage: 'games.manage',
-  // Streaming operations (DRAGON-18): stream records, provider linkage, VOD, and
-  // operational recovery. Deliberately its own permission rather than an extension of
-  // tournament.manage — ROLE-024 grants no tournament, user, or finance access.
-  streamManage: 'stream.manage',
-  // Live chat moderation (DRAGON-19). Separate from moderation.manage because ROLE-013 is
-  // scope-limited: a live-chat moderator acts inside assigned rooms and holds no platform
-  // moderation power, so it can never suspend an account.
-  chatModerate: 'chat.moderate',
-  // Education administration (DRAGON-20): courses, lessons, coaches, enrolments, reviews.
-  // ROLE-023 is explicitly "no unrelated platform administration", so this is its own
-  // permission rather than an extension of content or moderation.
-  educationManage: 'education.manage',
-  // Store administration (DRAGON-24): catalog, variants, inventory, discounts, orders,
-  // and internal fulfillment states. Its own permission because ROLE-021 explicitly
-  // "cannot alter ledgers or execute payouts" — a shop operator moves goods, not money,
-  // and the only monetary effect it can cause is the customer's own captured payment.
-  storeManage: 'store.manage',
   // Domain bundles enforced by their modules in later prompts
   tournamentManage: 'tournament.manage',
   financeManage: 'finance.manage',
@@ -114,22 +97,9 @@ export const ROLE_PERMISSIONS: Readonly<Record<string, readonly Permission[]>> =
     PERMISSIONS.contentPublish,
     PERMISSIONS.gamesManage
   ],
-  // ROLE-024: streams, provider linkage, VOD, and operational failures — and nothing
-  // else. No global user or finance access, which is why it holds no other permission.
-  streaming_operator: [PERMISSIONS.adminAccess, PERMISSIONS.streamManage],
   tournament_administrator: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
   tournament_organizer: [PERMISSIONS.adminAccess, PERMISSIONS.tournamentManage],
-  // ROLE-023: courses, coaches, education moderation and reports — and nothing else.
-  education_manager: [PERMISSIONS.adminAccess, PERMISSIONS.educationManage],
-  // ROLE-013: timeout, ban, remove messages, and review reports inside assigned rooms.
-  // Deliberately holds no `moderation.manage`, so it cannot suspend an account or act on
-  // a case outside chat — the scope limit is the point of the role.
-  live_chat_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.chatModerate],
-  // A community moderator also covers chat rooms, on top of platform moderation.
-  community_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.moderationManage, PERMISSIONS.chatModerate],
-  // ROLE-021: catalog, inventory, orders, and fulfillment — and nothing financial. It
-  // holds no finance.manage or finance.approve, so it cannot reach ledgers or payouts.
-  shop_operator: [PERMISSIONS.adminAccess, PERMISSIONS.storeManage],
+  community_moderator: [PERMISSIONS.adminAccess, PERMISSIONS.moderationManage],
   // Support sees users but with masked sensitive fields (ROLE-020, ADMIN-008).
   support_operator: [PERMISSIONS.adminAccess, PERMISSIONS.supportManage, PERMISSIONS.usersRead],
   // Read-only security/audit visibility (ROLE-028).

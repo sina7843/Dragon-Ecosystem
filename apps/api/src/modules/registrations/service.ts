@@ -15,9 +15,7 @@ import {
   seatOf,
   type RegistrationRecord,
   type RegistrationState,
-  type RegistrationTransitionRecord,
-  type SeatCounterRecord,
-  type TransitionActor
+  type SeatCounterRecord
 } from './state.ts';
 import { buildAnswers, eligibilityProblems } from './validation.ts';
 
@@ -123,9 +121,6 @@ export class RegistrationsService {
   }
   #seats(db: Db) {
     return db.collection<SeatCounterRecord>(REGISTRATIONS_COLLECTIONS.seatCounters);
-  }
-  #transitions(db: Db = this.#db) {
-    return db.collection<RegistrationTransitionRecord>(REGISTRATIONS_COLLECTIONS.transitions);
   }
 
   // --- Seat counter primitives (atomic, race-safe) ---
@@ -284,7 +279,7 @@ export class RegistrationsService {
       version: 1
     };
     await this.#registrations(uow.db).insertOne(record, { session: uow.session });
-    await this.#audit(uow, record, 'tournament.registration.pending_payment', null, 'system');
+    this.#audit(uow, record, 'tournament.registration.pending_payment', null);
     this.#publish(uow, record, 'tournament.registration.pending_payment');
     return record;
   }
@@ -313,7 +308,7 @@ export class RegistrationsService {
     );
     if (updated.matchedCount === 0) throw new ConflictError('INVALID_REGISTRATION_TRANSITION', 'The registration changed. Reload and retry.');
     const next: RegistrationRecord = { ...reg, state: to, active: isActiveState(to), seat: seatOf(to), decidedBy: to === 'approved' ? 'system' : null, decidedAt: now, reason: to === 'cancelled' ? reason : null, updatedAt: now, version: reg.version + 1 };
-    await this.#audit(uow, next, `tournament.registration.${to}`, reg, 'system');
+    this.#audit(uow, next, `tournament.registration.${to}`, reg);
     this.#publish(uow, next, `tournament.registration.${to}`);
     return next;
   }
@@ -375,7 +370,7 @@ export class RegistrationsService {
           version: 1
         };
         await this.#registrations(uow.db).insertOne(record, { session: uow.session });
-        await this.#audit(uow, record, 'tournament.registration.submitted', null, 'participant');
+        this.#audit(uow, record, 'tournament.registration.submitted', null);
         this.#publish(uow, record, `tournament.registration.${state}`);
         return record;
       });
@@ -441,9 +436,6 @@ export class RegistrationsService {
   ): Promise<RegistrationRecord> {
     const tournament = await this.#tournaments.getById(tournamentId);
     if (tournament === null) throw new NotFoundError('Unknown tournament.');
-    // The self path is the participant withdrawing their own entry (TOURN-016); every other
-    // caller reaching here is acting under `tournament.manage`.
-    const actorType: TransitionActor = guards.requireOwn === true ? 'participant' : 'staff';
 
     return runUnitOfWork(this.#database, context, async (uow) => {
       const reg = await this.#registrations(uow.db).findOne({ _id: registrationId, tournamentId }, { session: uow.session });
@@ -483,28 +475,13 @@ export class RegistrationsService {
       );
       if (result.matchedCount === 0) throw new ConflictError('REGISTRATION_STALE', 'This registration changed. Reload and retry.');
 
-      await this.#audit(uow, next, `tournament.registration.${to}`, reg, actorType);
+      this.#audit(uow, next, `tournament.registration.${to}`, reg);
       this.#publish(uow, next, `tournament.registration.${to}`);
       return next;
     });
   }
 
-  /**
-   * Writes the staff-facing audit row **and** the participant-readable transition entry.
-   *
-   * Both are written here because every state change already routes through this one call,
-   * so the history cannot drift from the audit trail or miss a path. Both land inside the
-   * caller's unit of work, which is what makes the guarantees hold: a rejected transition
-   * or an aborted transaction appends nothing, and because the registration write that
-   * precedes this is version-guarded, a losing racer or a retry never reaches it.
-   */
-  async #audit(
-    uow: UnitOfWork,
-    reg: RegistrationRecord,
-    action: string,
-    previous: RegistrationRecord | null,
-    actor: TransitionActor = 'staff'
-  ): Promise<void> {
+  #audit(uow: UnitOfWork, reg: RegistrationRecord, action: string, previous: RegistrationRecord | null): void {
     uow.audit({
       action,
       resourceType: 'registration',
@@ -513,21 +490,6 @@ export class RegistrationsService {
       after: { state: reg.state, seat: reg.seat, subjectId: reg.subjectId },
       reason: reg.reason
     });
-    // The staff `reason` is deliberately absent: `statusView` already omits it from every
-    // participant-facing projection, and this history has the same audience.
-    const transition: RegistrationTransitionRecord = {
-      _id: newId(),
-      registrationId: reg._id,
-      tournamentId: reg.tournamentId,
-      accountId: reg.accountId,
-      fromState: previous?.state ?? null,
-      toState: reg.state,
-      actor,
-      occurredAt: reg.updatedAt,
-      correlationId: uow.context.correlationId,
-      revision: reg.version
-    };
-    await this.#transitions(uow.db).insertOne(transition, { session: uow.session });
   }
 
   #publish(uow: UnitOfWork, reg: RegistrationRecord, eventName: string): void {
@@ -614,67 +576,6 @@ export class RegistrationsService {
     return this.#registrations()
       .find({ _id: { $in: [...new Set(registrationIds)] } }, { projection: { _id: 1, participantType: 1, accountId: 1, teamId: 1 } })
       .toArray();
-  }
-
-  /**
-   * The caller's own registrations, newest first (PAGE-017).
-   *
-   * Ownership comes from the authenticated account id the route resolves, never from a
-   * parameter, so there is no id a caller could substitute. Served by
-   * `registration_account_created` — `{accountId, tournamentId}` cannot satisfy this sort.
-   */
-  async listMyRegistrations(accountId: EntityId, query: { cursor?: string; limit?: number } = {}): Promise<Page<RegistrationRecord>> {
-    const limit = clampLimit(query.limit);
-    const filter: Record<string, unknown> = { accountId };
-    const cursor = decodeCursor(query.cursor);
-    if (cursor !== null) {
-      filter['$or'] = [{ createdAt: { $lt: cursor.sortValue } }, { createdAt: cursor.sortValue, _id: { $lt: cursor.id } }];
-    }
-    const rows = await this.#registrations().find(filter).sort({ createdAt: -1, _id: -1 }).limit(limit + 1).toArray();
-    const page = toPage(rows.map((r) => ({ ...r, sortValue: r.createdAt, id: r._id })), limit);
-    return { items: page.items as unknown as RegistrationRecord[], nextCursor: page.nextCursor };
-  }
-
-  /**
-   * One of the caller's own registrations with its transition history.
-   *
-   * The account id is part of the query rather than checked afterwards, so a registration
-   * belonging to someone else is indistinguishable from one that does not exist — the
-   * refusal reveals nothing about whether the record is real.
-   */
-  async myRegistrationDetail(
-    accountId: EntityId,
-    registrationId: EntityId
-  ): Promise<{ registration: RegistrationRecord; history: RegistrationTransitionRecord[] } | null> {
-    const registration = await this.#registrations().findOne({ _id: registrationId, accountId });
-    if (registration === null) return null;
-    const history = await this.#transitions()
-      .find({ registrationId, accountId })
-      .sort({ occurredAt: 1, revision: 1 })
-      .limit(100)
-      .toArray();
-    return { registration, history };
-  }
-
-  /**
-   * Readable tournament references for a page of registrations, resolved in one query.
-   *
-   * A tournament that no longer exists resolves to nothing, so a historical registration
-   * stays readable and the caller gets an explicit absence rather than a broken link.
-   */
-  async resolveTournamentSummaries(tournamentIds: readonly EntityId[]): Promise<Map<EntityId, { id: EntityId; slug: string; state: string }>> {
-    const unique = [...new Set(tournamentIds)];
-    if (unique.length === 0) return new Map();
-    const rows = await this.#db
-      .collection<{ _id: EntityId; slug: string; state: string }>('tournaments')
-      .find({ _id: { $in: unique } }, { projection: { _id: 1, slug: 1, state: 1 } })
-      .toArray();
-    return new Map(rows.map((t) => [t._id, { id: t._id, slug: t.slug, state: t.state }]));
-  }
-
-  /** The caller's active registrations, for resolving which fixtures they may see (PAGE-018). */
-  async listMyActiveRegistrations(accountId: EntityId): Promise<RegistrationRecord[]> {
-    return this.#registrations().find({ accountId, active: true }).limit(200).toArray();
   }
 
   async resolveNames(rows: readonly Pick<RegistrationRecord, '_id' | 'participantType' | 'accountId' | 'teamId'>[]): Promise<Map<EntityId, ParticipantName>> {

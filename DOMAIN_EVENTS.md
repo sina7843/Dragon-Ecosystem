@@ -71,10 +71,6 @@ recorded.
 | `checkout.activated` | `registration_confirmed` | transactional | `accountId` | in_app, sms | `tournamentId` |
 | `payment.purchase_succeeded` | `coins_added` | transactional | `accountId` | in_app | `dragonCoin` |
 | `prize.entitlement_paid` | `prize_paid` | transactional | `accountId` | in_app | `tournamentId` |
-| `stream.schedule_changed` | `stream_schedule_changed` | transactional | `accountId` | in_app, sms | `streamSlug`, `scheduledStartAt` |
-| `course.completed` | `course_completed` | transactional | `accountId` | in_app | `courseSlug` |
-| `social.mentioned` | `social_mentioned` | transactional | `accountId` | in_app | `postId`, `surface` |
-| `competition.match_rescheduled` | `match_rescheduled` | transactional | `accountId` | in_app, sms | `tournamentId`, `matchId`, `scheduledAt`, `priorScheduledAt` |
 
 `in_app` is always delivered. `sms` and `email` are consent- and gate-checked per delivery
 (OD-008 / OD-003); a channel with no approved template or no contact address is recorded
@@ -123,15 +119,8 @@ name**. A new state that needs a notification also needs a `templates.ts` entry.
 | `competition.swiss_round` | as above | — |
 | `competition.regenerated` | as above | — |
 | `competition.rolled_back` | as above | — |
-| `competition.match_rescheduled` | as above | notifications → `match_rescheduled` |
 
-`competition.match_rescheduled` is published **once per participant account**, not once per
-match, because a template resolves exactly one `recipientField` per event — the same fan-out
-`social.mentioned` uses. Its payload carries `accountId`, `tournamentId`, `matchId`,
-`scheduledAt` and `priorScheduledAt`, and deliberately **not** the operator's reason, which is
-staff-facing and may name another participant.
-
-### Money: ledger, payments, holds, checkout, prizes, economy
+### Money: ledger, payments, holds, checkout, prizes
 
 | Event | Producer | Payload | Consumed by |
 |---|---|---|---|
@@ -147,20 +136,16 @@ staff-facing and may name another participant.
 | `checkout.<terminal>` | as above | `tournamentId`, `accountId` | — |
 | `prize.allocated` | `modules/prizes/service.ts` | allocation identifiers | — |
 | `prize.entitlement_<action>` | as above | `tournamentId`, `accountId` | `prize.entitlement_paid` → `prize_paid` |
-| `economy.transfer_completed` | `modules/economy/service.ts` | transfer identifiers | — |
 
 `hold.<terminalReason>`, `checkout.<terminal>` and `prize.entitlement_<action>` are name
 families built from the target state or action, exactly like the registration family. The
 entitlement action set is `ENTITLEMENT_STATES` in
 [prizes/state.ts](apps/api/src/modules/prizes/state.ts) plus `recipient_verified`.
 
-### Education, streams, social, moderation
+### Moderation
 
 | Event | Producer | Payload | Consumed by |
 |---|---|---|---|
-| `course.completed` | `modules/education/service.ts` | `courseSlug` | notifications → `course_completed` |
-| `stream.schedule_changed` | `modules/streams/service.ts` | `streamSlug`, `scheduledStartAt` | notifications → `stream_schedule_changed` |
-| `social.mentioned` | `modules/social/service.ts` | `postId`, `surface` | notifications → `social_mentioned` |
 | `moderation.report_filed` | `modules/moderation/service.ts` | report identifiers | — |
 
 ### Not product events

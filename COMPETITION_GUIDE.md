@@ -106,8 +106,6 @@ All under `/api/v1/admin/tournaments/:id/…`
 | Recalculate standings | `POST .../competition/recalculate` |
 | Generate the next Swiss round | `POST .../competition/swiss-round` |
 | List versions | `GET .../competition/versions` |
-| Schedule / reschedule a match | `PATCH .../matches/:mid/schedule` |
-| Read a match's schedule history | `GET .../matches/:mid/schedule` |
 | Preview / apply regeneration | `POST .../competition/regenerate/preview`, `.../regenerate` |
 | Roll back to a version | `POST .../competition/rollback` |
 
@@ -122,74 +120,15 @@ recorded results").
 Every mutation is authorized server-side, audited, and version-checked. Concurrent standings
 writes are covered by `standings-concurrency.itest.ts`.
 
-## Match scheduling
-
-Generation decides **who plays whom, never when**: every match is created with
-`scheduledAt: null`, because a fabricated time would be indistinguishable from one an
-organizer actually committed to. An organizer sets it explicitly through
-`PATCH /admin/tournaments/:id/matches/:mid/schedule` (API-043; registered under the owning
-tournament, the same documented deviation API-044 and API-045 use).
-
-The rules the operation enforces:
-
-| Rule | Behaviour |
-|---|---|
-| Authorization | `tournament.manage`, resource-scoped to the tournament (TOURN-018) |
-| Reason | Required; a blank reason is refused |
-| Time | Parsed and **re-serialized to UTC**, so an offset-bearing input is normalized rather than stored as the organizer's wall clock (TOURN-019) |
-| Eligible states | `pending` and `ready` only. A `completed` match has no future to set; a `bye` is never played |
-| Locked competition | Refused, and re-checked **inside** the transaction so a concurrent lock cannot be raced |
-| Concurrency | Optimistic `expectedVersion` guard — exactly one of N concurrent reschedules wins, the losers write nothing |
-| History | An append-only `competition_match_schedules` revision carrying `priorScheduledAt`, `scheduledAt`, `reason`, `actorId` and `correlationId`. Nothing rewrites a revision |
-| Audit | `competition.match_rescheduled` with before/after times and the reason |
-| Notification | One `competition.match_rescheduled` event **per participant account**, resolved from the authoritative registration records |
-
-The version guard doubles as the idempotency boundary: a retry carrying the same
-`expectedVersion` finds the version already incremented, writes nothing, and therefore cannot
-append a second revision or publish a duplicate event.
-
-**Team entries notify the registering account**, which the registrations module defines as the
-team owner. There is no per-roster-member notification anywhere in the platform.
-
-## What a participant sees
-
-Two account surfaces read this data, and both derive ownership from the session rather than
-from anything the caller sends (PAGE-017, PAGE-018).
-
-| Surface | Route | Reads |
-|---|---|---|
-| My registrations | `/{locale}/account/registrations` | `GET /me/tournament-registrations`, `GET /me/tournament-registrations/:id` |
-| My matches | `/{locale}/account/matches` | `GET /me/matches` |
-
-`GET /me/matches` resolves the caller's **active registrations** first and queries only those
-registration ids, so there is no id a caller could substitute to widen the result. For each
-fixture it returns the tournament reference, opponent, `scheduledAt` (UTC), state and outcome,
-plus two derived fields:
-
-- **`rescheduled`** — true only when a revision replaced a *real* previous time. A first
-  scheduling is not a change, so it is not flagged as one.
-- **`previousScheduledAt`** — what the time was.
-
-**The operator's reschedule reason never leaves the server.** It is written to the revision
-row and the audit record, both staff-facing; the participant learns that the time moved and
-what it was, which is what they need to act on. The browser suite asserts the reason text is
-absent from the rendered page.
-
-Registration transition history follows the same rule: `registration_transitions` records
-`fromState`, `toState`, an actor **role** (`participant` / `staff` / `system`) and the
-timestamp, and deliberately stores no staff `reason` and no acting account id — a participant
-is entitled to know that staff decided their entry, not which staff member did.
-
 ## Events
 
 The engine emits no events. The service publishes, through the transactional outbox
 (see [DOMAIN_EVENTS.md](DOMAIN_EVENTS.md)): `competition.generated`,
 `competition.match_completed`, `competition.result_corrected`, `competition.lock_changed`,
-`competition.swiss_round`, `competition.regenerated`, `competition.rolled_back`,
-`competition.match_rescheduled`.
+`competition.swiss_round`, `competition.regenerated`, `competition.rolled_back`.
 
-Of these, **only `competition.match_rescheduled` is mapped to a notification template**; the
-rest are recorded for audit and future consumers and message nobody.
+**None of them is mapped to a notification template**, so no competition event currently
+messages a participant.
 
 ## Tests
 
@@ -209,8 +148,10 @@ rest are recorded for audit and future consumers and message nobody.
 
 - **No draw result.** The result model has a single winner; `draws` is structurally always 0.
 - **No opponent-strength tiebreak** (gated, OD-006). Unbroken ties are reported as shared.
-- **No scheduling UI** in the operator console (PAGE-050). The API exists; the operator
-  surface does not. The *participant* view exists — see below.
+- **No match scheduling or rescheduling.** Match times come from generation; there is no
+  reschedule operation, no old/new-time record, and no reschedule notification
+  (API-043, TOURN-020, both still open). A per-account match schedule page does not exist
+  either (PAGE-018).
 - **No per-match referee scope.** TOURN-021 and ROLE-010 remain partial: authorization is
   tournament-level, not per match.
 - **No player check-in.** Deliberate — asserted absent by the closure check

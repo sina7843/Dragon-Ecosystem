@@ -74,7 +74,7 @@ Three mechanisms handle text whose direction differs from the page:
 
 | Mechanism | Where | Purpose |
 |---|---|---|
-| `dir="auto"` | rendered post bodies, chat messages, composer inputs | A Persian post inside the English feed keeps its own base direction, and the reverse (SOCIAL-004, CHAT-007) — asserted in `community.spec.ts` by reading `getComputedStyle(...).direction` |
+| `dir="auto"` | rendered user-authored bodies and composer inputs | A Persian value inside an English page keeps its own base direction, and the reverse |
 | `isolate(value)` | [i18n/format.ts](apps/web/src/i18n/format.ts) | Wraps a value in a Unicode first-strong isolate (U+2068 … U+2069) so a code-like or Latin value cannot reorder the Persian sentence around it |
 | `.latin-value` | [styles/base.css](apps/web/src/styles/base.css) | Forces `direction: ltr` for values that are always Latin — usernames, SKUs, slugs, identifiers — so they read correctly inside RTL text |
 
@@ -142,7 +142,7 @@ The steps below are the complete sequence. `xx` is the new BCP 47 base tag.
 
 7. **[apps/api/src/server.ts](apps/api/src/server.ts)** — add `'xx'` to the API's
    `SUPPORTED_LOCALES`. This is what `GET /api/v1/meta` publishes and what request-level
-   locale validation accepts. Content, games, tournaments, courses and store products carry
+   locale validation accepts. Content, games and tournaments carry
    per-locale translation objects keyed by this union, so **existing records will have no `xx`
    translation**: decide whether authoring requires it (a validation change) or falls back,
    and record that decision.

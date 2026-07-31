@@ -11,7 +11,7 @@ import type { LedgerAccountType } from '../ledger/index.ts';
  * this slice, so every capture destination is a DRC account.
  */
 
-export type HoldPurpose = 'admin_correction' | 'tournament_checkout' | 'tournament_entry_fee' | 'prize_reservation' | 'course_enrollment' | 'store_order';
+export type HoldPurpose = 'admin_correction' | 'tournament_checkout' | 'tournament_entry_fee' | 'prize_reservation';
 
 export interface HoldPurposePolicy {
   /** Fail-closed gate: a hold for a disabled purpose cannot be created. */
@@ -32,17 +32,6 @@ export const HOLD_PURPOSES: Readonly<Record<HoldPurpose, HoldPurposePolicy>> = {
   tournament_checkout: { enabled: true, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: false, gateReason: null },
   // Gated: paid tournament entry capture stays disabled under OD-007.
   tournament_entry_fee: { enabled: false, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: true, gateReason: 'OD-007: paid tournament registration is not activated' },
-  // Enabled mechanism: a Dragon Coin course price reserved at enrolment and captured to
-  // the platform treasury on activation (DRAGON-20). Only reachable through the
-  // OD-015-gated paid course flow, and Dragon Coin is non-redeemable, so capturing it
-  // creates no cash obligation, refund path, or coach payout question.
-  course_enrollment: { enabled: true, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: false, gateReason: null },
-  // Enabled mechanism: a Dragon Coin store order price reserved at checkout and captured
-  // to the platform treasury (DRAGON-24). DEC-022 permits Dragon Coin for store
-  // purchases, and because Dragon Coin cannot be redeemed or sold back (DEC-024),
-  // capturing it creates no cash obligation and no refund path — which matters here
-  // because DEC-034 approves no platform-managed return workflow.
-  store_order: { enabled: true, captureDestination: 'platform_dragon_coin_treasury', partialCaptureAllowed: false, gateReason: null },
   // Gated: prize payout is owned by a later prompt.
   prize_reservation: { enabled: false, captureDestination: 'prize_payable', partialCaptureAllowed: false, gateReason: 'Prize payout is deferred beyond DRAGON-11' }
 };

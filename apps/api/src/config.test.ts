@@ -41,7 +41,6 @@ const PRODUCTION_BASE: Readonly<Record<string, string>> = {
   AUTH_SECRET: PRODUCTION_SECRET,
   PAYMENTS_CALLBACK_SECRET: PRODUCTION_SECRET,
   ANALYTICS_PSEUDONYM_SALT: PRODUCTION_SECRET,
-  STREAM_SECURE_LINK_SECRET: PRODUCTION_SECRET,
   PUBLIC_ORIGIN: 'https://dragon.example'
 };
 
@@ -168,34 +167,6 @@ test('dev routes are fail-closed: enabled only by an explicit flag, never in pro
   assert.equal(loadConfig({ NODE_ENV: 'test', ENABLE_DEV_ROUTES: 'true' }).devRoutesEnabled, true);
   // Production never enables it, even with the flag set.
   assert.equal(loadConfig({ ...PRODUCTION_BASE, ENABLE_DEV_ROUTES: 'true' }).devRoutesEnabled, false);
-});
-
-test('the streaming provider boundary refuses the uncontracted provider (OD-013)', () => {
-  // Only the deterministic stub is implemented; the default and an explicit "stub" agree.
-  assert.equal(loadConfig({}).streaming.provider, 'stub');
-  assert.equal(loadConfig({ STREAMING_PROVIDER: 'stub' }).streaming.provider, 'stub');
-  // Naming the contracted provider fails startup loudly rather than running against an
-  // adapter whose capabilities have never been validated in a sandbox.
-  assert.throws(() => loadConfig({ STREAMING_PROVIDER: 'arvan' }), /OD-013/);
-  assert.throws(() => loadConfig({ STREAMING_PROVIDER: 'cloudflare' }), /STREAMING_PROVIDER must be "stub"/);
-});
-
-test('stream archive and takedown are fail-closed until the rights policy is approved (OD-014)', () => {
-  assert.equal(loadConfig({}).streaming.rightsPolicyApproved, false);
-  assert.equal(loadConfig({ STREAM_RIGHTS_POLICY_APPROVED: '1' }).streaming.rightsPolicyApproved, false);
-  assert.equal(loadConfig({ STREAM_RIGHTS_POLICY_APPROVED: 'TRUE' }).streaming.rightsPolicyApproved, true);
-});
-
-test('the stream secure-link secret is production-required and length-checked', () => {
-  const { STREAM_SECURE_LINK_SECRET: _omitted, ...withoutSecret } = PRODUCTION_BASE;
-  assert.throws(() => loadConfig(withoutSecret), /STREAM_SECURE_LINK_SECRET is required when NODE_ENV=production/);
-  assert.throws(
-    () => loadConfig({ ...PRODUCTION_BASE, STREAM_SECURE_LINK_SECRET: 'short' }),
-    /STREAM_SECURE_LINK_SECRET must be at least/
-  );
-  // Development uses a placeholder rather than failing, and the link TTL has a safe default.
-  assert.notEqual(loadConfig({}).streaming.secureLinkSecret, '');
-  assert.equal(loadConfig({}).streaming.playbackTtlSeconds, 300);
 });
 
 test('trusted proxies parse from a comma-separated list of IPs and CIDRs', () => {

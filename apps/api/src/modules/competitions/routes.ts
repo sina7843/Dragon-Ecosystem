@@ -81,70 +81,6 @@ async function participantIdentities(
 export function registerCompetitionsRoutes(app: FastifyInstance, deps: CompetitionsDeps): void {
   const guards = createSessionGuards(deps.identity);
   const gate = () => ({ preHandler: [guards.requireSession, requirePermission(deps.authorization, PERMISSIONS.tournamentManage, tournamentScope)] });
-  const authed = () => ({ preHandler: [guards.requireSession] });
-
-  /**
-   * The caller's own fixtures (PAGE-018).
-   *
-   * Ownership is resolved from the session: the caller's active registrations are looked up
-   * first, and only those registration ids reach the match query. Nothing the caller sends
-   * selects a participant, so there is no id to substitute — a foreign registration or
-   * tournament id simply is not in the derived set.
-   *
-   * The response carries scheduling and result data plus opponent display names, and
-   * deliberately **not** the operator's reschedule reason, which is staff-facing (TOURN-020).
-   * `rescheduled` reports that the time moved; `previousScheduledAt` reports what it was.
-   */
-  app.get(
-    '/me/matches',
-    {
-      ...authed(),
-      schema: {
-        tags: ['competitions'],
-        summary: 'The caller’s own upcoming and completed matches.',
-        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
-      }
-    },
-    async (request) => {
-      const accountId = request.identity?.account._id as string;
-      const registrations = await deps.registrations.listMyActiveRegistrations(accountId);
-      if (registrations.length === 0) return { truncated: false, items: [] };
-
-      const { fixtures, truncated } = await deps.competitions.listMatchesForRegistrations(registrations.map((r) => r._id));
-      const opponentIds = fixtures.map((f) => f.opponentRegistrationId).filter((id): id is string => id !== null);
-      const [names, tournaments] = await Promise.all([
-        opponentIds.length > 0
-          ? deps.registrations.resolveNames(
-              (await deps.registrations.listByIds(opponentIds)).map((r) => ({ _id: r._id, participantType: r.participantType, accountId: r.accountId, teamId: r.teamId }))
-            )
-          : Promise.resolve(new Map()),
-        deps.registrations.resolveTournamentSummaries(fixtures.map((f) => f.match.tournamentId))
-      ]);
-
-      return {
-        // Reported, never silent: a participant shown a trimmed schedule would believe it whole.
-        truncated,
-        items: fixtures.map((f) => ({
-          id: f.match._id,
-          tournamentId: f.match.tournamentId,
-          tournament: tournaments.get(f.match.tournamentId) ?? null,
-          round: f.match.round,
-          bracket: f.match.bracket,
-          state: f.match.state,
-          // UTC as stored (TOURN-019); the client formats it in the viewer's zone.
-          scheduledAt: f.match.scheduledAt,
-          rescheduled: f.rescheduled,
-          previousScheduledAt: f.previousScheduledAt,
-          // An opponent that can no longer be resolved yields a null name, which the page
-          // renders as an explicit fallback rather than an empty cell.
-          opponent: f.opponentRegistrationId === null ? null : names.get(f.opponentRegistrationId) ?? null,
-          won: f.match.state === 'completed' && f.match.winner !== null ? f.match.winner.registrationId === f.ownRegistrationId : null,
-          scoreA: f.match.scoreA,
-          scoreB: f.match.scoreB
-        }))
-      };
-    }
-  );
 
   /**
    * The competition behind a publicly readable tournament. A finished event keeps its
@@ -251,64 +187,6 @@ export function registerCompetitionsRoutes(app: FastifyInstance, deps: Competiti
       const match = await deps.competitions.recordResult(request.requestContext, p.id, p.mid, request.body as { winnerSlot: 'a' | 'b'; scoreA?: number; scoreB?: number });
       const { _id, ...rest } = match;
       return { id: _id, ...rest };
-    }
-  );
-
-  /**
-   * API-043 (`PATCH /admin/matches/{id}/schedule`) is registered under the tournament that
-   * owns the match, the same documented deviation API-044 and API-045 already use: a match
-   * is addressed as `(tournament, match)` everywhere in this module, and a bare
-   * `/admin/matches/{id}` would be the only path that is not.
-   */
-  app.patch(
-    '/admin/tournaments/:id/matches/:mid/schedule',
-    {
-      ...gate(),
-      schema: {
-        tags: ['competitions'],
-        summary: 'Schedule or reschedule a match (versioned, reasoned, audited).',
-        params: matchParams,
-        body: {
-          type: 'object',
-          required: ['expectedVersion', 'scheduledAt', 'reason'],
-          additionalProperties: false,
-          properties: {
-            expectedVersion: { type: 'integer', minimum: 0 },
-            scheduledAt: { type: 'string', format: 'date-time' },
-            reason: { type: 'string', minLength: 1, maxLength: 500 }
-          }
-        },
-        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
-      }
-    },
-    async (request) => {
-      const p = request.params as { id: string; mid: string };
-      const revision = await deps.competitions.rescheduleMatch(
-        request.requestContext,
-        p.id,
-        p.mid,
-        request.body as { expectedVersion: number; scheduledAt: string; reason: string }
-      );
-      const { _id, ...rest } = revision;
-      return { id: _id, ...rest };
-    }
-  );
-
-  app.get(
-    '/admin/tournaments/:id/matches/:mid/schedule',
-    {
-      ...gate(),
-      schema: {
-        tags: ['competitions'],
-        summary: 'Append-only schedule history for a match.',
-        params: matchParams,
-        response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses }
-      }
-    },
-    async (request) => {
-      const p = request.params as { id: string; mid: string };
-      const items = await deps.competitions.listScheduleHistory(p.id, p.mid);
-      return { items: items.map(({ _id, ...rest }) => ({ id: _id, ...rest })) };
     }
   );
 

@@ -27,28 +27,7 @@ export const EVENT_TEMPLATES: readonly EventTemplate[] = [
   { eventName: 'tournament.registration.approved', templateKey: 'registration_approved', category: 'transactional', recipientField: 'subjectId', channels: ['in_app', 'sms'], paramFields: ['tournamentId'] },
   { eventName: 'checkout.activated', templateKey: 'registration_confirmed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['tournamentId'] },
   { eventName: 'payment.purchase_succeeded', templateKey: 'coins_added', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['dragonCoin'] },
-  { eventName: 'prize.entitlement_paid', templateKey: 'prize_paid', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['tournamentId'] },
-  // STREAM-011: a moved or cancelled stream schedule reaches the assigned streamers. SMS
-  // is a candidate channel, so it is only delivered where the OD-008 gate is on; the
-  // in-app notification is always recorded, and every attempt is written either way.
-  { eventName: 'stream.schedule_changed', templateKey: 'stream_schedule_changed', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['streamSlug', 'scheduledStartAt'] },
-  // EDU/NOTIF-010: education registers its event through this shared map rather than
-  // keeping a notification table of its own. In-app only — a course completion is not
-  // urgent enough to justify an SMS under the OD-008 channel policy.
-  { eventName: 'course.completed', templateKey: 'course_completed', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['courseSlug'] },
-  // NOTIF-011: a community mention notifies the mentioned account in-app only. Push is a
-  // separate channel gated by OD-027 and is deliberately absent from this list, so no
-  // community activity can leave the product through push while that decision is open.
-  // The params carry ids and a surface name — never the post body, which would leak the
-  // text of a post the recipient may not be allowed to read.
-  { eventName: 'social.mentioned', templateKey: 'social_mentioned', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['postId', 'surface'] },
-  // TOURN-020: a moved match reaches the accounts holding the two entries. The competitions
-  // service publishes one event per participant, so `accountId` resolves a single recipient
-  // exactly as every other row here does. SMS is a candidate because a time change the
-  // participant does not see is a forfeit; it is still gated by OD-008, and the attempt is
-  // recorded either way. The params carry the two times and the ids — never the operator's
-  // reason, which is written for staff and may name another participant.
-  { eventName: 'competition.match_rescheduled', templateKey: 'match_rescheduled', category: 'transactional', recipientField: 'accountId', channels: ['in_app', 'sms'], paramFields: ['tournamentId', 'matchId', 'scheduledAt', 'priorScheduledAt'] }
+  { eventName: 'prize.entitlement_paid', templateKey: 'prize_paid', category: 'transactional', recipientField: 'accountId', channels: ['in_app'], paramFields: ['tournamentId'] }
 ];
 
 const BY_EVENT = new Map(EVENT_TEMPLATES.map((template) => [template.eventName, template]));

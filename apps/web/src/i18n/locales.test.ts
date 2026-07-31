@@ -4,7 +4,6 @@ import { fileURLToPath } from 'node:url';
 import { dirname, join } from 'node:path';
 import { test } from 'node:test';
 import { SUPPORTED_LOCALES } from './locale.ts';
-import { SUPPORT_CATEGORIES, SUPPORT_STATES } from '../composables/useModerationApi.ts';
 
 /**
  * Translation completeness check (I18N-010, TEST-011). A missing or extra key in
@@ -98,22 +97,4 @@ test('every literal t() key used in the app exists in every locale', () => {
     }
   }
   assert.deepEqual(missing.sort(), [], `translation keys used in the app but not defined: ${missing.join(', ')}`);
-});
-
-/**
- * The support vocabulary is looked up dynamically (`` t(`admin.support.stateValue.${state}`) ``),
- * so the literal scan above cannot see it. The help page renders one label per value the API
- * can return, and an unlabelled value would reach the user as a raw key — which is exactly
- * what happens if a new category or lifecycle state is added to the server enum and nowhere
- * else. Checking the runtime lists directly closes that gap for both locales at once.
- */
-test('every support category and state the API can return has a label in every locale', () => {
-  const expected = [
-    ...SUPPORT_CATEGORIES.map((c) => `admin.support.category.${c}`),
-    ...SUPPORT_STATES.map((s) => `admin.support.stateValue.${s}`)
-  ];
-  for (const locale of SUPPORTED_LOCALES) {
-    const known = new Set(flattenKeys(bundles.get(locale) as Bundle));
-    for (const key of expected) assert.ok(known.has(key), `${locale}:${key} is missing`);
-  }
 });

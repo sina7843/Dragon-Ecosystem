@@ -23,16 +23,9 @@ import { CheckoutService, registerCheckoutRoutes } from './modules/checkout/inde
 import { PrizesService, registerPrizesRoutes } from './modules/prizes/index.ts';
 import { NotificationsService, KavenegarSmsChannel, registerNotificationsRoutes, type ContactAccess } from './modules/notifications/index.ts';
 import { ModerationService, registerModerationRoutes } from './modules/moderation/index.ts';
-import { OperationsService, StuckReservationDetector, collectionReservationSource, registerOperationsRoutes, type JobRunner, type ReservationSource } from './modules/operations/index.ts';
+import { OperationsService, registerOperationsRoutes, type JobRunner } from './modules/operations/index.ts';
 import { MediaService, MongoBlobStorage, registerMediaRoutes, type MediaReferences } from './modules/media/index.ts';
 import { SeoService, registerSeoRoutes, type SitemapEntry, type SitemapSource, type Locale as SeoLocale } from './modules/seo/index.ts';
-import { StreamsService, LocalStubStreamingProvider, registerStreamsRoutes, isPubliclyReadableStream, type StreamAlerts } from './modules/streams/index.ts';
-import { ChatService, registerChatRoutes, type ChatModerationCases, type ChatStreamAccess } from './modules/chat/index.ts';
-import { EducationService, registerEducationRoutes } from './modules/education/index.ts';
-import { SocialService, DEFAULT_SOCIAL_CONFIG, registerSocialRoutes, type SocialDirectory, type SocialModerationCases } from './modules/social/index.ts';
-import { StoreService, registerStoreRoutes, type StorePayments } from './modules/store/index.ts';
-import { EconomyService, DEFAULT_ECONOMY_LIMITS, registerEconomyRoutes, type EconomyDirectory } from './modules/economy/index.ts';
-import type { EntityId } from './shared/ids.ts';
 import { seedSystemConfiguration } from './shared/db/seed.ts';
 import { ANONYMOUS_ACTOR, createRequestContext, type RequestContext } from './shared/context.ts';
 import { utcNow } from './shared/events.ts';
@@ -102,15 +95,9 @@ export interface ServerDependencies {
   readonly prizes?: { service: PrizesService };
   readonly notifications?: { service: NotificationsService };
   readonly moderation?: { service: ModerationService };
-  readonly operations?: { service: OperationsService; recovery?: StuckReservationDetector };
+  readonly operations?: { service: OperationsService };
   readonly media?: { service: MediaService };
   readonly seo?: { service: SeoService };
-  readonly streams?: { service: StreamsService };
-  readonly chat?: { service: ChatService };
-  readonly education?: { service: EducationService };
-  readonly social?: { service: SocialService };
-  readonly store?: { service: StoreService };
-  readonly economy?: { service: EconomyService };
 }
 
 declare module 'fastify' {
@@ -341,58 +328,6 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
           if (deps.teams !== undefined) {
             registerTeamsRoutes(api, { identity: deps.identity.service, teams: deps.teams.service });
           }
-          // Streams reference games, tournaments, and matches by id only, so the module
-          // has no service dependency on them and registers independently.
-          if (deps.streams !== undefined) {
-            registerStreamsRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              streams: deps.streams.service
-            });
-          }
-          // Education reuses identity, media, and the shared holds/ledger boundary; it has
-          // no dependency on tournaments, so it registers independently.
-          if (deps.education !== undefined) {
-            registerEducationRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              education: deps.education.service
-            });
-          }
-          // The economy reaches identity through a port and money through the ledger only.
-          if (deps.economy !== undefined) {
-            registerEconomyRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              economy: deps.economy.service
-            });
-          }
-          // The store reaches money only through the shared holds boundary, so it needs no
-          // other module and registers independently.
-          if (deps.store !== undefined) {
-            registerStoreRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              store: deps.store.service
-            });
-          }
-          // The community reaches identity and moderation through ports only, so it needs
-          // no other module and registers independently.
-          if (deps.social !== undefined) {
-            registerSocialRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              social: deps.social.service
-            });
-          }
-          // Chat rooms exist only for streams, so the module is registered alongside them.
-          if (deps.chat !== undefined) {
-            registerChatRoutes(api, {
-              identity: deps.identity.service,
-              authorization: deps.admin.authorization,
-              chat: deps.chat.service
-            });
-          }
           if (deps.tournaments !== undefined) {
             registerTournamentsRoutes(api, {
               identity: deps.identity.service,
@@ -470,8 +405,7 @@ export function buildServer(config: AppConfig, deps: ServerDependencies): Fastif
               registerOperationsRoutes(api, {
                 identity: deps.identity.service,
                 authorization: deps.admin.authorization,
-                operations: deps.operations.service,
-                ...(deps.operations.recovery === undefined ? {} : { recovery: deps.operations.recovery })
+                operations: deps.operations.service
               });
             }
             if (deps.media !== undefined) {
@@ -695,193 +629,6 @@ export function buildMedia(database: Database, config: AppConfig): { service: Me
   return { service: new MediaService(database, storage, { mediaMaxBytes: config.mediaMaxBytes }, references) };
 }
 
-/**
- * Wires the streams module.
- *
- * The provider is selected here, not inside the service, so the domain never learns which
- * vendor is behind the adapter (STREAM-002, section 33.1). Operator alerts go through a
- * narrow port bound to the operations service, so streams never import its internals.
- */
-export function buildStreams(
-  database: Database,
-  config: AppConfig,
-  operations: { service: OperationsService }
-): { service: StreamsService } {
-  const provider = new LocalStubStreamingProvider(config.streaming.secureLinkSecret);
-  const alerts: StreamAlerts = {
-    async raise(context, input) {
-      await operations.service.raiseAlert(context, { category: 'stream', severity: input.severity, message: input.message, detail: input.detail });
-    }
-  };
-  return {
-    service: new StreamsService(
-      database,
-      provider,
-      { rightsPolicyApproved: config.streaming.rightsPolicyApproved, playbackTtlSeconds: config.streaming.playbackTtlSeconds },
-      alerts
-    )
-  };
-}
-
-/**
- * Wires the chat module.
- *
- * Chat reaches streams and moderation only through narrow ports: it asks streams whether
- * a visitor may watch (so a room inherits the stream's access decision rather than
- * inventing one), and it files reports into the shared moderation case workflow instead
- * of keeping a private report table.
- */
-export function buildChat(
-  database: Database,
-  streams: { service: StreamsService },
-  moderation: { service: ModerationService }
-): { service: ChatService } {
-  const streamAccess: ChatStreamAccess = {
-    async getWatchable(streamId) {
-      const stream = await streams.service.getById(streamId);
-      if (stream === null) return null;
-      return { readable: isPubliclyReadableStream(stream.state), accessMode: stream.accessMode };
-    }
-  };
-  const cases: ChatModerationCases = {
-    fileReport: (context, reporterId, input) => moderation.service.fileReport(context, reporterId, input)
-  };
-  return { service: new ChatService(database, streamAccess, cases) };
-}
-
-/**
- * Wires the education module.
- *
- * The paid path reaches money only through the shared holds service, which itself posts
- * through the ledger — so there is no education-specific balance anywhere (EDU-010).
- */
-export function buildEducation(database: Database, config: AppConfig, holds: { service: HoldsService }): { service: EducationService } {
-  return { service: new EducationService(database, { paidCoursesEnabled: config.paidCoursesEnabled }, holds.service) };
-}
-
-/**
- * Wires the community module.
- *
- * Social reaches identity and moderation only through narrow ports. The directory port is
- * what keeps privacy-by-default honest: the social module never queries `user_profiles`
- * itself, so "is this account publicly visible" and "does this @mention resolve" are both
- * answered by the same identity rules the rest of the product already uses (section 16.4)
- * rather than by a second, drifting copy of them.
- */
-export function buildSocial(
-  database: Database,
-  config: AppConfig,
-  identity: { service: IdentityService },
-  moderation: { service: ModerationService }
-): { service: SocialService } {
-  const directory: SocialDirectory = {
-    async isPubliclyVisible(accountId) {
-      return (await identity.service.getPublicIdentities([accountId])).has(accountId);
-    },
-    async resolveMentionable(usernames) {
-      const resolved = new Map<string, EntityId>();
-      for (const username of usernames) {
-        // A private profile must not be mentionable, otherwise a mention notification
-        // would confirm the account exists.
-        if (!(await identity.service.isProfilePublic(username))) continue;
-        const accountId = await identity.service.findAccountIdByUsername(username);
-        if (accountId !== null) resolved.set(username, accountId);
-      }
-      return resolved;
-    }
-  };
-  const cases: SocialModerationCases = {
-    fileReport: (context, reporterId, input) => moderation.service.fileReport(context, reporterId, input)
-  };
-  return {
-    service: new SocialService(
-      database,
-      {
-        ...DEFAULT_SOCIAL_CONFIG,
-        blockingEnabled: config.socialBlockingEnabled,
-        appealsEnabled: config.moderationAppealsEnabled,
-        pushEnabled: config.pushNotificationsEnabled
-      },
-      directory,
-      cases
-    )
-  };
-}
-
-/**
- * Wires the store module.
- *
- * Commerce reaches money only through the shared holds service, which posts through the
- * ledger — so there is no store-specific balance, and a shop operator (ROLE-021) cannot
- * touch a ledger even indirectly. The only monetary effect the store can cause is the
- * customer's own reservation and capture of their Dragon Coin.
- */
-export function buildStore(database: Database, config: AppConfig, holds: { service: HoldsService }): { service: StoreService } {
-  const payments: StorePayments = {
-    createHold: (context, ownerId, input) => holds.service.createHold(context, ownerId, input),
-    captureHold: (context, holdId, input) => holds.service.captureHold(context, holdId, input),
-    releaseHold: (context, holdId, input) => holds.service.releaseHold(context, holdId, input)
-  };
-  return {
-    service: new StoreService(
-      database,
-      {
-        physicalFulfillmentEnabled: config.physicalFulfillmentEnabled,
-        entitlementRevocationEnabled: config.entitlementRevocationEnabled
-      },
-      payments
-    )
-  };
-}
-
-/**
- * Wires the economy module.
- *
- * The recipient of a transfer is resolved through the same public-profile rule the rest of
- * the product uses, so a private account cannot be discovered by sending coin at it.
- */
-export function buildEconomy(database: Database, identity: { service: IdentityService }, ledger: { service: LedgerService }): { service: EconomyService } {
-  const directory: EconomyDirectory = {
-    async resolveRecipient(username) {
-      if (!(await identity.service.isProfilePublic(username))) return null;
-      return identity.service.findAccountIdByUsername(username);
-    }
-  };
-  return { service: new EconomyService(database, DEFAULT_ECONOMY_LIMITS, ledger.service, directory) };
-}
-
-/**
- * Wires the stuck-reservation detector over every hold-backed workflow.
- *
- * Store checkout and course enrolment both commit their domain record — claiming stock or
- * a place — before reserving and capturing the coin, so a dead process leaves the record
- * stranded. Tournament checkout reserves inside its own transaction and has no such
- * window, so it is not listed here; adding it would report records that cannot be stuck.
- */
-export function buildRecoveryDetector(database: Database): StuckReservationDetector {
-  const sources: ReservationSource[] = [
-    collectionReservationSource(database.db, {
-      workflow: 'store_order',
-      collection: 'store_orders',
-      pendingStates: ['pending_payment'],
-      holdField: 'holdId',
-      accountField: 'accountId',
-      claim: 'reserved stock'
-    }),
-    collectionReservationSource(database.db, {
-      workflow: 'course_enrollment',
-      collection: 'course_enrollments',
-      pendingStates: ['pending_payment'],
-      // Education records its reservation in `entitlementId`.
-      holdField: 'entitlementId',
-      // The enrolment names its owner `learnerId`, not `accountId`.
-      accountField: 'learnerId',
-      claim: 'a place on the course'
-    })
-  ];
-  return new StuckReservationDetector(database, sources);
-}
-
 export function buildSeo(database: Database, config: AppConfig): { service: SeoService } {
   // Bounded scan cap so the sitemap never runs an unbounded query (PERF-010). A larger
   // catalog would page; the launch catalog fits well within this ceiling.
@@ -936,7 +683,6 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
   const notifications = buildNotifications(database, config);
   const operations = buildOperations(database, config, notifications, holds, checkout);
   const moderation = buildModeration(database, identity);
-  const streams = buildStreams(database, config, operations);
   const app = buildServer(config, {
     database,
     identity,
@@ -953,15 +699,9 @@ if (entryPoint !== undefined && import.meta.url === pathToFileURL(entryPoint).hr
     prizes: buildPrizes(database, tournaments, competitions, registrations, ledger),
     notifications,
     moderation,
-    operations: { ...operations, recovery: buildRecoveryDetector(database) },
+    operations,
     media: buildMedia(database, config),
-    seo: buildSeo(database, config),
-    streams,
-    chat: buildChat(database, streams, moderation),
-    education: buildEducation(database, config, holds),
-    social: buildSocial(database, config, identity, moderation),
-    store: buildStore(database, config, holds),
-    economy: buildEconomy(database, identity, ledger)
+    seo: buildSeo(database, config)
   });
 
   // Defense in depth: a non-production server exposes read-only development routes
