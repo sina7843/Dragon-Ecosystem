@@ -52,7 +52,8 @@
       "adminOrders": "Order operations",
       "adminPrizes": "Prize settlement",
       "registrations": "My registrations",
-      "matches": "My matches"
+      "matches": "My matches",
+      "help": "Help"
     }
   },
   "player": {
@@ -92,7 +93,8 @@
     "streams": "Streams",
     "academy": "Academy",
     "registrations": "Registrations",
-    "matches": "Matches"
+    "matches": "Matches",
+    "help": "Help"
   },
   "theme": {
     "label": "Theme",
@@ -1949,6 +1951,34 @@
       "won": "Won",
       "lost": "Lost",
       "truncated": "Only the first 200 matches are shown."
+    }
+  },
+  "help": {
+    "title": "Help",
+    "intro": "Where to find things on the platform, and how to send a support request.",
+    "linksHeading": "Where to look",
+    "link": {
+      "tournaments": "Tournaments",
+      "registrations": "Your registrations",
+      "matches": "Your matches",
+      "search": "Search"
+    },
+    "contact": {
+      "heading": "Support requests",
+      "intro": "A support request is recorded against your account. You can see its state below.",
+      "signIn": "Sign in to send a support request",
+      "category": "Category",
+      "subject": "Subject",
+      "subjectRequired": "Enter a subject.",
+      "message": "Message",
+      "messageRequired": "Enter a message.",
+      "submit": "Send request",
+      "submitting": "Sending…",
+      "submitted": "Your request was recorded. Reference: {reference}"
+    },
+    "cases": {
+      "heading": "Your requests",
+      "empty": "You have not sent a support request yet."
     }
   }
 }

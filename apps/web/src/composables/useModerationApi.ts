@@ -41,3 +41,38 @@ export function listModerationCases(state?: string, cursor?: string): Promise<{ 
   const q = params.toString();
   return apiFetch(`/admin/moderation/cases${q === '' ? '' : `?${q}`}`);
 }
+
+// --- Support cases: the requester's own surface (PAGE-023) ---
+
+/** The approved support categories, matching the operator console's localized vocabulary. */
+export const SUPPORT_CATEGORIES = ['account', 'payment', 'other'] as const;
+export type SupportCategory = (typeof SUPPORT_CATEGORIES)[number];
+
+/** The case lifecycle the server exposes; runtime values so the locale guardrail can iterate them. */
+export const SUPPORT_STATES = ['open', 'assigned', 'resolved', 'closed'] as const;
+export type SupportState = (typeof SUPPORT_STATES)[number];
+
+/**
+ * A support case as its requester sees it.
+ *
+ * The server withholds `assignedTo` and `resolutionNote` from this projection — the staff
+ * identity handling a case and the operator's working note are not the requester's to read —
+ * so neither appears here.
+ */
+export interface SupportCaseView {
+  id: string;
+  category: SupportCategory;
+  subject: string;
+  state: SupportState;
+  createdAt: string;
+  version: number;
+}
+
+export function openSupportCase(body: { category: SupportCategory; subject: string; body: string }): Promise<SupportCaseView> {
+  return apiFetch('/support/cases', { method: 'POST', body: JSON.stringify(body) });
+}
+
+export function listMySupportCases(cursor?: string): Promise<{ items: SupportCaseView[]; nextCursor: string | null }> {
+  const query = cursor === undefined || cursor === '' ? '' : `?cursor=${encodeURIComponent(cursor)}`;
+  return apiFetch(`/support/cases${query}`);
+}

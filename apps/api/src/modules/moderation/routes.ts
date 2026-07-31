@@ -27,8 +27,23 @@ const idParam = { type: 'object', required: ['id'], additionalProperties: false,
 function caseView(c: ModerationCaseRecord) {
   return { id: c._id, subjectType: c.subjectType, subjectId: c.subjectId, severity: c.severity, state: c.state, assignedTo: c.assignedTo, action: c.action, actionReason: c.actionReason, emergency: c.emergency, reportCount: c.reportCount, createdAt: c.createdAt, version: c.version };
 }
+/**
+ * A support case as its **requester** may see it.
+ *
+ * `assignedTo` and `resolutionNote` are deliberately absent. The first is the raw account id
+ * of the staff member handling the case — an internal identity of the same kind the
+ * registrations surface has always withheld (`decidedBy`), and one a requester has no way to
+ * use; the second is written by an operator through `transitionSupport` and is staff-facing
+ * working text, not a message addressed to the user. Both were previously returned by the
+ * participant-facing `GET /support/cases` and `/support/cases/:id`.
+ */
 function supportView(c: SupportCaseRecord) {
-  return { id: c._id, category: c.category, subject: c.subject, state: c.state, assignedTo: c.assignedTo, resolutionNote: c.resolutionNote, createdAt: c.createdAt, version: c.version };
+  return { id: c._id, category: c.category, subject: c.subject, state: c.state, createdAt: c.createdAt, version: c.version };
+}
+
+/** The operator projection: the requester's view plus the fields staff act on. */
+function operatorSupportView(c: SupportCaseRecord) {
+  return { ...supportView(c), requesterId: c.requesterId, body: c.body, assignedTo: c.assignedTo, resolutionNote: c.resolutionNote };
 }
 
 export function registerModerationRoutes(app: FastifyInstance, deps: ModerationDeps): void {
@@ -45,7 +60,7 @@ export function registerModerationRoutes(app: FastifyInstance, deps: ModerationD
     return { id: report._id, status: report.status, createdAt: report.createdAt };
   });
 
-  app.post('/support/cases', { ...authed(), schema: { tags: ['moderation'], summary: 'Open a support case.', body: { type: 'object', required: ['category', 'subject', 'body'], additionalProperties: false, properties: { category: { type: 'string', minLength: 1, maxLength: 64 }, subject: { type: 'string', minLength: 1, maxLength: 200 }, body: { type: 'string', minLength: 1, maxLength: 4000 } } }, response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request, reply) => {
+  app.post('/support/cases', { ...authed(), schema: { tags: ['moderation'], summary: 'Open a support case.', body: { type: 'object', required: ['category', 'subject', 'body'], additionalProperties: false, properties: { category: { type: 'string', enum: ['account', 'payment', 'other'] }, subject: { type: 'string', minLength: 1, maxLength: 200 }, body: { type: 'string', minLength: 1, maxLength: 4000 } } }, response: { 201: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request, reply) => {
     const record = await deps.moderation.openSupportCase(request.requestContext, actorId(request), request.body as { category: string; subject: string; body: string });
     reply.status(201);
     return supportView(record);
@@ -124,13 +139,13 @@ export function registerModerationRoutes(app: FastifyInstance, deps: ModerationD
   // --- Support + recovery (support.manage) ---
   app.get('/admin/support/cases', { ...supGate(), schema: { tags: ['moderation'], summary: 'List support cases (operator).', querystring: { type: 'object', additionalProperties: false, properties: { state: { type: 'string' }, cursor: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
     const page = await deps.moderation.listSupport(request.query as { state?: string; cursor?: string; limit?: number });
-    return { items: page.items.map((c) => ({ ...supportView(c), requesterId: c.requesterId, body: c.body })), nextCursor: page.nextCursor };
+    return { items: page.items.map(operatorSupportView), nextCursor: page.nextCursor };
   });
 
   for (const to of ['assigned', 'resolved', 'closed'] as const) {
     app.post(`/admin/support/cases/:id/${to === 'assigned' ? 'assign' : to === 'resolved' ? 'resolve' : 'close'}`, { ...supGate(), schema: { tags: ['moderation'], summary: `Move a support case to ${to}.`, params: idParam, body: { type: 'object', required: ['expectedVersion'], additionalProperties: false, properties: { expectedVersion: { type: 'integer', minimum: 1 }, assignee: { type: 'string', maxLength: 64 }, note: { type: 'string', maxLength: 2000 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
       const body = request.body as { expectedVersion: number; assignee?: string; note?: string };
-      return supportView(await deps.moderation.transitionSupport(request.requestContext, (request.params as { id: string }).id, to, { expectedVersion: body.expectedVersion, ...(body.assignee === undefined ? {} : { assignee: body.assignee }), ...(body.note === undefined ? {} : { note: body.note }) }));
+      return operatorSupportView(await deps.moderation.transitionSupport(request.requestContext, (request.params as { id: string }).id, to, { expectedVersion: body.expectedVersion, ...(body.assignee === undefined ? {} : { assignee: body.assignee }), ...(body.note === undefined ? {} : { note: body.note }) }));
     });
   }
 
