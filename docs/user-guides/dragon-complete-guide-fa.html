@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راهنمای جامع استفاده، مدیریت و پیکربندی اکوسیستم Dragon</title>
+<style>
+:root { color-scheme: light dark; --ink:#1f2a44; --muted:#5a6379; --line:#c7cbd8; --bg:#fff; }
+@media (prefers-color-scheme: dark){ :root{ --ink:#e8ebf2; --muted:#a5adc0; --line:#3a4156; --bg:#141824; } }
+html,body{ background:var(--bg); color:var(--ink); }
+body { font-family: Tahoma, "Segoe UI", sans-serif; line-height: 1.9; margin: 0 auto; padding: 2rem 1rem 4rem; max-width: 60rem; }
+h1 { font-size: 1.9rem; border-block-end: 2px solid var(--line); padding-block-end: .4rem; margin-block-start: 2.5rem; }
+h2 { font-size: 1.45rem; margin-block-start: 2rem; }
+h3 { font-size: 1.2rem; }
+code { font-family: Consolas, monospace; background: rgba(127,127,127,.14); padding: .1em .35em; border-radius: 3px; }
+pre { direction: ltr; text-align: left; background: rgba(127,127,127,.12); padding: .9rem; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; inline-size: 100%; margin-block: .8rem; font-size: .93rem; }
+th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: start; vertical-align: top; }
+th { background: rgba(127,127,127,.14); }
+figure { margin: 1.2rem 0 .3rem; }
+img { max-inline-size: 100%; block-size: auto; border: 1px solid var(--line); border-radius: 6px; display: block; margin-inline: auto; }
+.caption { text-align: center; color: var(--muted); font-size: .88rem; margin-block-start: .2rem; }
+.callout { border-inline-start: 4px solid var(--line); padding: .7rem 1rem; margin-block: 1rem; background: rgba(127,127,127,.09); border-radius: 4px; }
+.callout.security { border-inline-start-color: #b4423c; }
+.callout.warning { border-inline-start-color: #c9862b; }
+hr { border: 0; border-block-start: 1px solid var(--line); margin-block: 2rem; }
+@media print { body { max-width: none; } h1 { break-before: page; } figure, table { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<p>is replaced by scripts/guide/build-guide.mjs with a table derived from SITE_INVENTORY.json or GUIDE_VERIFICATION_MAP.json, so no factual table in this document is maintained by hand.</p>
+<p>A figure is written as: ![alt](assets/screenshots/&lt;file&gt;) followed by a caption paragraph beginning with &quot;شکل&quot;. The builder numbers figures automatically. --&gt;</p>
+<h1 id="h2">راهنمای جامع استفاده، مدیریت و پیکربندی اکوسیستم Dragon</h1>
+<h2 id="h3">راهنمای کاربران، برگزارکنندگان، مدرسان، اپراتورها و مدیران فنی</h2>
+<aside class="callout warning">این راهنما بر اساس قابلیت‌های واقعی نسخه ثبت‌شده تهیه شده است. قابلیت‌های وابسته به تصمیم‌های باز، مجوزهای خاص یا ارائه‌دهندگان خارجی به‌صورت محدود، غیرفعال، آزمایشی یا مسدود مشخص شده‌اند.</aside>
+<hr>
+<h2 id="h6">نشانه‌گذاری این سند</h2>
+<div class="scroll"><table><thead><tr><th>نشانه</th><th>معنی</th></tr></thead><tbody><tr><td><strong>کاربر</strong></td><td>دستورالعمل کاربر عمومی</td></tr><tr><td><strong>اپراتور</strong></td><td>دستورالعمل دارنده نقش عملیاتی</td></tr><tr><td><strong>مدیر</strong></td><td>دستورالعمل مدیر پلتفرم</td></tr><tr><td><strong>فنی</strong></td><td>پیکربندی فنی و استقرار</td></tr><tr><td><strong>حساس</strong></td><td>نکته امنیتی؛ اجرای آن دسترسی یا داده را تغییر می‌دهد</td></tr></tbody></table></div>
+<p>هر جا قابلیتی در دسترس نیست، یکی از این برچسب‌ها آمده است: «نیازمند مجوز»، «بسته با Feature Gate»، «ارائه‌دهنده در دسترس نیست»، «مسدود با تصمیم باز»، «پیاده‌سازی نشده».</p>
+<hr>
+<h1 id="h10">فصل ۱ — معرفی راهنما و وضعیت نسخه</h1>
+<h2 id="h11">۱.۱ این راهنما چه چیزی را پوشش می‌دهد</h2>
+<p>اکوسیستم Dragon یک پلتفرم ورزش‌های الکترونیک است با تورنمنت، تیم، آکادمی آموزشی، پخش زنده، جامعه کاربری، فروشگاه و اقتصاد داخلی. این راهنما همه سطوح استفاده را پوشش می‌دهد: بازدیدکننده، کاربر ثبت‌نام‌شده، شرکت‌کننده، مدیر تیم، مدرس، اپراتور پخش، ناظر، اپراتور فروشگاه، اپراتور مالی، پشتیبانی، مدیر و اپراتور فنی.</p>
+<h2 id="h13">۱.۲ آنچه این راهنما ادعا نمی‌کند</h2>
+<p>این نسخه یک نسخه در حال توسعه است. تصمیم انتشار اکوسیستم در مخزن <strong>NO-GO</strong> ثبت شده است. بنابراین:</p>
+<ul><li>هیچ ادعایی درباره آمادگی تولید، پایداری، یا سطح سرویس در این سند نیست؛</li><li>هیچ گواهی دسترس‌پذیری انسانی و هیچ آزمون نفوذ انجام نشده است؛</li><li>هیچ وعده زمان پاسخ، بازپرداخت یا در دسترس بودن داده نشده است.</li></ul>
+<h2 id="h16">۱.۳ خلاصه شمارشی نسخه</h2>
+<div class="scroll"><table><thead><tr><th>مورد</th><th>تعداد</th></tr></thead><tbody><tr><td>نقطه پایانی API</td><td>291</td></tr><tr><td>مسیر عمومی (بدون ورود)</td><td>43</td></tr><tr><td>مسیر نیازمند ورود</td><td>85</td></tr><tr><td>مسیر نیازمند مجوز</td><td>163</td></tr><tr><td>مسیر رابط کاربری</td><td>63</td></tr><tr><td>ناحیه مدیریتی</td><td>20</td></tr><tr><td>نقش</td><td>16</td></tr><tr><td>مجوز</td><td>22</td></tr><tr><td>Feature Gate</td><td>10</td></tr><tr><td>متغیر محیطی</td><td>39</td></tr><tr><td>تصویر ثبت‌شده</td><td>153</td></tr></tbody></table></div>
+<h2 id="h18">۱.۴ دو مشکل پرتکرار — پاسخ کوتاه</h2>
+<p>اگر برای همین دو مورد به این سند مراجعه کرده‌اید:</p>
+<ul><li><strong>«نمی‌توانم دوره بسازم»</strong> → فصل ۱۰. علت تقریباً همیشه نداشتن مجوز <code dir="ltr">education.manage</code> است،</li></ul>
+<p>و پس از آن، ناآشنایی با چرخه <code dir="ltr">draft ← review ← published</code>.</p>
+<ul><li><strong>«نمی‌توانم پخش زنده بسازم»</strong> → فصل ۱۲. علت نداشتن مجوز <code dir="ltr">stream.manage</code> است. توجه کنید که</li></ul>
+<p>حتی با مجوز، ارائه‌دهنده پخش در این نسخه <strong>شبیه‌سازی‌شده</strong> است و پخش واقعی وجود ندارد.</p>
+<hr>
+<h1 id="h25">فصل ۲ — اجرای محلی و ورود به سامانه</h1>
+<h2 id="h26">۲.۱ پیش‌نیازها <strong>فنی</strong></h2>
+<ul><li>Node.js نسخه ۲۲٫۱۸ یا بالاتر (اجرای مستقیم TypeScript بدون پرچم آزمایشی)؛</li><li>Docker برای MongoDB با Replica Set؛</li><li>سیستم‌عامل: توسعه روی ویندوز پشتیبانی می‌شود.</li></ul>
+<h2 id="h28">۲.۲ راه‌اندازی</h2>
+<pre dir="ltr"><code>npm install
+npm run docker:up
+npm run migrate</code></pre>
+<p>فایل محیط را از روی نمونه بسازید. <strong>هرگز مقدار محرمانه واقعی را در مخزن قرار ندهید.</strong> برای ساخت فایل محلی، اسکریپت <code dir="ltr">06-CREATE-LOCAL-ENV.cmd</code> را اجرا کنید.</p>
+<h2 id="h31">۲.۳ ورود</h2>
+<p>ورود با شماره موبایل و رمز یک‌بارمصرف انجام می‌شود. رمز عبور ثابتی وجود ندارد.</p>
+<figure><img src="assets/screenshots/001-login-fa-desktop.png" alt="فرم ورود با شماره موبایل" loading="lazy"></figure>
+<p class="caption">شکل 1 — ورود با شماره موبایل و رمز یک‌بارمصرف.</p>
+<p><strong>مراحل</strong> <strong>کاربر</strong></p>
+<p>۱. به <code dir="ltr">/{locale}/auth/mobile</code> بروید (مثلاً <code dir="ltr">/fa/auth/mobile</code>). ۲. شماره موبایل خود را وارد کنید و «دریافت کد» را بزنید. ۳. کد پیامک‌شده را وارد کنید و تأیید کنید. ۴. در نخستین ورود، تکمیل پروفایل خواسته می‌شود.</p>
+<p><strong>نتیجه مورد انتظار:</strong> انتقال به <code dir="ltr">/{locale}/account</code> یا <code dir="ltr">/{locale}/account/profile</code>.</p>
+<p><strong>خطاهای رایج</strong></p>
+<div class="scroll"><table><thead><tr><th>نشانه</th><th>علت</th><th>راه‌حل</th></tr></thead><tbody><tr><td>کد نمی‌رسد</td><td>در توسعه، پیامک واقعی ارسال نمی‌شود</td><td>صندوق توسعه: <code dir="ltr">/api/v1/dev/sms-inbox?mobile=…</code> (فقط محیط توسعه)</td></tr><tr><td>«تعداد درخواست زیاد است»</td><td>سقف <code dir="ltr">OTP_REQUESTS_PER_MOBILE</code> یا <code dir="ltr">OTP_REQUESTS_PER_IP</code></td><td>تا پایان پنجره <code dir="ltr">OTP_WINDOW_SECONDS</code> صبر کنید</td></tr><tr><td>کد منقضی شده</td><td><code dir="ltr">OTP_TTL_SECONDS</code> (پیش‌فرض ۱۲۰ ثانیه)</td><td>کد جدید بگیرید</td></tr></tbody></table></div>
+<h2 id="h40">۲.۴ زبان و جهت متن</h2>
+<p>سامانه دوزبانه است: فارسی (راست‌به‌چپ، پیش‌فرض) و انگلیسی (چپ‌به‌راست). زبان در نشانی صفحه قرار دارد: <code dir="ltr">/fa/...</code> و <code dir="ltr">/en/...</code>. تغییر زبان از نوار بالای صفحه انجام می‌شود و جهت صفحه به‌صورت خودکار تغییر می‌کند.</p>
+<hr>
+<h1 id="h43">فصل ۳ — نقشه کامل سایت</h1>
+<figure><img src="assets/screenshots/002-home-fa-desktop.png" alt="صفحه نخست" loading="lazy"></figure>
+<p class="caption">شکل 2 — صفحه نخست اکوسیستم دراگون.</p>
+<h2 id="h46">۳.۱ بخش عمومی</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>نما</th></tr></thead><tbody><tr><td><code dir="ltr">/:locale(fa|en)</code></td><td><code dir="ltr">HomeView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/design-system</code></td><td><code dir="ltr">DesignSystemView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/content</code></td><td><code dir="ltr">ContentListView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/content/:type/:slug</code></td><td><code dir="ltr">ContentDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/games</code></td><td><code dir="ltr">GamesCatalogView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/games/:slug</code></td><td><code dir="ltr">GameDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments</code></td><td><code dir="ltr">TournamentsListView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments-calendar</code></td><td><code dir="ltr">TournamentCalendarView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments/:slug</code></td><td><code dir="ltr">TournamentDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/teams</code></td><td><code dir="ltr">TeamsDirectoryView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/teams/:slug</code></td><td><code dir="ltr">PublicTeamView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/players</code></td><td><code dir="ltr">PlayersDirectoryView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/streams</code></td><td><code dir="ltr">StreamsListView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/streams/:slug</code></td><td><code dir="ltr">StreamDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/academy</code></td><td><code dir="ltr">AcademyCatalogView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/academy/courses/:slug</code></td><td><code dir="ltr">CourseDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/store</code></td><td><code dir="ltr">StoreCatalogView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/store/products/:slug</code></td><td><code dir="ltr">StoreProductView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/community</code></td><td><code dir="ltr">CommunityFeedView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/community/posts/:id</code></td><td><code dir="ltr">CommunityPostView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/search</code></td><td><code dir="ltr">SearchView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/help</code></td><td><code dir="ltr">HelpView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/players/:username</code></td><td><code dir="ltr">PublicPlayerView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/auth/mobile</code></td><td><code dir="ltr">AuthMobileView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/403</code></td><td><code dir="ltr">ForbiddenView.vue</code></td></tr><tr><td><code dir="ltr">/:pathMatch(.*)*</code></td><td><code dir="ltr">NotFoundView.vue</code></td></tr></tbody></table></div>
+<h2 id="h48">۳.۲ بخش حساب کاربری</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>نما</th></tr></thead><tbody><tr><td><code dir="ltr">/:locale(fa|en)/academy/learn/:enrollmentId</code></td><td><code dir="ltr">CoursePlayerView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/cart</code></td><td><code dir="ltr">CartView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/checkout</code></td><td><code dir="ltr">CheckoutView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/orders</code></td><td><code dir="ltr">AccountOrdersView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/registrations</code></td><td><code dir="ltr">AccountRegistrationsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/matches</code></td><td><code dir="ltr">AccountMatchesView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account</code></td><td><code dir="ltr">AccountOverviewView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/profile</code></td><td><code dir="ltr">AccountProfileView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/security</code></td><td><code dir="ltr">AccountSecurityView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/wallet</code></td><td><code dir="ltr">AccountWalletView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/notifications</code></td><td><code dir="ltr">NotificationsInboxView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/teams</code></td><td><code dir="ltr">TeamsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/teams/:id</code></td><td><code dir="ltr">TeamDetailView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/gaming-identities</code></td><td><code dir="ltr">GamingIdentitiesView.vue</code></td></tr></tbody></table></div>
+<h2 id="h50">۳.۳ بخش مدیریت</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>نما</th></tr></thead><tbody><tr><td><code dir="ltr">/:locale(fa|en)/admin</code></td><td><code dir="ltr">AdminOverviewView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/users</code></td><td><code dir="ltr">AdminUsersView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/audit</code></td><td><code dir="ltr">AdminAuditView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/moderation</code></td><td><code dir="ltr">AdminModerationView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/courses</code></td><td><code dir="ltr">AdminCoursesView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/chat</code></td><td><code dir="ltr">AdminChatView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/streams</code></td><td><code dir="ltr">AdminStreamsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/prizes</code></td><td><code dir="ltr">AdminPrizesView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/store</code></td><td><code dir="ltr">AdminStoreView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/orders</code></td><td><code dir="ltr">AdminOrdersView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/community</code></td><td><code dir="ltr">AdminCommunityView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/media</code></td><td><code dir="ltr">AdminMediaView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/configuration</code></td><td><code dir="ltr">AdminConfigurationView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/notifications</code></td><td><code dir="ltr">AdminNotificationsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/organizer</code></td><td><code dir="ltr">OrganizerWorkspaceView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/finance</code></td><td><code dir="ltr">AdminFinanceView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/support</code></td><td><code dir="ltr">AdminSupportView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/operations</code></td><td><code dir="ltr">AdminOperationsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/content</code></td><td><code dir="ltr">AdminContentView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/games</code></td><td><code dir="ltr">AdminGamesView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments</code></td><td><code dir="ltr">AdminTournamentsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments/:id/registrations</code></td><td><code dir="ltr">AdminTournamentRegistrationsView.vue</code></td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments/:id/competition</code></td><td><code dir="ltr">AdminTournamentCompetitionView.vue</code></td></tr></tbody></table></div>
+<h2 id="h52">۳.۴ نمایش موبایل</h2>
+<figure><img src="assets/screenshots/002-home-fa-mobile.png" alt="ناوبری در نمایش موبایل" loading="lazy"></figure>
+<p class="caption">شکل 3 — همان صفحه در عرض ۳۲۰ پیکسل؛ ناوبری اصلی در منوی جمع‌شونده قرار می‌گیرد.</p>
+<hr>
+<h1 id="h56">فصل ۴ — نقش‌ها، دسترسی‌ها و Feature Gateها</h1>
+<p>این فصل مهم‌ترین فصل برای رفع اشکال است. بیشتر پرسش‌های «این گزینه کجاست؟» ریشه در همین مفاهیم دارند.</p>
+<h2 id="h58">۴.۱ سه مفهوم متفاوت که اشتباه گرفته می‌شوند</h2>
+<div class="scroll"><table><thead><tr><th>مفهوم</th><th>معنی</th><th>مثال</th></tr></thead><tbody><tr><td><strong>نقش</strong></td><td>برچسبی که به حساب داده می‌شود</td><td><code dir="ltr">education_manager</code></td></tr><tr><td><strong>مجوز</strong></td><td>اجازه انجام یک کار که نقش آن را حمل می‌کند</td><td><code dir="ltr">education.manage</code></td></tr><tr><td><strong>Feature Gate</strong></td><td>کلید پیکربندی که یک قابلیت را برای <strong>همه</strong> می‌بندد</td><td><code dir="ltr">PAID_COURSES_ENABLED</code></td></tr></tbody></table></div>
+<p>نداشتن مجوز یعنی «شما اجازه ندارید». بسته‌بودن Feature Gate یعنی «این قابلیت برای هیچ‌کس فعال نیست». این دو راه‌حل کاملاً متفاوتی دارند.</p>
+<h2 id="h61">۴.۲ ماتریس نقش و مجوز</h2>
+<div class="scroll"><table><thead><tr><th>نقش</th><th>کد</th><th>مجوزها</th></tr></thead><tbody><tr><td>مدیر ارشد سامانه</td><td><code dir="ltr">super_administrator</code></td><td><strong>همه مجوزها</strong> (نقش کنترل‌شده اضطراری)</td></tr><tr><td>مدیر پلتفرم</td><td><code dir="ltr">platform_administrator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">users.read</code>، <code dir="ltr">users.suspend</code>، <code dir="ltr">roles.read</code>، <code dir="ltr">roles.assign</code>، <code dir="ltr">config.read</code>، <code dir="ltr">config.propose</code>، <code dir="ltr">audit.read</code></td></tr><tr><td>اپراتور مالی</td><td><code dir="ltr">finance_operator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">finance.manage</code>، <code dir="ltr">config.propose</code>، <code dir="ltr">audit.read</code></td></tr><tr><td>تأییدکننده مالی</td><td><code dir="ltr">financial_approver</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">finance.approve</code>، <code dir="ltr">config.approve</code>، <code dir="ltr">audit.read</code></td></tr><tr><td>نویسنده محتوا</td><td><code dir="ltr">content_author</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">content.write</code></td></tr><tr><td>ویراستار محتوا</td><td><code dir="ltr">content_editor</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">content.write</code></td></tr><tr><td>منتشرکننده محتوا</td><td><code dir="ltr">content_publisher</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">content.write</code>، <code dir="ltr">content.publish</code>، <code dir="ltr">games.manage</code></td></tr><tr><td>اپراتور پخش زنده</td><td><code dir="ltr">streaming_operator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">stream.manage</code></td></tr><tr><td>مدیر تورنمنت</td><td><code dir="ltr">tournament_administrator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">tournament.manage</code></td></tr><tr><td>برگزارکننده تورنمنت</td><td><code dir="ltr">tournament_organizer</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">tournament.manage</code></td></tr><tr><td>مدیر آموزش</td><td><code dir="ltr">education_manager</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">education.manage</code></td></tr><tr><td>ناظر گفت‌وگوی زنده</td><td><code dir="ltr">live_chat_moderator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">chat.moderate</code></td></tr><tr><td>ناظر جامعه</td><td><code dir="ltr">community_moderator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">moderation.manage</code>، <code dir="ltr">chat.moderate</code></td></tr><tr><td>اپراتور فروشگاه</td><td><code dir="ltr">shop_operator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">store.manage</code></td></tr><tr><td>اپراتور پشتیبانی</td><td><code dir="ltr">support_operator</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">support.manage</code>، <code dir="ltr">users.read</code></td></tr><tr><td>ممیز امنیتی</td><td><code dir="ltr">security_auditor</code></td><td><code dir="ltr">admin.access</code>، <code dir="ltr">audit.read</code>، <code dir="ltr">audit.export</code></td></tr></tbody></table></div>
+<h2 id="h63">۴.۳ مجوز لازم برای هر ناحیه مدیریتی</h2>
+<div class="scroll"><table><thead><tr><th>ناحیه</th><th>مسیر</th><th>مجوز لازم</th></tr></thead><tbody><tr><td><code dir="ltr">area-content</code></td><td><code dir="ltr">/admin/content</code></td><td><code dir="ltr">content.write</code></td></tr><tr><td><code dir="ltr">area-games</code></td><td><code dir="ltr">/admin/games</code></td><td><code dir="ltr">games.manage</code></td></tr><tr><td><code dir="ltr">area-organizer</code></td><td><code dir="ltr">/admin/organizer</code></td><td><code dir="ltr">tournament.manage</code></td></tr><tr><td><code dir="ltr">area-tournaments</code></td><td><code dir="ltr">/admin/tournaments</code></td><td><code dir="ltr">tournament.manage</code></td></tr><tr><td><code dir="ltr">area-streams</code></td><td><code dir="ltr">/admin/streams</code></td><td><code dir="ltr">stream.manage</code></td></tr><tr><td><code dir="ltr">area-chat</code></td><td><code dir="ltr">/admin/chat</code></td><td><code dir="ltr">chat.moderate</code></td></tr><tr><td><code dir="ltr">area-prizes</code></td><td><code dir="ltr">/admin/prizes</code></td><td><code dir="ltr">finance.manage</code></td></tr><tr><td><code dir="ltr">area-store</code></td><td><code dir="ltr">/admin/store</code></td><td><code dir="ltr">store.manage</code></td></tr><tr><td><code dir="ltr">area-orders</code></td><td><code dir="ltr">/admin/orders</code></td><td><code dir="ltr">store.manage</code></td></tr><tr><td><code dir="ltr">area-community</code></td><td><code dir="ltr">/admin/community</code></td><td><code dir="ltr">moderation.manage</code></td></tr><tr><td><code dir="ltr">area-courses</code></td><td><code dir="ltr">/admin/courses</code></td><td><code dir="ltr">education.manage</code></td></tr><tr><td><code dir="ltr">area-users</code></td><td><code dir="ltr">/admin/users</code></td><td><code dir="ltr">users.read</code></td></tr><tr><td><code dir="ltr">area-audit</code></td><td><code dir="ltr">/admin/audit</code></td><td><code dir="ltr">audit.read</code></td></tr><tr><td><code dir="ltr">area-moderation</code></td><td><code dir="ltr">/admin/moderation</code></td><td><code dir="ltr">moderation.manage</code></td></tr><tr><td><code dir="ltr">area-media</code></td><td><code dir="ltr">/admin/media</code></td><td><code dir="ltr">content.publish</code></td></tr><tr><td><code dir="ltr">area-configuration</code></td><td><code dir="ltr">/admin/configuration</code></td><td><code dir="ltr">config.read</code></td></tr><tr><td><code dir="ltr">area-notifications</code></td><td><code dir="ltr">/admin/notifications</code></td><td><code dir="ltr">support.manage</code></td></tr><tr><td><code dir="ltr">area-finance</code></td><td><code dir="ltr">/admin/finance</code></td><td><code dir="ltr">finance.manage</code></td></tr><tr><td><code dir="ltr">area-support</code></td><td><code dir="ltr">/admin/support</code></td><td><code dir="ltr">support.manage</code></td></tr><tr><td><code dir="ltr">area-operations</code></td><td><code dir="ltr">/admin/operations</code></td><td><code dir="ltr">support.manage</code></td></tr></tbody></table></div>
+<h2 id="h65">۴.۴ چرا یک گزینه دیده نمی‌شود</h2>
+<p>کارت‌های ناحیه مدیریتی از روی <strong>مجوزهای مؤثر کاربر که سرور اعلام می‌کند</strong> ساخته می‌شوند. اگر کارتی دیده نمی‌شود، معمولاً یعنی مجوز آن را ندارید.</p>
+<figure><img src="assets/screenshots/090-forbidden-generic-fa-desktop.png" alt="وضعیت عدم دسترسی" loading="lazy"></figure>
+<p class="caption">شکل 4 — کنسول‌های اپراتوری برای حساب بدون مجوز، وضعیت «دسترسی مجاز نیست» نشان می‌دهند.</p>
+<p><strong>حساس</strong> سه نکته که باید بدانید:</p>
+<p>۱. <strong>پنهان‌بودن دکمه، مرز امنیتی نیست.</strong> سرور مستقل از رابط کاربری، مجوز را روی هر مسیر و هر فراخوانی API بررسی می‌کند. ۲. <strong>تایپ‌کردن مستقیم نشانی، دور زدن مجوز نیست.</strong> صفحه باز می‌شود اما وضعیت «دسترسی مجاز نیست» نمایش داده می‌شود و درخواست API با کد <strong>۴۰۳</strong> رد می‌شود. ۳. <strong>تخصیص نقش باید از مسیر مجاز انجام شود.</strong> ویرایش مستقیم پایگاه داده یک رویه عملیاتی تأییدشده نیست: ممیزی ثبت نمی‌شود.</p>
+<h2 id="h71">۴.۵ محدودیت مهم این نسخه — نبود رابط مدیریت نقش‌ها</h2>
+<p><strong>در نسخه فعلی هیچ صفحه‌ای برای تخصیص نقش وجود ندارد.</strong> صفحه «کاربران» فقط جست‌وجو، مشاهده با داده پوشانده‌شده، تعلیق و رفع تعلیق را ارائه می‌دهد.</p>
+<figure><img src="assets/screenshots/031-admin-users-fa-desktop.png" alt="مدیریت کاربران" loading="lazy"></figure>
+<p class="caption">شکل 5 — صفحه مدیریت کاربران؛ ستون یا کنترلی برای نقش‌ها وجود ندارد.</p>
+<p>بنابراین:</p>
+<ul><li>اگر به یک نقش عملیاتی نیاز دارید، <strong>باید از اپراتور فنی مجاز درخواست کنید</strong>؛</li><li>اپراتور فنی رویه موقت مستندشده را در پیوست فنی دنبال می‌کند؛</li><li>این محدودیت به‌عنوان نقص محصول ثبت شده است و رفع آن در یک کار جداگانه انجام خواهد شد.</li></ul>
+<h2 id="h77">۴.۶ Feature Gateهای فعلی</h2>
+<div class="scroll"><table><thead><tr><th>تصمیم باز</th><th>متغیر محیطی</th><th>وضعیت پیش‌فرض</th></tr></thead><tbody><tr><td>OD-014</td><td><code dir="ltr">STREAM_RIGHTS_POLICY_APPROVED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-007</td><td><code dir="ltr">PAID_TOURNAMENTS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-015</td><td><code dir="ltr">PAID_COURSES_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-017</td><td><code dir="ltr">SOCIAL_BLOCKING_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-024</td><td><code dir="ltr">MODERATION_APPEALS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-027</td><td><code dir="ltr">PUSH_NOTIFICATIONS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-019</td><td><code dir="ltr">PHYSICAL_FULFILLMENT_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-020</td><td><code dir="ltr">ENTITLEMENT_REVOCATION_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-008</td><td><code dir="ltr">NOTIFICATIONS_SMS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-026</td><td><code dir="ltr">ANALYTICS_EXTERNAL_ENABLED</code></td><td>بسته (fail-closed)</td></tr></tbody></table></div>
+<p>همه این دروازه‌ها <strong>fail-closed</strong> هستند: تا وقتی مقدارشان دقیقاً <code dir="ltr">true</code> نباشد، قابلیت بسته است.</p>
+<hr>
+<h1 id="h81">فصل ۵ — حساب کاربری و امنیت</h1>
+<figure><img src="assets/screenshots/020-account-overview-fa-desktop.png" alt="داشبورد حساب" loading="lazy"></figure>
+<p class="caption">شکل 6 — داشبورد حساب کاربری.</p>
+<h2 id="h84">۵.۱ پروفایل</h2>
+<figure><img src="assets/screenshots/021-account-profile-fa-desktop.png" alt="پروفایل" loading="lazy"></figure>
+<p class="caption">شکل 7 — ویرایش پروفایل کاربر.</p>
+<p><strong>هدف:</strong> تکمیل هویت عمومی کاربر. <strong>نقش لازم:</strong> کاربر ثبت‌نام‌شده. <strong>مجوز:</strong> ندارد. <strong>مسیر:</strong> <code dir="ltr">/{locale}/account/profile</code></p>
+<p>نام کاربری، نام نمایشی، تاریخ تولد و سطح نمایش پروفایل تنظیم می‌شوند. تاریخ تولد برای بررسی شرایط سنی تورنمنت‌ها استفاده می‌شود.</p>
+<h2 id="h89">۵.۲ امنیت و نشست‌ها</h2>
+<figure><img src="assets/screenshots/022-account-security-fa-desktop.png" alt="امنیت" loading="lazy"></figure>
+<p class="caption">شکل 8 — تنظیمات امنیتی و نشست‌های فعال.</p>
+<p>نشست در کوکی <code dir="ltr">httpOnly</code> نگهداری می‌شود و اسکریپت صفحه به آن دسترسی ندارد. برای کارهای حساس، ورود اخیر لازم است (<code dir="ltr">RECENT_AUTH_MINUTES</code>).</p>
+<aside class="callout security"><strong>مسدود با تصمیم باز:</strong> بازیابی حساب فقط «بررسی» است و هرگز به تأیید خودکار منجر نمی‌شود (OD-029). ایمیل به‌عنوان عامل بازیابی وجود ندارد (OD-003).</aside>
+<hr>
+<h1 id="h95">فصل ۶ — پروفایل‌ها، تیم‌ها و شبکه اجتماعی</h1>
+<figure><img src="assets/screenshots/025-account-teams-fa-desktop.png" alt="تیم‌های من" loading="lazy"></figure>
+<p class="caption">شکل 9 — تیم‌های کاربر.</p>
+<h2 id="h98">۶.۱ ساخت تیم</h2>
+<p><strong>هدف:</strong> ساخت تیم برای شرکت گروهی در تورنمنت. <strong>نقش لازم:</strong> کاربر ثبت‌نام‌شده با پروفایل کامل. <strong>مجوز:</strong> ندارد. <strong>مسیر:</strong> <code dir="ltr">/{locale}/account/teams</code></p>
+<p><strong>مراحل</strong></p>
+<p>۱. وارد بخش تیم‌ها شوید. ۲. تیم جدید بسازید (نام و نشانه‌های لازم). ۳. دعوت‌نامه برای بازیکنان بفرستید. ۴. بازیکن دعوت را می‌پذیرد و عضو می‌شود.</p>
+<p><strong>نتیجه:</strong> تیم ساخته می‌شود و مالک آن شما هستید. تیم به‌صورت پیش‌فرض خصوصی است و با تنظیم عمومی در فهرست <code dir="ltr">/{locale}/teams</code> دیده می‌شود.</p>
+<h2 id="h103">۶.۲ شناسه‌های بازی</h2>
+<figure><img src="assets/screenshots/029-account-identities-fa-desktop.png" alt="شناسه‌های بازی" loading="lazy"></figure>
+<p class="caption">شکل 10 — شناسه‌های بازی کاربر.</p>
+<p>برخی تورنمنت‌ها داشتن شناسه بازی معتبر را شرط ثبت‌نام قرار می‌دهند.</p>
+<hr>
+<h1 id="h108">فصل ۷ — بازی‌ها، محتوا و جست‌وجو</h1>
+<figure><img src="assets/screenshots/003-games-fa-desktop.png" alt="کاتالوگ بازی‌ها" loading="lazy"></figure>
+<p class="caption">شکل 11 — فهرست بازی‌های منتشرشده.</p>
+<figure><img src="assets/screenshots/004-content-fa-desktop.png" alt="محتوا" loading="lazy"></figure>
+<p class="caption">شکل 12 — بخش محتوا و اخبار.</p>
+<h2 id="h113">۷.۱ جست‌وجوی سراسری</h2>
+<figure><img src="assets/screenshots/012-search-fa-desktop.png" alt="جست‌وجو" loading="lazy"></figure>
+<p class="caption">شکل 13 — جست‌وجوی سراسری.</p>
+<h2 id="h116">۷.۲ مدیریت محتوا <strong>اپراتور</strong></h2>
+<p><strong>مجوز:</strong> <code dir="ltr">content.write</code> برای نگارش، <code dir="ltr">content.publish</code> برای انتشار. <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/content</code></p>
+<figure><img src="assets/screenshots/035-admin-content-fa-desktop.png" alt="کنسول محتوا" loading="lazy"></figure>
+<p class="caption">شکل 14 — کنسول محتوا.</p>
+<p>نقش‌های محتوا جدا هستند: نویسنده و ویراستار پیش‌نویس می‌سازند، اما فقط منتشرکننده می‌تواند منتشر کند، زمان‌بندی کند یا از انتشار خارج کند.</p>
+<h2 id="h121">۷.۳ مدیریت بازی‌ها <strong>اپراتور</strong></h2>
+<p><strong>مجوز:</strong> <code dir="ltr">games.manage</code>. <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/games</code></p>
+<figure><img src="assets/screenshots/036-admin-games-fa-desktop.png" alt="مدیریت بازی‌ها" loading="lazy"></figure>
+<p class="caption">شکل 15 — کنسول بازی‌ها.</p>
+<hr>
+<h1 id="h126">فصل ۸ — مسابقات و رقابت‌ها</h1>
+<figure><img src="assets/screenshots/005-tournaments-fa-desktop.png" alt="فهرست تورنمنت‌ها" loading="lazy"></figure>
+<p class="caption">شکل 16 — فهرست تورنمنت‌های عمومی.</p>
+<h2 id="h129">۸.۱ ساخت تورنمنت <strong>اپراتور</strong></h2>
+<p><strong>هدف:</strong> ایجاد و انتشار یک تورنمنت. <strong>نقش لازم:</strong> <code dir="ltr">tournament_administrator</code> یا <code dir="ltr">tournament_organizer</code>. <strong>مجوز:</strong> <code dir="ltr">tournament.manage</code>. <strong>پیش‌نیاز:</strong> یک بازی <strong>منتشرشده</strong> باید وجود داشته باشد. <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/tournaments</code></p>
+<figure><img src="assets/screenshots/033-admin-tournaments-fa-desktop.png" alt="مدیریت تورنمنت" loading="lazy"></figure>
+<p class="caption">شکل 17 — کنسول مدیریت تورنمنت‌ها.</p>
+<p><strong>مراحل</strong></p>
+<p>۱. از داشبورد، کارت «تورنمنت‌ها» را باز کنید. ۲. تورنمنت جدید بسازید: بازی، عنوان و خلاصه فارسی و انگلیسی، ظرفیت، حالت تأیید، بازه ثبت‌نام و بازه برگزاری. ۳. قوانین را در هر دو زبان وارد کنید. ۴. تورنمنت را به وضعیت منتشرشده منتقل کنید.</p>
+<p><strong>نتیجه:</strong> تورنمنت در فهرست عمومی دیده می‌شود و در بازه ثبت‌نام قابل ثبت‌نام است.</p>
+<p><strong>خطاهای رایج</strong></p>
+<div class="scroll"><table><thead><tr><th>نشانه</th><th>علت</th></tr></thead><tbody><tr><td>بازی در فهرست نیست</td><td>بازی منتشر نشده است</td></tr><tr><td>ثبت‌نام باز نمی‌شود</td><td>زمان جاری خارج از بازه ثبت‌نام است</td></tr><tr><td>گزینه ورودی پولی نیست</td><td><strong>بسته با Feature Gate</strong> — <code dir="ltr">PAID_TOURNAMENTS_ENABLED</code> (OD-007)</td></tr></tbody></table></div>
+<h2 id="h138">۸.۲ میز کار برگزارکننده</h2>
+<figure><img src="assets/screenshots/034-admin-organizer-fa-desktop.png" alt="میز کار برگزارکننده" loading="lazy"></figure>
+<p class="caption">شکل 18 — میز کار برگزارکننده: نمای «چه چیزی نیاز به من دارد».</p>
+<hr>
+<h1 id="h142">فصل ۹ — ثبت‌نام‌ها، برنامه مسابقات و نتایج</h1>
+<h2 id="h143">۹.۱ ثبت‌نام کاربر <strong>کاربر</strong></h2>
+<p><strong>مسیر:</strong> صفحه تورنمنت → ثبت‌نام.</p>
+<p>پس از ثبت‌نام، وضعیت در <code dir="ltr">/{locale}/account/registrations</code> دیده می‌شود.</p>
+<figure><img src="assets/screenshots/026-account-registrations-fa-desktop.png" alt="ثبت‌نام‌های من" loading="lazy"></figure>
+<p class="caption">شکل 19 — ثبت‌نام‌های تورنمنت و تاریخچه وضعیت.</p>
+<p>تاریخچه وضعیت به‌صورت افزودنی نگهداری می‌شود. <strong>دلیل تصمیم کارشناسان و هویت تصمیم‌گیرنده به شرکت‌کننده نشان داده نمی‌شود؛</strong> فقط نقش اقدام‌کننده (شرکت‌کننده، کارشناس، سامانه) نمایش داده می‌شود.</p>
+<h2 id="h149">۹.۲ برنامه مسابقات <strong>کاربر</strong></h2>
+<figure><img src="assets/screenshots/027-account-matches-fa-desktop.png" alt="مسابقه‌های من" loading="lazy"></figure>
+<p class="caption">شکل 20 — برنامه مسابقات کاربر.</p>
+<p>زمان‌ها به‌صورت UTC ذخیره و در منطقه زمانی خود کاربر نمایش داده می‌شوند. اگر زمان مسابقه‌ای تغییر کند، تغییر علامت‌گذاری می‌شود و زمان قبلی هم نشان داده می‌شود — اما <strong>دلیل تغییر که یادداشت کارشناسی است، نمایش داده نمی‌شود</strong>.</p>
+<h2 id="h153">۹.۳ تأیید ثبت‌نام‌ها <strong>اپراتور</strong></h2>
+<p><strong>مجوز:</strong> <code dir="ltr">tournament.manage</code>. <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/tournaments/{id}/registrations</code></p>
+<p>تصمیم‌های ممکن: تأیید، رد، انتقال به لیست انتظار، ارتقا از لیست انتظار، لغو. رد و لغو <strong>دلیل الزامی</strong> دارند.</p>
+<hr>
+<h1 id="h157">فصل ۱۰ — ساخت و مدیریت دوره آموزشی</h1>
+<aside class="callout note">این فصل پاسخ مستقیم پرسش «چرا نمی‌توانم دوره بسازم؟» است.</aside>
+<h2 id="h159">۱۰.۱ چرا نمی‌توانم دوره بسازم؟</h2>
+<p>سه علت متفاوت وجود دارد و هر کدام راه‌حل خودش را دارد.</p>
+<h3 id="h161">علت یکم — نداشتن مجوز <code dir="ltr">education.manage</code></h3>
+<figure><img src="assets/screenshots/040-course-no-admin-area-fa-desktop.png" alt="بدون کارت دوره‌ها" loading="lazy"></figure>
+<p class="caption">شکل 21 — داشبورد حساب عادی: هیچ کارت «دوره‌ها» نمایش داده نمی‌شود.</p>
+<figure><img src="assets/screenshots/041-course-forbidden-fa-desktop.png" alt="عدم دسترسی به کنسول دوره‌ها" loading="lazy"></figure>
+<p class="caption">شکل 22 — ورود مستقیم به نشانی کنسول دوره‌ها: صفحه باز می‌شود اما «دسترسی مجاز نیست» نمایش داده</p>
+<p>می‌شود.</p>
+<p><strong>جدول تشخیص</strong></p>
+<div class="scroll"><table><thead><tr><th>نشانه مشاهده‌شده</th><th>علت واقعی</th><th>راه بررسی</th><th>نقش/مجوز لازم</th><th>پیکربندی لازم</th><th>راه‌حل امن</th><th>نقص یا رفتار مورد انتظار؟</th></tr></thead><tbody><tr><td>کارت «دوره‌ها» در داشبورد نیست</td><td>حساب مجوز <code dir="ltr">education.manage</code> ندارد</td><td>ورود به <code dir="ltr">/{locale}/account</code>؛ نبود کارت</td><td>نقش <code dir="ltr">education_manager</code></td><td>ندارد</td><td>درخواست نقش از اپراتور فنی مجاز</td><td>رفتار مورد انتظار</td></tr><tr><td>نشانی مستقیم «دسترسی مجاز نیست» می‌دهد</td><td>همان علت</td><td>باز کردن <code dir="ltr">/{locale}/admin/courses</code></td><td>همان</td><td>ندارد</td><td>همان</td><td>رفتار مورد انتظار (پنهان‌سازی مرز امنیتی نیست)</td></tr><tr><td>نقش را نمی‌توان از رابط کاربری داد</td><td><strong>رابط تخصیص نقش وجود ندارد</strong></td><td>جست‌وجو در صفحه کاربران</td><td><code dir="ltr">roles.assign</code></td><td>ندارد</td><td>رویه موقت اپراتور فنی</td><td><strong>نقص محصول تأییدشده</strong></td></tr><tr><td>«دوره پولی» غیرفعال است</td><td>Feature Gate بسته</td><td>نشان روی کنسول دوره‌ها</td><td>—</td><td><code dir="ltr">PAID_COURSES_ENABLED</code> (OD-015)</td><td>تا تأیید سیاست، دوره رایگان بسازید</td><td>رفتار مورد انتظار</td></tr><tr><td>انتشار دوره رد می‌شود</td><td>چرخه یا پیش‌نیازها کامل نیست</td><td>پیام خطای انتشار</td><td><code dir="ltr">education.manage</code></td><td>ندارد</td><td>بخش ۱۰٫۴</td><td>رفتار مورد انتظار</td></tr></tbody></table></div>
+<p><strong>فنی</strong> رویه تخصیص نقش در <code dir="ltr">THIRD_PARTY_SETUP_FA.md</code>، بخش «راهکار موقت برای اپراتور فنی» آمده است. <strong>کاربر عادی و مدیر غیرفنی نباید API را دستی فراخوانی کنند.</strong></p>
+<h3 id="h170">علت دوم — پس از دریافت نقش</h3>
+<figure><img src="assets/screenshots/042-course-area-visible-fa-desktop.png" alt="کارت دوره‌ها ظاهر می‌شود" loading="lazy"></figure>
+<p class="caption">شکل 23 — پس از دریافت نقش «مدیر آموزش»، کارت «دوره‌ها» در داشبورد ظاهر می‌شود.</p>
+<figure><img src="assets/screenshots/043-course-console-fa-desktop.png" alt="کنسول دوره‌ها" loading="lazy"></figure>
+<p class="caption">شکل 24 — کنسول مدیریت دوره‌ها برای کاربر دارای دسترسی.</p>
+<h3 id="h175">علت سوم — چرخه انتشار</h3>
+<p>بیشتر کسانی که می‌گویند «دوره ساخته نمی‌شود» در واقع دوره را ساخته‌اند و <strong>نمی‌توانند منتشرش کنند</strong>.</p>
+<h2 id="h177">۱۰.۲ جریان کامل رفع اشکال دوره</h2>
+<pre dir="ltr"><code>گزینه دوره‌ها دیده نمی‌شود
+→ بررسی نقش و education.manage
+→ در صورت نبود مجوز، ارجاع به اپراتور فنی
+→ پس از تخصیص نقش، بررسی مسیر /{locale}/admin/courses
+→ ساخت draft
+→ انتقال draft به review
+→ تکمیل coach، خلاصه فارسی و انگلیسی، حداقل یک درس و یک درس الزامی
+→ انتشار از review</code></pre>
+<aside class="callout note"><strong>چرخه واقعی <code dir="ltr">draft ← review ← published</code> است.</strong> انتقال مستقیم از <code dir="ltr">draft</code> به <code dir="ltr">published</code> پذیرفته نمی‌شود.</aside>
+<h2 id="h180">۱۰.۳ ساخت دوره <strong>اپراتور</strong></h2>
+<p><strong>هدف:</strong> ساخت یک دوره آموزشی. <strong>نقش لازم:</strong> <code dir="ltr">education_manager</code>. <strong>مجوز:</strong> <code dir="ltr">education.manage</code>. <strong>پیش‌نیاز:</strong> ندارد — ساخت پیش‌نویس هیچ فیلد اجباری‌ای ندارد. <strong>مسیر ورود:</strong> <code dir="ltr">/{locale}/account</code> → کارت «دوره‌ها» → <code dir="ltr">/{locale}/admin/courses</code></p>
+<p><strong>مراحل</strong></p>
+<p>۱. کنسول دوره‌ها را باز کنید. ۲. دوره جدید بسازید. دوره در وضعیت <code dir="ltr">draft</code> ساخته می‌شود. ۳. عنوان و خلاصه را در <strong>هر دو زبان</strong> فارسی و انگلیسی کامل کنید. ۴. درس‌ها را اضافه کنید؛ هر درس در هر دو زبان عنوان داشته باشد. ۵. حداقل یک درس را «الزامی» علامت بزنید تا در محاسبه تکمیل دوره بیاید. ۶. مربی (coach) را تعیین کنید و مطمئن شوید مربی <strong>تأیید شده</strong> است. ۷. دوره را به <code dir="ltr">review</code> منتقل کنید. ۸. از <code dir="ltr">review</code> منتشر کنید.</p>
+<p><strong>وضعیت Production:</strong> در دسترس. <strong>دوره پولی</strong> بسته است (OD-015).</p>
+<h2 id="h185">۱۰.۴ پیش‌نیازهای انتشار</h2>
+<p>هنگام انتشار، سرور فهرست دقیق کمبودها را برمی‌گرداند:</p>
+<div class="scroll"><table><thead><tr><th>فیلد</th><th>پیام</th></tr></thead><tbody><tr><td><code dir="ltr">translations.fa.summary</code></td><td>خلاصه فارسی لازم است</td></tr><tr><td><code dir="ltr">translations.en.summary</code></td><td>خلاصه انگلیسی لازم است</td></tr><tr><td><code dir="ltr">coachId</code></td><td>مربی مالک دوره را تعیین کنید</td></tr><tr><td><code dir="ltr">lessons</code></td><td>حداقل یک درس اضافه کنید</td></tr><tr><td><code dir="ltr">lessons.required</code></td><td>حداقل یک درس الزامی لازم است</td></tr></tbody></table></div>
+<p>اگر مربی تعیین شده اما تأیید نشده باشد، خطای «مربی تأیید نشده است» برمی‌گردد. تأیید مربی از مسیر مدیریت مربیان انجام می‌شود.</p>
+<h2 id="h189">۱۰.۵ دوره پولی — بسته با Feature Gate</h2>
+<figure><img src="assets/screenshots/044-course-paid-gated-fa-desktop.png" alt="دوره پولی غیرفعال" loading="lazy"></figure>
+<p class="caption">شکل 25 — در پیکربندی پیش‌فرض، دوره پولی تا تأیید سیاست OD-015 غیرفعال است.</p>
+<p>تا زمان تأیید سیاست مالکیت دوره، بازپرداخت و شرایط تجاری مربی، دوره نمی‌تواند قیمت داشته باشد. قیمت دوره در صورت فعال‌شدن فقط با دراگون‌کوین است.</p>
+<hr>
+<h1 id="h194">فصل ۱۱ — تجربه دانشجو و پیشرفت دوره</h1>
+<figure><img src="assets/screenshots/007-academy-fa-desktop.png" alt="کاتالوگ آکادمی" loading="lazy"></figure>
+<p class="caption">شکل 26 — کاتالوگ دوره‌های آموزشی منتشرشده.</p>
+<h2 id="h197">۱۱.۱ ثبت‌نام در دوره <strong>کاربر</strong></h2>
+<p><strong>مسیر:</strong> <code dir="ltr">/{locale}/academy</code> → صفحه دوره → ثبت‌نام.</p>
+<p>دوره‌های رایگان بدون پرداخت فعال می‌شوند. دوره پولی در این نسخه <strong>در دسترس نیست</strong>.</p>
+<h2 id="h200">۱۱.۲ پیشرفت و تکمیل</h2>
+<p>درس‌ها ترتیب و پیش‌نیاز دارند: درسی که پیش‌نیازش کامل نشده باشد <strong>قفل</strong> است و محتوایش تحویل داده نمی‌شود. تکمیل دوره بر اساس درس‌های الزامی محاسبه می‌شود.</p>
+<hr>
+<h1 id="h203">فصل ۱۲ — ساخت و مدیریت عملیات پخش زنده</h1>
+<aside class="callout note">این فصل پاسخ مستقیم پرسش «چرا نمی‌توانم پخش زنده بسازم یا مدیریت کنم؟» است.</aside>
+<h2 id="h205">۱۲.۱ واقعیت این نسخه — پیش از هر کار دیگری بخوانید</h2>
+<p><strong>حساس</strong> این موارد از پیکربندی خود سرور خوانده شده‌اند، نه از حدس:</p>
+<ul><li>اپراتور دارای مجوز <strong>می‌تواند</strong> رکورد پخش بسازد، زمان‌بندی کند و provision کند؛</li><li>ارائه‌دهنده پیکربندی‌شده <code dir="ltr">stub</code> است؛</li><li>این یک <strong>شبیه‌سازی قطعی</strong> است، نه ارائه‌دهنده پخش واقعی؛</li><li>مقدار <code dir="ltr">STREAMING_PROVIDER=arvan</code> <strong>عمداً رد می‌شود</strong> و راه‌اندازی را متوقف می‌کند؛</li><li><strong>پخش زنده واقعی با آروان در این نسخه پشتیبانی و تأیید نشده است</strong>؛</li><li><strong>OD-013</strong> یکپارچه‌سازی ارائه‌دهنده را مسدود کرده است؛</li><li><strong>OD-014</strong> انتشار آرشیو، مدت نگهداری، حقوق پخش و رویه حذف محتوا را مسدود کرده است.</li></ul>
+<aside class="callout note">هیچ خواننده‌ای نباید نتیجه بگیرد که می‌تواند یک پخش زنده واقعی آروان را آغاز کند.</aside>
+<h2 id="h209">۱۲.۲ چرا نمی‌توانم پخش زنده بسازم یا مدیریت کنم؟</h2>
+<figure><img src="assets/screenshots/050-stream-forbidden-fa-desktop.png" alt="عدم دسترسی به کنسول پخش" loading="lazy"></figure>
+<p class="caption">شکل 27 — کنسول پخش زنده برای کاربر بدون دسترسی <code dir="ltr">stream.manage</code> قابل استفاده نیست.</p>
+<p><strong>جدول تشخیص</strong></p>
+<div class="scroll"><table><thead><tr><th>نشانه مشاهده‌شده</th><th>علت واقعی</th><th>راه بررسی</th><th>نقش/مجوز لازم</th><th>پیکربندی لازم</th><th>راه‌حل امن</th><th>نقص یا رفتار مورد انتظار؟</th></tr></thead><tbody><tr><td>کارت «پخش زنده» در داشبورد نیست</td><td>نداشتن <code dir="ltr">stream.manage</code></td><td>ورود به <code dir="ltr">/{locale}/account</code></td><td>نقش <code dir="ltr">streaming_operator</code></td><td>ندارد</td><td>درخواست نقش از اپراتور فنی</td><td>رفتار مورد انتظار</td></tr><tr><td>نشانی مستقیم «دسترسی مجاز نیست» می‌دهد</td><td>همان علت</td><td><code dir="ltr">/{locale}/admin/streams</code></td><td>همان</td><td>ندارد</td><td>همان</td><td>رفتار مورد انتظار</td></tr><tr><td>نقش را نمی‌توان از رابط کاربری داد</td><td>رابط تخصیص نقش وجود ندارد</td><td>صفحه کاربران</td><td><code dir="ltr">roles.assign</code></td><td>ندارد</td><td>رویه موقت اپراتور فنی</td><td><strong>نقص محصول تأییدشده</strong></td></tr><tr><td>پخش ساخته می‌شود ولی تماشاگر پخش واقعی نمی‌بیند</td><td>ارائه‌دهنده <code dir="ltr">stub</code> است</td><td>بخش ۱۲٫۱ همین فصل؛ برای بررسی فنی، اپراتور فنی به <code dir="ltr">THIRD_PARTY_SETUP_FA.md</code> مراجعه می‌کند</td><td><code dir="ltr">stream.manage</code></td><td>—</td><td>تا رفع OD-013 امکان‌پذیر نیست</td><td><strong>ارائه‌دهنده در دسترس نیست</strong></td></tr><tr><td>آرشیو یا حذف محتوا کار نمی‌کند</td><td>دروازه حقوق پخش بسته است</td><td>همان مرجع فنی</td><td>—</td><td><code dir="ltr">STREAM_RIGHTS_POLICY_APPROVED</code> (OD-014)</td><td>تا تأیید سیاست ممکن نیست</td><td><strong>مسدود با تصمیم باز</strong></td></tr><tr><td>تنظیم <code dir="ltr">STREAMING_PROVIDER=arvan</code> سرور را بالا نمی‌آورد</td><td>رد عمدی در پیکربندی</td><td>پیام خطای راه‌اندازی</td><td>—</td><td>—</td><td>مقدار را <code dir="ltr">stub</code> بگذارید</td><td>رفتار مورد انتظار</td></tr></tbody></table></div>
+<h2 id="h214">۱۲.۳ کنسول پخش <strong>اپراتور</strong></h2>
+<figure><img src="assets/screenshots/051-stream-console-fa-desktop.png" alt="کنسول پخش زنده" loading="lazy"></figure>
+<p class="caption">شکل 28 — کنسول عملیات پخش زنده برای اپراتور دارای دسترسی.</p>
+<figure><img src="assets/screenshots/053-stream-provider-state-fa-desktop.png" alt="وضعیت ارائه‌دهنده" loading="lazy"></figure>
+<p class="caption">شکل 29 — ارائه‌دهنده پیکربندی‌شده «stub» است؛ این یک شبیه‌سازی قطعی است و پخش واقعی نیست.</p>
+<p><strong>هدف:</strong> ساخت و مدیریت رکورد پخش. <strong>نقش لازم:</strong> <code dir="ltr">streaming_operator</code>. <strong>مجوز:</strong> <code dir="ltr">stream.manage</code>. <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/streams</code></p>
+<p><strong>مراحل</strong></p>
+<p>۱. کنسول پخش را باز کنید. ۲. پخش جدید بسازید (عنوان دوزبانه، حالت دسترسی عمومی یا نیازمند ورود). ۳. زمان‌بندی کنید. ۴. در صورت نیاز، اتصال به ارائه‌دهنده را provision کنید. ۵. چرخه وضعیت را مدیریت کنید.</p>
+<p><strong>چرخه وضعیت پخش:</strong> <code dir="ltr">draft</code>، <code dir="ltr">scheduled</code>، <code dir="ltr">live</code>، <code dir="ltr">ended</code>، <code dir="ltr">cancelled</code>، <code dir="ltr">archived</code>، <code dir="ltr">failed</code>. وضعیت همگام‌سازی با ارائه‌دهنده: <code dir="ltr">unlinked</code>، <code dir="ltr">provisioning</code>، <code dir="ltr">ready</code>، <code dir="ltr">failed</code>.</p>
+<p><strong>وضعیت Production:</strong> <strong>ارائه‌دهنده در دسترس نیست.</strong> عملیات فراداده کار می‌کند؛ پخش واقعی خیر.</p>
+<h2 id="h224">۱۲.۴ صفحه عمومی پخش <strong>کاربر</strong></h2>
+<figure><img src="assets/screenshots/006-streams-fa-desktop.png" alt="فهرست پخش زنده" loading="lazy"></figure>
+<p class="caption">شکل 30 — فهرست پخش‌های زنده.</p>
+<hr>
+<h1 id="h228">فصل ۱۳ — گفت‌وگوی زنده و تعدیل محتوا</h1>
+<figure><img src="assets/screenshots/052-admin-chat-fa-desktop.png" alt="تعدیل گفت‌وگو" loading="lazy"></figure>
+<p class="caption">شکل 31 — کنسول تعدیل گفت‌وگوی زنده.</p>
+<p><strong>نقش لازم:</strong> <code dir="ltr">live_chat_moderator</code>. <strong>مجوز:</strong> <code dir="ltr">chat.moderate</code>.</p>
+<p><strong>حساس</strong> این نقش عمداً محدود است: ناظر گفت‌وگوی زنده <strong>نمی‌تواند حساب کاربری را تعلیق کند</strong> و هیچ اختیار تعدیل در سطح پلتفرم ندارد. اختیارات آن در اتاق‌های تخصیص‌یافته است: سکوت موقت، محرومیت، حذف پیام، و بررسی گزارش‌ها.</p>
+<p>تفاوت با فصل ۱۲: <strong>مدیریت پخش</strong> (<code dir="ltr">stream.manage</code>) و <strong>تعدیل گفت‌وگو</strong> (<code dir="ltr">chat.moderate</code>) دو مجوز جدا هستند و یکی دیگری را شامل نمی‌شود.</p>
+<hr>
+<h1 id="h235">فصل ۱۴ — جامعه، پست‌ها، نظرات و گزارش‌ها</h1>
+<figure><img src="assets/screenshots/008-community-fa-desktop.png" alt="خوراک جامعه" loading="lazy"></figure>
+<p class="caption">شکل 32 — خوراک جامعه کاربری.</p>
+<h2 id="h238">۱۴.۱ قابلیت‌های کاربر</h2>
+<p>دنبال‌کردن، انتشار پست با سطح مخاطب، نظر، واکنش و گزارش تخلف.</p>
+<h2 id="h240">۱۴.۲ محدودیت‌ها</h2>
+<aside class="callout warning"><strong>مسدود با تصمیم باز (OD-017):</strong> در این نسخه <strong>هیچ قابلیت مسدودسازی یا بی‌صداکردن کاربر وجود ندارد</strong> — نه مسیری، نه مجموعه‌ای، نه محدودیت نیمه‌اعمال‌شده. دنبال‌کردن، انتشار، گزارش و حذف توسط ناظر تحت تأثیر نیستند.</aside>
+<aside class="callout warning"><strong>مسدود با تصمیم باز (OD-024):</strong> اعتراض به تصمیم تعدیل در محصول ممکن نیست و کنسول تعدیل همین را می‌گوید، به‌جای پذیرفتن اعتراضی که هیچ فرایندی آن را پردازش نمی‌کند.</aside>
+<h2 id="h243">۱۴.۳ تعدیل جامعه <strong>اپراتور</strong></h2>
+<figure><img src="assets/screenshots/081-admin-community-fa-desktop.png" alt="تعدیل جامعه" loading="lazy"></figure>
+<p class="caption">شکل 33 — تعدیل جامعه کاربری.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">moderation.manage</code>.</p>
+<hr>
+<h1 id="h248">فصل ۱۵ — فروشگاه، سبد، سفارش و موجودی</h1>
+<figure><img src="assets/screenshots/009-store-fa-desktop.png" alt="کاتالوگ فروشگاه" loading="lazy"></figure>
+<p class="caption">شکل 34 — کاتالوگ فروشگاه.</p>
+<h2 id="h251">۱۵.۱ خرید <strong>کاربر</strong></h2>
+<p>کاتالوگ → سبد → تسویه → سفارش. سفارش‌ها در <code dir="ltr">/{locale}/account/orders</code> دیده می‌شوند.</p>
+<figure><img src="assets/screenshots/028-account-orders-fa-desktop.png" alt="سفارش‌ها" loading="lazy"></figure>
+<p class="caption">شکل 35 — سفارش‌های فروشگاه.</p>
+<h2 id="h255">۱۵.۲ محدودیت‌ها</h2>
+<aside class="callout warning"><strong>بسته با Feature Gate (OD-019):</strong> سبدی که کالای <strong>فیزیکی</strong> دارد قابل تسویه نیست و فرایند ارسال پیش نمی‌رود، چون هیچ شرکت حمل، منطقه سرویس، قاعده قیمت ارسال یا سطح سرویس تأیید نشده است. <strong>هیچ یکپارچه‌سازی با شرکت حمل در کد وجود ندارد.</strong> کاتالوگ فیزیکی و موجودی آن همچنان وجود دارند؛ کالای دیجیتال تحت تأثیر نیست.</aside>
+<aside class="callout warning"><strong>بسته با Feature Gate (OD-020):</strong> ابطال حق دسترسی دیجیتال ممکن نیست.</aside>
+<h2 id="h258">۱۵.۳ عملیات فروشگاه <strong>اپراتور</strong></h2>
+<figure><img src="assets/screenshots/060-admin-store-fa-desktop.png" alt="مدیریت فروشگاه" loading="lazy"></figure>
+<p class="caption">شکل 36 — کنسول فروشگاه و کاتالوگ.</p>
+<figure><img src="assets/screenshots/061-admin-orders-fa-desktop.png" alt="مدیریت سفارش‌ها" loading="lazy"></figure>
+<p class="caption">شکل 37 — عملیات سفارش‌ها.</p>
+<p><strong>نقش:</strong> <code dir="ltr">shop_operator</code>. <strong>مجوز:</strong> <code dir="ltr">store.manage</code>.</p>
+<p><strong>حساس</strong> این نقش <strong>نمی‌تواند دفتر کل را تغییر دهد یا پرداخت جایزه انجام دهد</strong>. اپراتور فروشگاه کالا را جابه‌جا می‌کند، نه پول را.</p>
+<hr>
+<h1 id="h266">فصل ۱۶ — کیف پول، پرداخت و Dragon Coin</h1>
+<figure><img src="assets/screenshots/023-account-wallet-fa-desktop.png" alt="کیف پول" loading="lazy"></figure>
+<p class="caption">شکل 38 — کیف پول و موجودی دراگون‌کوین.</p>
+<h2 id="h269">۱۶.۱ مفاهیم</h2>
+<ul><li><strong>دراگون‌کوین</strong> واحد اقتصاد داخلی است.</li><li><strong>نگه‌داشت (hold)</strong> مبلغی است که موقتاً رزرو می‌شود و با تکمیل یا لغو عملیات آزاد می‌شود.</li><li>دفتر کل <strong>دوطرفه و تغییرناپذیر</strong> است: رکورد مالی حذف یا بازنویسی نمی‌شود.</li></ul>
+<h2 id="h271">۱۶.۲ محدودیت مهم</h2>
+<aside class="callout warning"><strong>برداشت نقدی و تبدیل دراگون‌کوین به وجه نقد وجود ندارد.</strong> کیف پول همین را صریح اعلام می‌کند.</aside>
+<h2 id="h273">۱۶.۳ پرداخت</h2>
+<p>درگاه پرداخت در این نسخه <strong>شبیه‌سازی‌شده</strong> است. در تولید، mock به‌صورت پیش‌فرض خاموش است.</p>
+<hr>
+<h1 id="h276">فصل ۱۷ — پاداش، انتقال، جایزه و پرداخت جایزه</h1>
+<figure><img src="assets/screenshots/070-admin-finance-fa-desktop.png" alt="کنسول مالی" loading="lazy"></figure>
+<p class="caption">شکل 39 — کنسول مالی.</p>
+<figure><img src="assets/screenshots/071-admin-prizes-fa-desktop.png" alt="تسویه جوایز" loading="lazy"></figure>
+<p class="caption">شکل 40 — تسویه جوایز.</p>
+<h2 id="h281">۱۷.۱ کنترل دوگانه</h2>
+<p><strong>حساس</strong> تفکیک عمدی نقش‌ها:</p>
+<ul><li><code dir="ltr">finance_operator</code> (مجوز <code dir="ltr">finance.manage</code>) عملیات را <strong>آغاز</strong> می‌کند؛</li><li><code dir="ltr">financial_approver</code> (مجوز <code dir="ltr">finance.approve</code>) آن را <strong>تأیید</strong> می‌کند.</li></ul>
+<p>یک نفر نمی‌تواند هر دو کار را روی یک اقدام پرریسک انجام دهد. کلیدهای پیکربندی با پیشوند <code dir="ltr">finance.</code>، <code dir="ltr">security.</code> و <code dir="ltr">payout.</code> پرریسک هستند و کنترل دوگانه لازم دارند.</p>
+<h2 id="h285">۱۷.۲ انتقال بین کاربران</h2>
+<p>انتقال دراگون‌کوین با محدودیت‌های تعریف‌شده انجام می‌شود و کیف پول همین محدودیت‌ها را نمایش می‌دهد.</p>
+<hr>
+<h1 id="h288">فصل ۱۸ — پشتیبانی کاربران</h1>
+<figure><img src="assets/screenshots/013-help-fa-desktop.png" alt="صفحه راهنما" loading="lazy"></figure>
+<p class="caption">شکل 41 — صفحه راهنما و ثبت درخواست پشتیبانی.</p>
+<h2 id="h291">۱۸.۱ ثبت درخواست <strong>کاربر</strong></h2>
+<p><strong>مسیر:</strong> <code dir="ltr">/{locale}/help</code>. ثبت درخواست نیازمند ورود است.</p>
+<p>دسته‌های موجود: «حساب کاربری»، «پرداخت»، «سایر». درخواست روی حساب شما ثبت می‌شود و وضعیت آن را در همان صفحه می‌بینید.</p>
+<aside class="callout warning">این صفحه <strong>پرسش‌های متداول ندارد</strong>. محتوای تأییدشده‌ای برای آن وجود ندارد و متن حدسی نوشته نشده است. همچنین هیچ وعده زمان پاسخ، شماره تماس یا نشانی ایمیل در محصول وجود ندارد.</aside>
+<h2 id="h295">۱۸.۲ صف پشتیبانی <strong>اپراتور</strong></h2>
+<figure><img src="assets/screenshots/082-admin-support-fa-desktop.png" alt="پشتیبانی" loading="lazy"></figure>
+<p class="caption">شکل 42 — صف درخواست‌های پشتیبانی.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">support.manage</code>.</p>
+<p><strong>حساس</strong> یادداشت کارشناسی و هویت کارشناس مسئول <strong>به درخواست‌کننده نشان داده نمی‌شود</strong>.</p>
+<p>بازیابی حساب فقط <strong>بررسی</strong> است: می‌توان «بررسی‌شده» یا «ردشده» ثبت کرد. <strong>بازگرداندن دسترسی از این صفحه به‌عمد ممکن نیست</strong> (OD-029).</p>
+<hr>
+<h1 id="h302">فصل ۱۹ — مدیریت و عملیات سامانه</h1>
+<figure><img src="assets/screenshots/030-admin-overview-fa-desktop.png" alt="صفحه مدیریت" loading="lazy"></figure>
+<p class="caption">شکل 43 — صفحه فرود بخش مدیریت با کارت‌های مجاز.</p>
+<h2 id="h305">۱۹.۱ کاربران</h2>
+<figure><img src="assets/screenshots/031-admin-users-fa-desktop.png" alt="مدیریت کاربران" loading="lazy"></figure>
+<p class="caption">شکل 44 — فهرست کاربران با داده‌های پوشانده‌شده.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">users.read</code> برای مشاهده، <code dir="ltr">users.suspend</code> برای تعلیق. تعلیق <strong>دلیل الزامی</strong> دارد.</p>
+<aside class="callout note"><strong>یادآوری:</strong> این صفحه رابط تخصیص نقش ندارد. فصل ۴٫۵ را ببینید.</aside>
+<h2 id="h310">۱۹.۲ ممیزی</h2>
+<figure><img src="assets/screenshots/032-admin-audit-fa-desktop.png" alt="ممیزی" loading="lazy"></figure>
+<p class="caption">شکل 45 — گزارش ممیزی رویدادها.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">audit.read</code>؛ برون‌بری با <code dir="ltr">audit.export</code>.</p>
+<h2 id="h314">۱۹.۳ پیکربندی</h2>
+<figure><img src="assets/screenshots/085-admin-configuration-fa-desktop.png" alt="پیکربندی" loading="lazy"></figure>
+<p class="caption">شکل 46 — پیشنهاد و تأیید پیکربندی.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">config.read</code>، <code dir="ltr">config.propose</code>، <code dir="ltr">config.approve</code>. کلیدهای پرریسک کنترل دوگانه لازم دارند.</p>
+<h2 id="h318">۱۹.۴ عملیات</h2>
+<figure><img src="assets/screenshots/084-admin-operations-fa-desktop.png" alt="عملیات" loading="lazy"></figure>
+<p class="caption">شکل 47 — داشبورد عملیات، هشدارها و سنجه‌ها.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">support.manage</code>.</p>
+<h2 id="h322">۱۹.۵ تعدیل</h2>
+<figure><img src="assets/screenshots/080-admin-moderation-fa-desktop.png" alt="تعدیل محتوا" loading="lazy"></figure>
+<p class="caption">شکل 48 — صف تعدیل محتوا.</p>
+<p><strong>مجوز:</strong> <code dir="ltr">moderation.manage</code>.</p>
+<hr>
+<h1 id="h327">فصل ۲۰ — اعلان‌ها و رویدادهای دامنه</h1>
+<figure><img src="assets/screenshots/024-account-notifications-fa-desktop.png" alt="اعلان‌ها" loading="lazy"></figure>
+<p class="caption">شکل 49 — صندوق اعلان‌های درون‌برنامه‌ای.</p>
+<h2 id="h330">۲۰.۱ کانال‌ها</h2>
+<div class="scroll"><table><thead><tr><th>کانال</th><th>وضعیت</th></tr></thead><tbody><tr><td>درون‌برنامه‌ای</td><td>همیشه فعال</td></tr><tr><td>پیامک اطلاع‌رسانی</td><td><strong>بسته</strong> — <code dir="ltr">NOTIFICATIONS_SMS_ENABLED</code> (OD-008)</td></tr><tr><td>ایمیل</td><td><strong>بسته</strong> — <code dir="ltr">NOTIFICATIONS_EMAIL_ENABLED</code> (OD-003)؛ آداپتور واقعی هم وجود ندارد</td></tr><tr><td>اعلان فوری</td><td><strong>بسته</strong> — <code dir="ltr">PUSH_NOTIFICATIONS_ENABLED</code> (OD-027)؛ آداپتور وجود ندارد</td></tr></tbody></table></div>
+<p>رمز یک‌بارمصرف ورود از این دروازه‌ها مستقل است و همیشه کار می‌کند.</p>
+<h2 id="h333">۲۰.۲ کنسول اعلان‌ها <strong>اپراتور</strong></h2>
+<figure><img src="assets/screenshots/083-admin-notifications-fa-desktop.png" alt="کنسول اعلان‌ها" loading="lazy"></figure>
+<p class="caption">شکل 50 — قالب‌ها و ارسال اعلان‌ها. <strong>مجوز:</strong> <code dir="ltr">support.manage</code>.</p>
+<h2 id="h336">۲۰.۳ رویدادهای دامنه</h2>
+<p>رویدادها از طریق «صندوق خروجی تراکنشی» منتشر می‌شوند: رویداد با همان تراکنشی نوشته می‌شود که تغییر داده را ثبت می‌کند، بنابراین اگر تراکنش لغو شود هیچ رویدادی منتشر نمی‌شود. فهرست کامل در <code dir="ltr">DOMAIN_EVENTS.md</code>.</p>
+<hr>
+<h1 id="h339">فصل ۲۱ — تنظیم سرویس‌های ثالث <strong>فنی</strong></h1>
+<p>خلاصه در این فصل؛ جزئیات کامل در <code dir="ltr">THIRD_PARTY_SETUP_FA.md</code>.</p>
+<div class="scroll"><table><thead><tr><th>دسته</th><th>وضعیت</th></tr></thead><tbody><tr><td>MongoDB</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>Kavenegar (پیامک)</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>GitHub Actions</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>پرداخت</td><td>فقط شبیه‌سازی</td></tr><tr><td>ایمیل</td><td>فقط شبیه‌سازی</td></tr><tr><td>پخش زنده</td><td>فقط شبیه‌سازی؛ آروان رد می‌شود</td></tr><tr><td>ذخیره‌سازی شیء / CDN</td><td>آداپتور وجود ندارد</td></tr><tr><td>Push</td><td>آداپتور وجود ندارد</td></tr><tr><td>تحلیل خارجی</td><td>مسیر ارسال وجود ندارد</td></tr></tbody></table></div>
+<h2 id="h342">۲۱.۱ رسانه</h2>
+<p>بارگذاری بر پایه امضای محتوا اعتبارسنجی می‌شود، نه پسوند فایل. سقف حجم با <code dir="ltr">MEDIA_MAX_BYTES</code> تعیین می‌شود.</p>
+<figure><img src="assets/screenshots/037-admin-media-fa-desktop.png" alt="کتابخانه رسانه" loading="lazy"></figure>
+<p class="caption">شکل 51 — کتابخانه رسانه. <strong>مجوز:</strong> <code dir="ltr">content.publish</code>.</p>
+<hr>
+<h1 id="h347">فصل ۲۲ — استقرار، سلامت، پشتیبان‌گیری و CI <strong>فنی</strong></h1>
+<h2 id="h348">۲۲.۱ سلامت سرویس</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>معنی</th></tr></thead><tbody><tr><td><code dir="ltr">/health</code></td><td>زنده بودن فرایند</td></tr><tr><td><code dir="ltr">/health/ready</code></td><td>آمادگی، شامل بررسی اتصال پایگاه داده</td></tr></tbody></table></div>
+<p><code dir="ltr">/health</code> ممکن است در حالی ۲۰۰ بدهد که پایگاه داده در دسترس نیست؛ برای آمادگی از <code dir="ltr">/health/ready</code> استفاده کنید.</p>
+<h2 id="h351">۲۲.۲ فرمان‌های تأیید</h2>
+<pre dir="ltr"><code>npm run ci:validate
+npm run typecheck
+npm run lint
+npm test
+npm run test:integration
+npm run build
+npm run test:budget
+npm run closure:check
+npm run decision:check
+npm run verify:migrations
+npm run verify:persistence</code></pre>
+<h2 id="h353">۲۲.۳ CI</h2>
+<p>ده کار در <code dir="ltr">.github/workflows/ci.yml</code>. بدون هیچ secret، با <code dir="ltr">permissions: contents: read</code>. جزئیات در <code dir="ltr">CI.md</code>.</p>
+<aside class="callout note">محافظت شاخه هنوز فعال نشده است؛ این اقدام مدیر مخزن است.</aside>
+<h2 id="h356">۲۲.۴ پشتیبان‌گیری</h2>
+<aside class="callout note"><strong>هیچ تمرین بازیابی از پشتیبان انجام نشده است.</strong> پیش از تولید لازم است.</aside>
+<hr>
+<h1 id="h359">فصل ۲۳ — رفع خطاهای رایج</h1>
+<div class="scroll"><table><thead><tr><th>نشانه</th><th>علت محتمل</th><th>راه‌حل</th></tr></thead><tbody><tr><td>کارت مدیریتی دیده نمی‌شود</td><td>نداشتن مجوز</td><td>فصل ۴؛ درخواست نقش از اپراتور فنی</td></tr><tr><td>«دسترسی مجاز نیست»</td><td>نداشتن مجوز</td><td>همان</td></tr><tr><td>صفحه باز می‌شود ولی خالی است</td><td>نبود داده، نه نبود مجوز</td><td>حالت «خالی» با «عدم دسترسی» فرق دارد</td></tr><tr><td>دوره منتشر نمی‌شود</td><td>چرخه یا پیش‌نیاز</td><td>فصل ۱۰٫۲ و ۱۰٫۴</td></tr><tr><td>«دوره پولی» غیرفعال</td><td>OD-015</td><td>فصل ۱۰٫۵</td></tr><tr><td>پخش واقعی دیده نمی‌شود</td><td>ارائه‌دهنده <code dir="ltr">stub</code></td><td>فصل ۱۲٫۱</td></tr><tr><td>آرشیو پخش کار نمی‌کند</td><td>OD-014</td><td>فصل ۱۲٫۲</td></tr><tr><td>سرور با <code dir="ltr">arvan</code> بالا نمی‌آید</td><td>رد عمدی (OD-013)</td><td>مقدار را <code dir="ltr">stub</code> بگذارید</td></tr><tr><td>تسویه سبد فیزیکی رد می‌شود</td><td>OD-019</td><td>فصل ۱۵٫۲</td></tr><tr><td>مسدودکردن کاربر پیدا نمی‌شود</td><td>OD-017 — اصلاً وجود ندارد</td><td>فصل ۱۴٫۲</td></tr><tr><td>اعتراض به تعدیل ممکن نیست</td><td>OD-024</td><td>فصل ۱۴٫۲</td></tr><tr><td>ایمیل نمی‌رسد</td><td>آداپتور ایمیل وجود ندارد (OD-003)</td><td>فصل ۲۰٫۱</td></tr><tr><td>کد ورود نمی‌رسد</td><td>محدودیت نرخ یا محیط توسعه</td><td>فصل ۲٫۳</td></tr><tr><td>ثبت‌نام تورنمنت پولی نیست</td><td>OD-007</td><td>فصل ۸٫۱</td></tr><tr><td>برداشت نقدی پیدا نمی‌شود</td><td>وجود ندارد</td><td>فصل ۱۶٫۲</td></tr><tr><td>ورودی تاریخ اشتباه محاسبه می‌شود</td><td>زمان‌ها UTC ذخیره می‌شوند</td><td>فصل ۹٫۲</td></tr><tr><td>نقش داده شد ولی کارت نیامد</td><td>پروب مجوز کش شده</td><td>خروج و ورود دوباره</td></tr></tbody></table></div>
+<hr>
+<h1 id="h362">فصل ۲۴ — محدودیت‌های فعلی و تصمیم‌های باز</h1>
+<h2 id="h363">۲۴.۱ تصمیم‌های بازی که کاربر آن‌ها را حس می‌کند</h2>
+<div class="scroll"><table><thead><tr><th>تصمیم باز</th><th>متغیر محیطی</th><th>وضعیت پیش‌فرض</th></tr></thead><tbody><tr><td>OD-014</td><td><code dir="ltr">STREAM_RIGHTS_POLICY_APPROVED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-007</td><td><code dir="ltr">PAID_TOURNAMENTS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-015</td><td><code dir="ltr">PAID_COURSES_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-017</td><td><code dir="ltr">SOCIAL_BLOCKING_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-024</td><td><code dir="ltr">MODERATION_APPEALS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-027</td><td><code dir="ltr">PUSH_NOTIFICATIONS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-019</td><td><code dir="ltr">PHYSICAL_FULFILLMENT_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-020</td><td><code dir="ltr">ENTITLEMENT_REVOCATION_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-008</td><td><code dir="ltr">NOTIFICATIONS_SMS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-026</td><td><code dir="ltr">ANALYTICS_EXTERNAL_ENABLED</code></td><td>بسته (fail-closed)</td></tr></tbody></table></div>
+<h2 id="h365">۲۴.۲ نقص‌های تأییدشده</h2>
+<p>جزئیات کامل در <code dir="ltr">TRAINING_AND_UX_FINDINGS.md</code>.</p>
+<div class="scroll"><table><thead><tr><th>شناسه</th><th>موضوع</th><th>طبقه‌بندی</th></tr></thead><tbody><tr><td>F-01</td><td>نبود رابط تخصیص نقش</td><td>نقص محصول و تجربه کاربری</td></tr><tr><td>F-02</td><td>ناآشکار بودن چرخه <code dir="ltr">draft ← review ← published</code></td><td>مسئله آموزشی</td></tr><tr><td>F-03</td><td>کشف پیش‌نیازهای انتشار فقط با شکست</td><td>پیش‌نیاز و کشف‌پذیری</td></tr><tr><td>F-04</td><td>پخش زنده روی شبیه‌ساز</td><td>ارائه‌دهنده خارجی و تصمیم باز</td></tr><tr><td>F-05</td><td>کشف‌پذیری محدود ناحیه‌های مدیریتی</td><td>کشف‌پذیری</td></tr><tr><td>F-06</td><td><code dir="ltr">TRUSTED_PROXIES</code> در <code dir="ltr">.env.example</code> نیست</td><td>نقص مستندسازی</td></tr><tr><td>F-07</td><td>ناهمخوانی محیط آزمون با پیش‌فرض‌ها</td><td>نقص مستندسازی</td></tr></tbody></table></div>
+<h2 id="h368">۲۴.۳ وضعیت انتشار</h2>
+<p>تصمیم انتشار اکوسیستم: <strong>NO-GO</strong>. این راهنما آن را تغییر نمی‌دهد.</p>
+<hr>
+<h1 id="h371">فصل ۲۵ — ضمیمه مسیرها، مجوزها و متغیرهای محیطی</h1>
+<h2 id="h372">۲۵.۱ مسیرهای رابط کاربری</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>نما</th><th>پوسته</th></tr></thead><tbody><tr><td><code dir="ltr">/:locale(fa|en)</code></td><td><code dir="ltr">HomeView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/design-system</code></td><td><code dir="ltr">DesignSystemView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/content</code></td><td><code dir="ltr">ContentListView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/content/:type/:slug</code></td><td><code dir="ltr">ContentDetailView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/games</code></td><td><code dir="ltr">GamesCatalogView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/games/:slug</code></td><td><code dir="ltr">GameDetailView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments</code></td><td><code dir="ltr">TournamentsListView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments-calendar</code></td><td><code dir="ltr">TournamentCalendarView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/tournaments/:slug</code></td><td><code dir="ltr">TournamentDetailView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/teams</code></td><td><code dir="ltr">TeamsDirectoryView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/teams/:slug</code></td><td><code dir="ltr">PublicTeamView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/players</code></td><td><code dir="ltr">PlayersDirectoryView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/streams</code></td><td><code dir="ltr">StreamsListView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/streams/:slug</code></td><td><code dir="ltr">StreamDetailView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/academy</code></td><td><code dir="ltr">AcademyCatalogView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/academy/courses/:slug</code></td><td><code dir="ltr">CourseDetailView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/academy/learn/:enrollmentId</code></td><td><code dir="ltr">CoursePlayerView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/store</code></td><td><code dir="ltr">StoreCatalogView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/store/products/:slug</code></td><td><code dir="ltr">StoreProductView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/cart</code></td><td><code dir="ltr">CartView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/checkout</code></td><td><code dir="ltr">CheckoutView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/orders</code></td><td><code dir="ltr">AccountOrdersView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/registrations</code></td><td><code dir="ltr">AccountRegistrationsView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/matches</code></td><td><code dir="ltr">AccountMatchesView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/community</code></td><td><code dir="ltr">CommunityFeedView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/community/posts/:id</code></td><td><code dir="ltr">CommunityPostView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/search</code></td><td><code dir="ltr">SearchView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/help</code></td><td><code dir="ltr">HelpView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/players/:username</code></td><td><code dir="ltr">PublicPlayerView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/auth/mobile</code></td><td><code dir="ltr">AuthMobileView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account</code></td><td><code dir="ltr">AccountOverviewView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/profile</code></td><td><code dir="ltr">AccountProfileView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/security</code></td><td><code dir="ltr">AccountSecurityView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/wallet</code></td><td><code dir="ltr">AccountWalletView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/notifications</code></td><td><code dir="ltr">NotificationsInboxView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/teams</code></td><td><code dir="ltr">TeamsView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/teams/:id</code></td><td><code dir="ltr">TeamDetailView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/account/gaming-identities</code></td><td><code dir="ltr">GamingIdentitiesView.vue</code></td><td>account</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin</code></td><td><code dir="ltr">AdminOverviewView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/users</code></td><td><code dir="ltr">AdminUsersView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/audit</code></td><td><code dir="ltr">AdminAuditView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/moderation</code></td><td><code dir="ltr">AdminModerationView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/courses</code></td><td><code dir="ltr">AdminCoursesView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/chat</code></td><td><code dir="ltr">AdminChatView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/streams</code></td><td><code dir="ltr">AdminStreamsView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/prizes</code></td><td><code dir="ltr">AdminPrizesView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/store</code></td><td><code dir="ltr">AdminStoreView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/orders</code></td><td><code dir="ltr">AdminOrdersView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/community</code></td><td><code dir="ltr">AdminCommunityView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/media</code></td><td><code dir="ltr">AdminMediaView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/configuration</code></td><td><code dir="ltr">AdminConfigurationView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/notifications</code></td><td><code dir="ltr">AdminNotificationsView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/organizer</code></td><td><code dir="ltr">OrganizerWorkspaceView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/finance</code></td><td><code dir="ltr">AdminFinanceView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/support</code></td><td><code dir="ltr">AdminSupportView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/operations</code></td><td><code dir="ltr">AdminOperationsView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/content</code></td><td><code dir="ltr">AdminContentView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/games</code></td><td><code dir="ltr">AdminGamesView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments</code></td><td><code dir="ltr">AdminTournamentsView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments/:id/registrations</code></td><td><code dir="ltr">AdminTournamentRegistrationsView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/admin/tournaments/:id/competition</code></td><td><code dir="ltr">AdminTournamentCompetitionView.vue</code></td><td>admin</td></tr><tr><td><code dir="ltr">/:locale(fa|en)/403</code></td><td><code dir="ltr">ForbiddenView.vue</code></td><td>public</td></tr><tr><td><code dir="ltr">/:pathMatch(.*)*</code></td><td><code dir="ltr">NotFoundView.vue</code></td><td>public</td></tr></tbody></table></div>
+<h2 id="h374">۲۵.۲ مجوز ← نقش‌های دارنده</h2>
+<div class="scroll"><table><thead><tr><th>مجوز</th><th>نقش‌های دارنده</th></tr></thead><tbody><tr><td><code dir="ltr">admin.access</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code>، <code dir="ltr">finance_operator</code>، <code dir="ltr">financial_approver</code>، <code dir="ltr">content_author</code>، <code dir="ltr">content_editor</code>، <code dir="ltr">content_publisher</code>، <code dir="ltr">streaming_operator</code>، <code dir="ltr">tournament_administrator</code>، <code dir="ltr">tournament_organizer</code>، <code dir="ltr">education_manager</code>، <code dir="ltr">live_chat_moderator</code>، <code dir="ltr">community_moderator</code>، <code dir="ltr">shop_operator</code>، <code dir="ltr">support_operator</code>، <code dir="ltr">security_auditor</code></td></tr><tr><td><code dir="ltr">users.read</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code>، <code dir="ltr">support_operator</code></td></tr><tr><td><code dir="ltr">users.suspend</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code></td></tr><tr><td><code dir="ltr">roles.read</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code></td></tr><tr><td><code dir="ltr">roles.assign</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code></td></tr><tr><td><code dir="ltr">config.read</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code></td></tr><tr><td><code dir="ltr">config.propose</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code>، <code dir="ltr">finance_operator</code></td></tr><tr><td><code dir="ltr">config.approve</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">financial_approver</code></td></tr><tr><td><code dir="ltr">audit.read</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">platform_administrator</code>، <code dir="ltr">finance_operator</code>، <code dir="ltr">financial_approver</code>، <code dir="ltr">security_auditor</code></td></tr><tr><td><code dir="ltr">audit.export</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">security_auditor</code></td></tr><tr><td><code dir="ltr">content.write</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">content_author</code>، <code dir="ltr">content_editor</code>، <code dir="ltr">content_publisher</code></td></tr><tr><td><code dir="ltr">content.publish</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">content_publisher</code></td></tr><tr><td><code dir="ltr">games.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">content_publisher</code></td></tr><tr><td><code dir="ltr">stream.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">streaming_operator</code></td></tr><tr><td><code dir="ltr">chat.moderate</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">live_chat_moderator</code>، <code dir="ltr">community_moderator</code></td></tr><tr><td><code dir="ltr">education.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">education_manager</code></td></tr><tr><td><code dir="ltr">store.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">shop_operator</code></td></tr><tr><td><code dir="ltr">tournament.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">tournament_administrator</code>، <code dir="ltr">tournament_organizer</code></td></tr><tr><td><code dir="ltr">finance.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">finance_operator</code></td></tr><tr><td><code dir="ltr">finance.approve</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">financial_approver</code></td></tr><tr><td><code dir="ltr">moderation.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">community_moderator</code></td></tr><tr><td><code dir="ltr">support.manage</code></td><td><code dir="ltr">super_administrator</code>، <code dir="ltr">support_operator</code></td></tr></tbody></table></div>
+<h2 id="h376">۲۵.۳ متغیرهای محیطی</h2>
+<div class="scroll"><table><thead><tr><th>متغیر</th><th>نوع</th><th>Feature Gate</th></tr></thead><tbody><tr><td><code dir="ltr">ANALYTICS_EXTERNAL_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-026</td></tr><tr><td><code dir="ltr">ANALYTICS_PSEUDONYM_SALT</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">AUTH_SECRET</code></td><td>محرمانه</td><td>—</td></tr><tr><td><code dir="ltr">ENABLE_DEV_ROUTES</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">ENTITLEMENT_REVOCATION_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-020</td></tr><tr><td><code dir="ltr">HOST</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">KAVENEGAR_API_KEY</code></td><td>محرمانه</td><td>—</td></tr><tr><td><code dir="ltr">KAVENEGAR_OTP_TEMPLATE</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">KAVENEGAR_SENDER</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">MEDIA_MAX_BYTES</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">MODERATION_APPEALS_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-024</td></tr><tr><td><code dir="ltr">MONGODB_URI</code></td><td>محرمانه</td><td>—</td></tr><tr><td><code dir="ltr">NODE_ENV</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">NOTIFICATIONS_EMAIL_ENABLED</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">NOTIFICATIONS_SMS_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-008</td></tr><tr><td><code dir="ltr">OTP_MAX_ATTEMPTS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">OTP_REQUESTS_PER_IP</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">OTP_REQUESTS_PER_MOBILE</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">OTP_RESEND_SECONDS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">OTP_TTL_SECONDS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">OTP_WINDOW_SECONDS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PAID_COURSES_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-015</td></tr><tr><td><code dir="ltr">PAID_TOURNAMENTS_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-007</td></tr><tr><td><code dir="ltr">PAYMENTS_CALLBACK_SECRET</code></td><td>محرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PAYMENTS_MOCK_ENABLED</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PAYMENTS_PURCHASE_TTL_SECONDS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PHYSICAL_FULFILLMENT_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-019</td></tr><tr><td><code dir="ltr">PORT</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PUBLIC_ORIGIN</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">PUSH_NOTIFICATIONS_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-027</td></tr><tr><td><code dir="ltr">RECENT_AUTH_MINUTES</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">SESSION_TTL_HOURS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">SMS_PROVIDER</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">SOCIAL_BLOCKING_ENABLED</code></td><td>غیرمحرمانه</td><td>OD-017</td></tr><tr><td><code dir="ltr">STREAMING_PROVIDER</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">STREAM_PLAYBACK_TTL_SECONDS</code></td><td>غیرمحرمانه</td><td>—</td></tr><tr><td><code dir="ltr">STREAM_RIGHTS_POLICY_APPROVED</code></td><td>غیرمحرمانه</td><td>OD-014</td></tr><tr><td><code dir="ltr">STREAM_SECURE_LINK_SECRET</code></td><td>محرمانه</td><td>—</td></tr><tr><td><code dir="ltr">TRUSTED_PROXIES</code></td><td>غیرمحرمانه</td><td>—</td></tr></tbody></table></div>
+<h2 id="h378">۲۵.۴ اسناد مرتبط</h2>
+<div class="scroll"><table><thead><tr><th>سند</th><th>موضوع</th></tr></thead><tbody><tr><td><code dir="ltr">DRAGON_CAPABILITY_MATRIX.md</code></td><td>فهرست کامل قابلیت‌ها و مسیرها</td></tr><tr><td><code dir="ltr">THIRD_PARTY_SETUP_FA.md</code></td><td>پیکربندی سرویس‌های ثالث و رویه موقت نقش</td></tr><tr><td><code dir="ltr">TRAINING_AND_UX_FINDINGS.md</code></td><td>یافته‌های آموزشی و نقص‌ها</td></tr><tr><td><code dir="ltr">SCREENSHOT_INVENTORY.md</code></td><td>فهرست تصویرها</td></tr><tr><td><code dir="ltr">ENVIRONMENT_REFERENCE_FA.md</code></td><td>ضمیمه متغیرهای محیطی</td></tr><tr><td><code dir="ltr">GUIDE_VERIFICATION_MAP.json</code></td><td>نگاشت گام‌های راهنما به آزمون خودکار</td></tr></tbody></table></div>
+</body>
+</html>

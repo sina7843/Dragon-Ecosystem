@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>راهنمای شروع سریع اکوسیستم Dragon</title>
+<style>
+:root { color-scheme: light dark; --ink:#1f2a44; --muted:#5a6379; --line:#c7cbd8; --bg:#fff; }
+@media (prefers-color-scheme: dark){ :root{ --ink:#e8ebf2; --muted:#a5adc0; --line:#3a4156; --bg:#141824; } }
+html,body{ background:var(--bg); color:var(--ink); }
+body { font-family: Tahoma, "Segoe UI", sans-serif; line-height: 1.9; margin: 0 auto; padding: 2rem 1rem 4rem; max-width: 60rem; }
+h1 { font-size: 1.9rem; border-block-end: 2px solid var(--line); padding-block-end: .4rem; margin-block-start: 2.5rem; }
+h2 { font-size: 1.45rem; margin-block-start: 2rem; }
+h3 { font-size: 1.2rem; }
+code { font-family: Consolas, monospace; background: rgba(127,127,127,.14); padding: .1em .35em; border-radius: 3px; }
+pre { direction: ltr; text-align: left; background: rgba(127,127,127,.12); padding: .9rem; border-radius: 6px; overflow-x: auto; }
+pre code { background: none; padding: 0; }
+.scroll { overflow-x: auto; }
+table { border-collapse: collapse; inline-size: 100%; margin-block: .8rem; font-size: .93rem; }
+th, td { border: 1px solid var(--line); padding: .45rem .6rem; text-align: start; vertical-align: top; }
+th { background: rgba(127,127,127,.14); }
+figure { margin: 1.2rem 0 .3rem; }
+img { max-inline-size: 100%; block-size: auto; border: 1px solid var(--line); border-radius: 6px; display: block; margin-inline: auto; }
+.caption { text-align: center; color: var(--muted); font-size: .88rem; margin-block-start: .2rem; }
+.callout { border-inline-start: 4px solid var(--line); padding: .7rem 1rem; margin-block: 1rem; background: rgba(127,127,127,.09); border-radius: 4px; }
+.callout.security { border-inline-start-color: #b4423c; }
+.callout.warning { border-inline-start-color: #c9862b; }
+hr { border: 0; border-block-start: 1px solid var(--line); margin-block: 2rem; }
+@media print { body { max-width: none; } h1 { break-before: page; } figure, table { break-inside: avoid; } }
+</style>
+</head>
+<body>
+<h1 id="h0">راهنمای شروع سریع اکوسیستم Dragon</h1>
+<h2 id="h1">مرجع عملیاتی کوتاه برای اپراتورها و مدیران</h2>
+<aside class="callout warning">این راهنما بر اساس قابلیت‌های واقعی نسخه ثبت‌شده تهیه شده است. قابلیت‌های وابسته به تصمیم‌های باز، مجوزهای خاص یا ارائه‌دهندگان خارجی به‌صورت محدود، غیرفعال، آزمایشی یا مسدود مشخص شده‌اند.</aside>
+<p>هر بخش به فصل متناظر در <strong>راهنمای جامع</strong> (<code dir="ltr">dragon-complete-guide-fa</code>) ارجاع می‌دهد.</p>
+<hr>
+<h2 id="h5">۱. اجرای محلی — فصل ۲</h2>
+<pre dir="ltr"><code>npm install
+npm run docker:up
+npm run migrate
+npm run build</code></pre>
+<p>برای ساخت فایل محیط محلی، <code dir="ltr">06-CREATE-LOCAL-ENV.cmd</code> را اجرا کنید. <strong>هیچ مقدار محرمانه واقعی را در مخزن قرار ندهید.</strong></p>
+<hr>
+<h2 id="h9">۲. ورود — فصل ۲</h2>
+<figure><img src="assets/screenshots/001-login-fa-desktop.png" alt="ورود" loading="lazy"></figure>
+<p class="caption">شکل 1 — ورود با شماره موبایل و رمز یک‌بارمصرف.</p>
+<p>۱. <code dir="ltr">/{locale}/auth/mobile</code> ۲. شماره موبایل → «دریافت کد» ۳. کد → تأیید ۴. تکمیل پروفایل در نخستین ورود</p>
+<hr>
+<h2 id="h14">۳. تشخیص نقش فعلی — فصل ۴</h2>
+<p>۱. به <code dir="ltr">/{locale}/account</code> بروید. ۲. کارت‌های بخش مدیریت را ببینید: هر کارت یعنی مجوز متناظرش را دارید. ۳. اگر هیچ کارتی نیست، حساب شما هیچ مجوز مدیریتی ندارد.</p>
+<p><strong>نکته کلیدی:</strong> نبود کارت تقریباً همیشه یعنی نبود مجوز، نه خرابی.</p>
+<hr>
+<h2 id="h18">۴. دریافت نقش مجاز — فصل ۴٫۵</h2>
+<p><strong>در نسخه فعلی هیچ رابط کاربری برای تخصیص نقش وجود ندارد.</strong></p>
+<ul><li><strong>کاربر و مدیر غیرفنی:</strong> از اپراتور فنی مجاز درخواست کنید. API را دستی فراخوانی نکنید.</li><li><strong>اپراتور فنی:</strong> رویه «راهکار موقت برای اپراتور فنی» در <code dir="ltr">THIRD_PARTY_SETUP_FA.md</code>.</li></ul>
+<p>نقش را بر پایه کمترین دسترسی لازم انتخاب کنید:</p>
+<div class="scroll"><table><thead><tr><th>هدف عملیاتی</th><th>نقش</th><th>مجوز</th></tr></thead><tbody><tr><td>ساخت و انتشار دوره</td><td><code dir="ltr">education_manager</code></td><td><code dir="ltr">education.manage</code></td></tr><tr><td>عملیات پخش زنده</td><td><code dir="ltr">streaming_operator</code></td><td><code dir="ltr">stream.manage</code></td></tr><tr><td>تعدیل گفت‌وگوی زنده</td><td><code dir="ltr">live_chat_moderator</code></td><td><code dir="ltr">chat.moderate</code></td></tr><tr><td>مدیریت تورنمنت</td><td><code dir="ltr">tournament_administrator</code></td><td><code dir="ltr">tournament.manage</code></td></tr><tr><td>فروشگاه و سفارش</td><td><code dir="ltr">shop_operator</code></td><td><code dir="ltr">store.manage</code></td></tr><tr><td>پشتیبانی و عملیات</td><td><code dir="ltr">support_operator</code></td><td><code dir="ltr">support.manage</code></td></tr><tr><td>مالی (آغازکننده)</td><td><code dir="ltr">finance_operator</code></td><td><code dir="ltr">finance.manage</code></td></tr><tr><td>مالی (تأییدکننده)</td><td><code dir="ltr">financial_approver</code></td><td><code dir="ltr">finance.approve</code></td></tr></tbody></table></div>
+<hr>
+<h2 id="h24">۵. ساخت تورنمنت — فصل ۸</h2>
+<p><strong>نقش:</strong> <code dir="ltr">tournament_administrator</code> یا <code dir="ltr">tournament_organizer</code> · <strong>مجوز:</strong> <code dir="ltr">tournament.manage</code> <strong>پیش‌نیاز:</strong> یک بازی منتشرشده</p>
+<p>۱. <code dir="ltr">/{locale}/admin/tournaments</code> ۲. تورنمنت جدید: بازی، عنوان و خلاصه دوزبانه، ظرفیت، حالت تأیید، بازه ثبت‌نام و برگزاری ۳. قوانین دوزبانه ۴. انتقال به وضعیت منتشرشده</p>
+<aside class="callout warning">ورودی پولی <strong>بسته</strong> است — <code dir="ltr">PAID_TOURNAMENTS_ENABLED</code> (OD-007).</aside>
+<hr>
+<h2 id="h29">۶. ساخت دوره — فصل ۱۰</h2>
+<p><strong>نقش:</strong> <code dir="ltr">education_manager</code> · <strong>مجوز:</strong> <code dir="ltr">education.manage</code></p>
+<pre dir="ltr"><code>گزینه دوره‌ها دیده نمی‌شود
+→ بررسی نقش و education.manage
+→ در صورت نبود مجوز، ارجاع به اپراتور فنی
+→ پس از تخصیص نقش، بررسی مسیر /{locale}/admin/courses
+→ ساخت draft
+→ انتقال draft به review
+→ تکمیل coach، خلاصه فارسی و انگلیسی، حداقل یک درس و یک درس الزامی
+→ انتشار از review</code></pre>
+<aside class="callout note"><strong>چرخه واقعی <code dir="ltr">draft ← review ← published</code> است.</strong> انتقال مستقیم <code dir="ltr">draft</code> به <code dir="ltr">published</code> پذیرفته نمی‌شود.</aside>
+<p><strong>پیش‌نیازهای انتشار:</strong> خلاصه فارسی، خلاصه انگلیسی، مربی <strong>تأییدشده</strong>، حداقل یک درس، حداقل یک درس الزامی.</p>
+<aside class="callout warning">دوره پولی <strong>بسته</strong> است — <code dir="ltr">PAID_COURSES_ENABLED</code> (OD-015).</aside>
+<hr>
+<h2 id="h36">۷. عملیات پخش زنده — فصل ۱۲</h2>
+<p><strong>نقش:</strong> <code dir="ltr">streaming_operator</code> · <strong>مجوز:</strong> <code dir="ltr">stream.manage</code></p>
+<figure><img src="assets/screenshots/051-stream-console-fa-desktop.png" alt="کنسول پخش" loading="lazy"></figure>
+<p class="caption">شکل 2 — کنسول عملیات پخش زنده.</p>
+<p><strong>حساس</strong> واقعیت این نسخه:</p>
+<ul><li>ساخت، زمان‌بندی و provision رکورد پخش <strong>کار می‌کند</strong>؛</li><li>ارائه‌دهنده <code dir="ltr">stub</code> است — یک <strong>شبیه‌سازی قطعی</strong>، نه پخش واقعی؛</li><li><code dir="ltr">STREAMING_PROVIDER=arvan</code> <strong>عمداً رد می‌شود</strong> و راه‌اندازی را متوقف می‌کند؛</li><li>پخش زنده واقعی آروان <strong>پشتیبانی و تأیید نشده است</strong> (OD-013)؛</li><li>آرشیو و حذف محتوا <strong>بسته</strong> است (OD-014).</li></ul>
+<hr>
+<h2 id="h43">۸. تعدیل گفت‌وگو — فصل ۱۳</h2>
+<p><strong>نقش:</strong> <code dir="ltr">live_chat_moderator</code> · <strong>مجوز:</strong> <code dir="ltr">chat.moderate</code> · <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/chat</code></p>
+<p>این نقش <strong>نمی‌تواند حساب را تعلیق کند</strong>. اختیارش محدود به اتاق‌های تخصیص‌یافته است.</p>
+<hr>
+<h2 id="h47">۹. افزودن کالای فروشگاه — فصل ۱۵</h2>
+<p><strong>نقش:</strong> <code dir="ltr">shop_operator</code> · <strong>مجوز:</strong> <code dir="ltr">store.manage</code> · <strong>مسیر:</strong> <code dir="ltr">/{locale}/admin/store</code></p>
+<p>این نقش به دفتر کل و پرداخت جایزه دسترسی ندارد.</p>
+<aside class="callout note">کالای فیزیکی قابل تسویه نیست — <code dir="ltr">PHYSICAL_FULFILLMENT_ENABLED</code> (OD-019).</aside>
+<hr>
+<h2 id="h52">۱۰. کیف پول و انتقال — فصل ۱۶ و ۱۷</h2>
+<ul><li>کاربر: <code dir="ltr">/{locale}/account/wallet</code></li><li>اپراتور مالی: <code dir="ltr">/{locale}/admin/finance</code> (<code dir="ltr">finance.manage</code>)</li><li>تأییدکننده: <code dir="ltr">finance.approve</code> — کنترل دوگانه، یک نفر نمی‌تواند هر دو نقش را روی یک اقدام</li></ul>
+<p>پرریسک داشته باشد.</p>
+<aside class="callout warning"><strong>برداشت نقدی وجود ندارد.</strong></aside>
+<hr>
+<h2 id="h57">۱۱. عملیات و مدیریت — فصل ۱۹</h2>
+<div class="scroll"><table><thead><tr><th>مسیر</th><th>مجوز</th></tr></thead><tbody><tr><td><code dir="ltr">/{locale}/admin</code></td><td><code dir="ltr">admin.access</code></td></tr><tr><td><code dir="ltr">/{locale}/admin/users</code></td><td><code dir="ltr">users.read</code></td></tr><tr><td><code dir="ltr">/{locale}/admin/audit</code></td><td><code dir="ltr">audit.read</code></td></tr><tr><td><code dir="ltr">/{locale}/admin/operations</code></td><td><code dir="ltr">support.manage</code></td></tr><tr><td><code dir="ltr">/{locale}/admin/configuration</code></td><td><code dir="ltr">config.read</code></td></tr></tbody></table></div>
+<hr>
+<h2 id="h60">۱۲. بیست خطای پرتکرار — فصل ۲۳</h2>
+<div class="scroll"><table><thead><tr><th>#</th><th>نشانه</th><th>علت</th><th>راه‌حل</th></tr></thead><tbody><tr><td>۱</td><td>کارت مدیریتی نیست</td><td>نبود مجوز</td><td>درخواست نقش از اپراتور فنی</td></tr><tr><td>۲</td><td>«دسترسی مجاز نیست»</td><td>نبود مجوز</td><td>همان</td></tr><tr><td>۳</td><td>نقش داده شد ولی کارت نیامد</td><td>کش پروب مجوز</td><td>خروج و ورود دوباره</td></tr><tr><td>۴</td><td><code dir="ltr">draft</code> منتشر نمی‌شود</td><td>چرخه</td><td>ابتدا <code dir="ltr">review</code></td></tr><tr><td>۵</td><td>انتشار دوره رد می‌شود</td><td>پیش‌نیاز ناقص</td><td>مربی تأییدشده، خلاصه دوزبانه، درس الزامی</td></tr><tr><td>۶</td><td>«دوره پولی» غیرفعال</td><td>OD-015</td><td>دوره رایگان</td></tr><tr><td>۷</td><td>پخش واقعی دیده نمی‌شود</td><td>ارائه‌دهنده <code dir="ltr">stub</code></td><td>OD-013</td></tr><tr><td>۸</td><td>آرشیو پخش کار نمی‌کند</td><td>OD-014</td><td>—</td></tr><tr><td>۹</td><td>سرور با <code dir="ltr">arvan</code> بالا نمی‌آید</td><td>رد عمدی</td><td><code dir="ltr">STREAMING_PROVIDER=stub</code></td></tr><tr><td>۱۰</td><td>ثبت‌نام پولی تورنمنت نیست</td><td>OD-007</td><td>تورنمنت رایگان</td></tr><tr><td>۱۱</td><td>تسویه سبد فیزیکی رد می‌شود</td><td>OD-019</td><td>کالای دیجیتال</td></tr><tr><td>۱۲</td><td>مسدودکردن کاربر نیست</td><td>OD-017</td><td>وجود ندارد</td></tr><tr><td>۱۳</td><td>اعتراض به تعدیل نیست</td><td>OD-024</td><td>وجود ندارد</td></tr><tr><td>۱۴</td><td>ایمیل نمی‌رسد</td><td>آداپتور ندارد (OD-003)</td><td>—</td></tr><tr><td>۱۵</td><td>اعلان فوری نمی‌رسد</td><td>OD-027</td><td>—</td></tr><tr><td>۱۶</td><td>کد ورود نمی‌رسد</td><td>محدودیت نرخ</td><td>صبر تا پایان پنجره</td></tr><tr><td>۱۷</td><td>برداشت نقدی نیست</td><td>وجود ندارد</td><td>—</td></tr><tr><td>۱۸</td><td>ساعت مسابقه اشتباه است</td><td>ذخیره UTC، نمایش محلی</td><td>منطقه زمانی دستگاه</td></tr><tr><td>۱۹</td><td>بازی در فهرست تورنمنت نیست</td><td>منتشر نشده</td><td>ابتدا بازی را منتشر کنید</td></tr><tr><td>۲۰</td><td>صفحه خالی است</td><td>نبود داده</td><td>«خالی» با «عدم دسترسی» فرق دارد</td></tr></tbody></table></div>
+<hr>
+<h2 id="h63">۱۳. چک‌لیست ارائه‌دهنده و Feature Gate — فصل ۲۱ و ۲۴</h2>
+<div class="scroll"><table><thead><tr><th>تصمیم باز</th><th>متغیر محیطی</th><th>وضعیت پیش‌فرض</th></tr></thead><tbody><tr><td>OD-014</td><td><code dir="ltr">STREAM_RIGHTS_POLICY_APPROVED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-007</td><td><code dir="ltr">PAID_TOURNAMENTS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-015</td><td><code dir="ltr">PAID_COURSES_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-017</td><td><code dir="ltr">SOCIAL_BLOCKING_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-024</td><td><code dir="ltr">MODERATION_APPEALS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-027</td><td><code dir="ltr">PUSH_NOTIFICATIONS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-019</td><td><code dir="ltr">PHYSICAL_FULFILLMENT_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-020</td><td><code dir="ltr">ENTITLEMENT_REVOCATION_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-008</td><td><code dir="ltr">NOTIFICATIONS_SMS_ENABLED</code></td><td>بسته (fail-closed)</td></tr><tr><td>OD-026</td><td><code dir="ltr">ANALYTICS_EXTERNAL_ENABLED</code></td><td>بسته (fail-closed)</td></tr></tbody></table></div>
+<div class="scroll"><table><thead><tr><th>ارائه‌دهنده</th><th>وضعیت</th></tr></thead><tbody><tr><td>MongoDB</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>Kavenegar</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>GitHub Actions</td><td>یکپارچه‌سازی واقعی</td></tr><tr><td>پرداخت</td><td>شبیه‌سازی</td></tr><tr><td>ایمیل</td><td>شبیه‌سازی</td></tr><tr><td>پخش زنده</td><td>شبیه‌سازی؛ آروان رد می‌شود</td></tr><tr><td>ذخیره‌سازی شیء / CDN</td><td>آداپتور ندارد</td></tr><tr><td>Push</td><td>آداپتور ندارد</td></tr><tr><td>تحلیل خارجی</td><td>مسیر ارسال ندارد</td></tr></tbody></table></div>
+</body>
+</html>

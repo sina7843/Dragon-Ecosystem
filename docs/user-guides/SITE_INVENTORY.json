@@ -1,0 +1,3831 @@
+{
+  "generatedFrom": {
+    "note": "Extracted from source by scripts/guide/extract-inventory.mjs. Do not hand-edit.",
+    "apiRouteFiles": 23,
+    "rawRegistrations": 283,
+    "literalRegistrationsParsed": 279,
+    "dynamicRegistrations": [
+      {
+        "method": "POST",
+        "form": "template",
+        "template": "/admin/users/:id/${action}",
+        "options": [],
+        "source": "apps/api/src/modules/admin/routes.ts"
+      },
+      {
+        "method": "POST",
+        "form": "variable",
+        "variable": "path",
+        "paths": [
+          "/admin/chat/users/:id/timeouts",
+          "/admin/chat/users/:id/bans"
+        ],
+        "source": "apps/api/src/modules/chat/routes.ts"
+      },
+      {
+        "method": "POST",
+        "form": "template",
+        "template": "/admin/support/cases/:id/${to === 'assigned' ? 'assign' : to === 'resolved' ? 'resolve' : 'close'}",
+        "options": [
+          "assigned",
+          "assign",
+          "resolved",
+          "resolve",
+          "close"
+        ],
+        "source": "apps/api/src/modules/moderation/routes.ts"
+      },
+      {
+        "method": "POST",
+        "form": "template",
+        "template": "/admin/tournaments/:id/registrations/:rid/${verb}",
+        "options": [],
+        "source": "apps/api/src/modules/registrations/routes.ts"
+      }
+    ],
+    "unaccountedRegistrations": 0
+  },
+  "permissions": {
+    "adminAccess": "admin.access",
+    "usersRead": "users.read",
+    "usersSuspend": "users.suspend",
+    "rolesRead": "roles.read",
+    "rolesAssign": "roles.assign",
+    "configRead": "config.read",
+    "configPropose": "config.propose",
+    "configApprove": "config.approve",
+    "auditRead": "audit.read",
+    "auditExport": "audit.export",
+    "contentWrite": "content.write",
+    "contentPublish": "content.publish",
+    "gamesManage": "games.manage",
+    "streamManage": "stream.manage",
+    "chatModerate": "chat.moderate",
+    "educationManage": "education.manage",
+    "storeManage": "store.manage",
+    "tournamentManage": "tournament.manage",
+    "financeManage": "finance.manage",
+    "financeApprove": "finance.approve",
+    "moderationManage": "moderation.manage",
+    "supportManage": "support.manage"
+  },
+  "roles": {
+    "super_administrator": [
+      "*"
+    ],
+    "platform_administrator": [
+      "admin.access",
+      "users.read",
+      "users.suspend",
+      "roles.read",
+      "roles.assign",
+      "config.read",
+      "config.propose",
+      "audit.read"
+    ],
+    "finance_operator": [
+      "admin.access",
+      "finance.manage",
+      "config.propose",
+      "audit.read"
+    ],
+    "financial_approver": [
+      "admin.access",
+      "finance.approve",
+      "config.approve",
+      "audit.read"
+    ],
+    "content_author": [
+      "admin.access",
+      "content.write"
+    ],
+    "content_editor": [
+      "admin.access",
+      "content.write"
+    ],
+    "content_publisher": [
+      "admin.access",
+      "content.write",
+      "content.publish",
+      "games.manage"
+    ],
+    "streaming_operator": [
+      "admin.access",
+      "stream.manage"
+    ],
+    "tournament_administrator": [
+      "admin.access",
+      "tournament.manage"
+    ],
+    "tournament_organizer": [
+      "admin.access",
+      "tournament.manage"
+    ],
+    "education_manager": [
+      "admin.access",
+      "education.manage"
+    ],
+    "live_chat_moderator": [
+      "admin.access",
+      "chat.moderate"
+    ],
+    "community_moderator": [
+      "admin.access",
+      "moderation.manage",
+      "chat.moderate"
+    ],
+    "shop_operator": [
+      "admin.access",
+      "store.manage"
+    ],
+    "support_operator": [
+      "admin.access",
+      "support.manage",
+      "users.read"
+    ],
+    "security_auditor": [
+      "admin.access",
+      "audit.read",
+      "audit.export"
+    ]
+  },
+  "permissionHolders": {
+    "admin.access": [
+      "super_administrator",
+      "platform_administrator",
+      "finance_operator",
+      "financial_approver",
+      "content_author",
+      "content_editor",
+      "content_publisher",
+      "streaming_operator",
+      "tournament_administrator",
+      "tournament_organizer",
+      "education_manager",
+      "live_chat_moderator",
+      "community_moderator",
+      "shop_operator",
+      "support_operator",
+      "security_auditor"
+    ],
+    "users.read": [
+      "super_administrator",
+      "platform_administrator",
+      "support_operator"
+    ],
+    "users.suspend": [
+      "super_administrator",
+      "platform_administrator"
+    ],
+    "roles.read": [
+      "super_administrator",
+      "platform_administrator"
+    ],
+    "roles.assign": [
+      "super_administrator",
+      "platform_administrator"
+    ],
+    "config.read": [
+      "super_administrator",
+      "platform_administrator"
+    ],
+    "config.propose": [
+      "super_administrator",
+      "platform_administrator",
+      "finance_operator"
+    ],
+    "config.approve": [
+      "super_administrator",
+      "financial_approver"
+    ],
+    "audit.read": [
+      "super_administrator",
+      "platform_administrator",
+      "finance_operator",
+      "financial_approver",
+      "security_auditor"
+    ],
+    "audit.export": [
+      "super_administrator",
+      "security_auditor"
+    ],
+    "content.write": [
+      "super_administrator",
+      "content_author",
+      "content_editor",
+      "content_publisher"
+    ],
+    "content.publish": [
+      "super_administrator",
+      "content_publisher"
+    ],
+    "games.manage": [
+      "super_administrator",
+      "content_publisher"
+    ],
+    "stream.manage": [
+      "super_administrator",
+      "streaming_operator"
+    ],
+    "chat.moderate": [
+      "super_administrator",
+      "live_chat_moderator",
+      "community_moderator"
+    ],
+    "education.manage": [
+      "super_administrator",
+      "education_manager"
+    ],
+    "store.manage": [
+      "super_administrator",
+      "shop_operator"
+    ],
+    "tournament.manage": [
+      "super_administrator",
+      "tournament_administrator",
+      "tournament_organizer"
+    ],
+    "finance.manage": [
+      "super_administrator",
+      "finance_operator"
+    ],
+    "finance.approve": [
+      "super_administrator",
+      "financial_approver"
+    ],
+    "moderation.manage": [
+      "super_administrator",
+      "community_moderator"
+    ],
+    "support.manage": [
+      "super_administrator",
+      "support_operator"
+    ]
+  },
+  "apiRoutes": [
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/capabilities",
+      "permission": "admin.access",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/users",
+      "permission": "users.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/users/:id/roles",
+      "permission": "roles.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/users/:id/roles",
+      "permission": "roles.assign",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/roles/:assignmentId/revoke",
+      "permission": "roles.assign",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/configuration",
+      "permission": "config.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/configuration/:key",
+      "permission": "config.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/configuration",
+      "permission": "config.propose",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/configuration/:id/approve",
+      "permission": "config.approve",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/audit",
+      "permission": "audit.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "GET",
+      "path": "/api/v1/admin/audit/emergency",
+      "permission": "audit.read",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/audit/export",
+      "permission": "audit.export",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/dev/grant-role",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "GET",
+      "path": "/api/v1/streams/:id/chat/messages",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/streams/:id/chat/messages",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/chat/messages/:id/reports",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/rooms",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "globalGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "GET",
+      "path": "/api/v1/admin/chat/rooms",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "globalGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/rooms/:id/state",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "scopedGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "GET",
+      "path": "/api/v1/admin/chat/rooms/:id/messages",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "scopedGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/rooms/:id/messages/:mid/remove",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "scopedGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "GET",
+      "path": "/api/v1/admin/chat/rooms/:id/restrictions",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "scopedGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/rooms/:id/restrictions/:mid/lift",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "scopedGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "GET",
+      "path": "/api/v1/admin/chat/messages/:id",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": "globalGate",
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/tournaments/:id/checkout",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "GET",
+      "path": "/api/v1/checkouts",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "GET",
+      "path": "/api/v1/checkouts/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/checkouts/:id/confirm",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/checkouts/:id/cancel",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/checkout/provider/callback",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/checkout/mock/pay",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "checkout",
+      "method": "POST",
+      "path": "/api/v1/admin/checkouts/expire",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/checkout/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/me/matches",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/tournaments/:id/standings",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/tournaments/:id/bracket",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/competition",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/matches/:mid/result",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "PATCH",
+      "path": "/api/v1/admin/tournaments/:id/matches/:mid/schedule",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/matches/:mid/schedule",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/matches/:mid/correct",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/lock",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/recalculate",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/swiss-round",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/competition/versions",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/regenerate/preview",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/regenerate",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "competitions",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/competition/rollback",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/competitions/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/content",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/content/:type/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/content-taxonomy/categories",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/content-taxonomy/tags",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/admin/content",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "POST",
+      "path": "/api/v1/admin/content",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/admin/content/:id",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "PUT",
+      "path": "/api/v1/admin/content/:id",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "POST",
+      "path": "/api/v1/admin/content/:id/transition",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "GET",
+      "path": "/api/v1/admin/content/:id/revisions",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "POST",
+      "path": "/api/v1/admin/content-taxonomy/categories",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "content",
+      "method": "POST",
+      "path": "/api/v1/admin/content-taxonomy/tags",
+      "permission": "content.write",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/content/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/economy/config",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "POST",
+      "path": "/api/v1/me/coin-transfers",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/me/coin-transfers",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/admin/coin-transfers/review",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "POST",
+      "path": "/api/v1/admin/coin-transfers/:id/approve",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "POST",
+      "path": "/api/v1/admin/coin-transfers/:id/reject",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/admin/reward-rules",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "POST",
+      "path": "/api/v1/admin/reward-rules",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "POST",
+      "path": "/api/v1/admin/reward-rules/:id/grants",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/admin/reward-grants",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "economy",
+      "method": "GET",
+      "path": "/api/v1/admin/economy/reconciliation",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/economy/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/courses",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/courses/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/coaches/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/courses/:id/enrollments",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/me/enrollments/:id/activate",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/me/enrollments/:id/cancel",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/me/enrollments",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/me/enrollments/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "PUT",
+      "path": "/api/v1/me/enrollments/:id/lessons/:lessonId/progress",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/courses/:id/reviews",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/admin/courses/config",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/admin/courses",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/courses",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/admin/courses/:id",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "PUT",
+      "path": "/api/v1/admin/courses/:id",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/courses/:id/state",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/courses/:id/lessons",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "PUT",
+      "path": "/api/v1/admin/lessons/:id",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/enrollments/:id/revoke",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/reviews/:id/moderate",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "GET",
+      "path": "/api/v1/admin/coaches",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/coaches",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "education",
+      "method": "POST",
+      "path": "/api/v1/admin/coaches/:id/approval",
+      "permission": "education.manage",
+      "auth": "permission",
+      "gateHelper": "manageGate",
+      "source": "apps/api/src/modules/education/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "GET",
+      "path": "/api/v1/games",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "GET",
+      "path": "/api/v1/games/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "GET",
+      "path": "/api/v1/admin/games",
+      "permission": "games.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "POST",
+      "path": "/api/v1/admin/games",
+      "permission": "games.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "GET",
+      "path": "/api/v1/admin/games/:id",
+      "permission": "games.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "PUT",
+      "path": "/api/v1/admin/games/:id",
+      "permission": "games.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "games",
+      "method": "POST",
+      "path": "/api/v1/admin/games/:id/status",
+      "permission": "games.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/games/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "GET",
+      "path": "/api/v1/wallet/summary",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "GET",
+      "path": "/api/v1/wallet/holds",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "GET",
+      "path": "/api/v1/wallet/holds/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "GET",
+      "path": "/api/v1/admin/holds",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "POST",
+      "path": "/api/v1/admin/holds",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "POST",
+      "path": "/api/v1/admin/holds/:id/capture",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "POST",
+      "path": "/api/v1/admin/holds/:id/release",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "POST",
+      "path": "/api/v1/admin/holds/expire",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "holds",
+      "method": "POST",
+      "path": "/api/v1/admin/holds/reconciliation",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/holds/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/otp/request",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/otp/verify",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/auth/session",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "POST",
+      "path": "/api/v1/auth/logout",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/account/profile",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "PUT",
+      "path": "/api/v1/account/profile",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/account/sessions",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "POST",
+      "path": "/api/v1/account/sessions/revoke-others",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/account/security-events",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/players",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/players/:username",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "identity",
+      "method": "GET",
+      "path": "/api/v1/dev/sms-inbox",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/identity/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "POST",
+      "path": "/api/v1/media",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "POST",
+      "path": "/api/v1/admin/media",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "GET",
+      "path": "/api/v1/admin/media",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "GET",
+      "path": "/api/v1/admin/media/:id",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "POST",
+      "path": "/api/v1/admin/media/:id/publish",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "POST",
+      "path": "/api/v1/admin/media/:id/alt",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "media",
+      "method": "DELETE",
+      "path": "/api/v1/admin/media/:id",
+      "permission": "content.publish",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/media/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/reports",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/support/cases",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/support/cases",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/support/cases/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/admin/moderation/cases",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/admin/moderation/cases/:id",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/cases/:id/assign",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/cases/:id/severity",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/cases/:id/emergency",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/moderation/cases/:id/act",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "modGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/admin/support/cases",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "supGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/recovery",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "supGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "GET",
+      "path": "/api/v1/admin/recovery",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "supGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/recovery/:id/review",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "supGate",
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "GET",
+      "path": "/api/v1/notifications",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "GET",
+      "path": "/api/v1/notifications/unread-count",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/notifications/read-all",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/notifications/:id/read",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "GET",
+      "path": "/api/v1/notifications/preferences",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "PUT",
+      "path": "/api/v1/notifications/preferences",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "GET",
+      "path": "/api/v1/admin/notification-templates",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/admin/notification-templates",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/admin/notification-templates/:id/approve",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/admin/notification-templates/enable",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "GET",
+      "path": "/api/v1/admin/notification-deliveries",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "notifications",
+      "method": "POST",
+      "path": "/api/v1/admin/notifications/process",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/notifications/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "POST",
+      "path": "/api/v1/analytics/events",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "POST",
+      "path": "/api/v1/admin/ops/run-jobs",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "POST",
+      "path": "/api/v1/admin/ops/health-check",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "GET",
+      "path": "/api/v1/admin/ops/metrics",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "GET",
+      "path": "/api/v1/admin/ops/alerts",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "POST",
+      "path": "/api/v1/admin/ops/alerts/:id/acknowledge",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "GET",
+      "path": "/api/v1/admin/ops/stuck-reservations",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "operations",
+      "method": "GET",
+      "path": "/api/v1/admin/ops/jobs",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": "opsGate",
+      "source": "apps/api/src/modules/operations/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "GET",
+      "path": "/api/v1/payments/packages",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "GET",
+      "path": "/api/v1/payments/balance",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "POST",
+      "path": "/api/v1/payments/purchases",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "GET",
+      "path": "/api/v1/payments/purchases",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "GET",
+      "path": "/api/v1/payments/purchases/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "POST",
+      "path": "/api/v1/payments/provider/callback",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "POST",
+      "path": "/api/v1/payments/mock/pay",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "payments",
+      "method": "POST",
+      "path": "/api/v1/payments/admin/purchases/:id/correct",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeGate",
+      "source": "apps/api/src/modules/payments/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "GET",
+      "path": "/api/v1/wallet/entitlements",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/prizes/allocate",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "GET",
+      "path": "/api/v1/admin/entitlements",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/entitlements",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/approve",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/pay",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/verify-recipient",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/review",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/processing",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/retry",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/cancel",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/reverse",
+      "permission": "finance.approve",
+      "auth": "permission",
+      "gateHelper": "financeApprove",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "GET",
+      "path": "/api/v1/admin/finance/reconciliation",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "prizes",
+      "method": "POST",
+      "path": "/api/v1/admin/entitlements/:id/fail",
+      "permission": "finance.manage",
+      "auth": "permission",
+      "gateHelper": "financeManage",
+      "source": "apps/api/src/modules/prizes/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "GET",
+      "path": "/api/v1/tournaments/:id/participants",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/tournaments/:id/registration",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "GET",
+      "path": "/api/v1/tournaments/:id/registration/me",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "GET",
+      "path": "/api/v1/me/tournament-registrations",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "GET",
+      "path": "/api/v1/me/tournament-registrations/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/tournaments/:id/registration/withdraw",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/registration-counts",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/registrations",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "adminGate",
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "seo",
+      "method": "GET",
+      "path": "/api/v1/robots.txt",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/seo/routes.ts"
+    },
+    {
+      "module": "seo",
+      "method": "GET",
+      "path": "/api/v1/sitemap.xml",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/seo/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/social/config",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/follows/:targetType/:targetId",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "DELETE",
+      "path": "/api/v1/follows/:targetType/:targetId",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/me/following",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/feed",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/posts",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/posts/:id",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/posts/:id/remove",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/posts/:id/comments",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/comments/:id/remove",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "PUT",
+      "path": "/api/v1/reactions/:targetType/:targetId",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "DELETE",
+      "path": "/api/v1/reactions/:targetType/:targetId",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/social/reports",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "PUT",
+      "path": "/api/v1/me/social-profile",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/social/profiles/:id",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/social/profiles/by-username/:username",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "GET",
+      "path": "/api/v1/admin/community/posts",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "moderatorGate",
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/admin/community/posts/:id/remove",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "moderatorGate",
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "social",
+      "method": "POST",
+      "path": "/api/v1/admin/community/comments/:id/remove",
+      "permission": "moderation.manage",
+      "auth": "permission",
+      "gateHelper": "moderatorGate",
+      "source": "apps/api/src/modules/social/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/store/config",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/products",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/products/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/me/cart",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "PATCH",
+      "path": "/api/v1/me/cart",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/orders",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/me/orders",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/me/orders/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/me/entitlements",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/products",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/products/:id/status",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/products/:id/variants",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/variants/:id/inventory",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/admin/store/variants/:id/inventory",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/discounts",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/admin/store/orders",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/admin/store/orders/:id/fulfillments",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "POST",
+      "path": "/api/v1/admin/store/fulfillments/:id/state",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "store",
+      "method": "GET",
+      "path": "/api/v1/admin/store/reconciliation",
+      "permission": "store.manage",
+      "auth": "permission",
+      "gateHelper": "shopGate",
+      "source": "apps/api/src/modules/store/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "GET",
+      "path": "/api/v1/streams",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "GET",
+      "path": "/api/v1/streams/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/streams/:slug/playback-access",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "GET",
+      "path": "/api/v1/admin/streams/config",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "GET",
+      "path": "/api/v1/admin/streams",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "GET",
+      "path": "/api/v1/admin/streams/:id",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "PUT",
+      "path": "/api/v1/admin/streams/:id",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams/:id/rights",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams/:id/state",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams/:id/provision",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams/:id/reconcile",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "streams",
+      "method": "POST",
+      "path": "/api/v1/admin/streams/:id/takedown",
+      "permission": "stream.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/streams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/public/teams",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/public/teams/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/public/players/:username/gaming-identities",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/teams/mine",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/teams/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "PUT",
+      "path": "/api/v1/teams/:id",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/disband",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/invitations",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/teams/:id/invitations",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/transfer",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/members/:accountId/remove",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "PUT",
+      "path": "/api/v1/teams/:id/members/:accountId/role",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/leave",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/teams/:id/snapshots",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/invitations/mine",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/invitations/:id/accept",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "POST",
+      "path": "/api/v1/invitations/:id/decline",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "GET",
+      "path": "/api/v1/account/gaming-identities",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "teams",
+      "method": "PUT",
+      "path": "/api/v1/account/gaming-identities",
+      "permission": null,
+      "auth": "session",
+      "gateHelper": "authed",
+      "source": "apps/api/src/modules/teams/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/tournaments",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/tournament-slugs",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/tournaments-calendar",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/tournaments/:slug",
+      "permission": null,
+      "auth": "public",
+      "gateHelper": null,
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/preview",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "PUT",
+      "path": "/api/v1/admin/tournaments/:id",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/participants-visibility",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/transition",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/clone",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "tournaments",
+      "method": "GET",
+      "path": "/api/v1/admin/tournaments/:id/revisions",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": "gate",
+      "source": "apps/api/src/modules/tournaments/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/users/:id/suspend",
+      "permission": "users.suspend",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "admin",
+      "method": "POST",
+      "path": "/api/v1/admin/users/:id/reactivate",
+      "permission": "users.suspend",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/admin/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/users/:id/timeouts",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "chat",
+      "method": "POST",
+      "path": "/api/v1/admin/chat/users/:id/bans",
+      "permission": "chat.moderate",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/chat/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/support/cases/:id/assign",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/support/cases/:id/resolve",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "moderation",
+      "method": "POST",
+      "path": "/api/v1/admin/support/cases/:id/close",
+      "permission": "support.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/moderation/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/registrations/:rid/approve",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/registrations/:rid/reject",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/registrations/:rid/waitlist",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/registrations/:rid/promote",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    },
+    {
+      "module": "registrations",
+      "method": "POST",
+      "path": "/api/v1/admin/tournaments/:id/registrations/:rid/cancel",
+      "permission": "tournament.manage",
+      "auth": "permission",
+      "gateHelper": null,
+      "dynamic": true,
+      "source": "apps/api/src/modules/registrations/routes.ts"
+    }
+  ],
+  "webRoutes": [
+    {
+      "path": "/:locale(fa|en)",
+      "name": "home",
+      "view": "HomeView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.home"
+    },
+    {
+      "path": "/:locale(fa|en)/design-system",
+      "name": "design-system",
+      "view": "DesignSystemView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.designSystem"
+    },
+    {
+      "path": "/:locale(fa|en)/content",
+      "name": "content",
+      "view": "ContentListView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.content"
+    },
+    {
+      "path": "/:locale(fa|en)/content/:type/:slug",
+      "name": "content-detail",
+      "view": "ContentDetailView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.content"
+    },
+    {
+      "path": "/:locale(fa|en)/games",
+      "name": "games",
+      "view": "GamesCatalogView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.games"
+    },
+    {
+      "path": "/:locale(fa|en)/games/:slug",
+      "name": "game-detail",
+      "view": "GameDetailView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.games"
+    },
+    {
+      "path": "/:locale(fa|en)/tournaments",
+      "name": "tournaments",
+      "view": "TournamentsListView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.tournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/tournaments-calendar",
+      "name": "tournaments-calendar",
+      "view": "TournamentCalendarView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.tournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/tournaments/:slug",
+      "name": "tournament-detail",
+      "view": "TournamentDetailView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.tournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/teams",
+      "name": "teams",
+      "view": "TeamsDirectoryView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.teams"
+    },
+    {
+      "path": "/:locale(fa|en)/teams/:slug",
+      "name": "public-team",
+      "view": "PublicTeamView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.teams"
+    },
+    {
+      "path": "/:locale(fa|en)/players",
+      "name": "players",
+      "view": "PlayersDirectoryView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.players"
+    },
+    {
+      "path": "/:locale(fa|en)/streams",
+      "name": "streams",
+      "view": "StreamsListView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.streams"
+    },
+    {
+      "path": "/:locale(fa|en)/streams/:slug",
+      "name": "stream-detail",
+      "view": "StreamDetailView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.streams"
+    },
+    {
+      "path": "/:locale(fa|en)/academy",
+      "name": "academy",
+      "view": "AcademyCatalogView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.academy"
+    },
+    {
+      "path": "/:locale(fa|en)/academy/courses/:slug",
+      "name": "course-detail",
+      "view": "CourseDetailView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.academy"
+    },
+    {
+      "path": "/:locale(fa|en)/academy/learn/:enrollmentId",
+      "name": "course-player",
+      "view": "CoursePlayerView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.academy"
+    },
+    {
+      "path": "/:locale(fa|en)/store",
+      "name": "store",
+      "view": "StoreCatalogView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.store"
+    },
+    {
+      "path": "/:locale(fa|en)/store/products/:slug",
+      "name": "store-product",
+      "view": "StoreProductView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.store"
+    },
+    {
+      "path": "/:locale(fa|en)/cart",
+      "name": "cart",
+      "view": "CartView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.cart"
+    },
+    {
+      "path": "/:locale(fa|en)/checkout",
+      "name": "checkout",
+      "view": "CheckoutView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.checkout"
+    },
+    {
+      "path": "/:locale(fa|en)/account/orders",
+      "name": "account-orders",
+      "view": "AccountOrdersView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.orders"
+    },
+    {
+      "path": "/:locale(fa|en)/account/registrations",
+      "name": "account-registrations",
+      "view": "AccountRegistrationsView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.registrations"
+    },
+    {
+      "path": "/:locale(fa|en)/account/matches",
+      "name": "account-matches",
+      "view": "AccountMatchesView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.matches"
+    },
+    {
+      "path": "/:locale(fa|en)/community",
+      "name": "community",
+      "view": "CommunityFeedView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.community"
+    },
+    {
+      "path": "/:locale(fa|en)/community/posts/:id",
+      "name": "community-post",
+      "view": "CommunityPostView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.community"
+    },
+    {
+      "path": "/:locale(fa|en)/search",
+      "name": "search",
+      "view": "SearchView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.search"
+    },
+    {
+      "path": "/:locale(fa|en)/help",
+      "name": "help",
+      "view": "HelpView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.help"
+    },
+    {
+      "path": "/:locale(fa|en)/players/:username",
+      "name": "public-player",
+      "view": "PublicPlayerView.vue",
+      "shell": "public",
+      "indexable": true,
+      "titleKey": "meta.title.player"
+    },
+    {
+      "path": "/:locale(fa|en)/auth/mobile",
+      "name": "auth-mobile",
+      "view": "AuthMobileView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.signIn"
+    },
+    {
+      "path": "/:locale(fa|en)/account",
+      "name": "account",
+      "view": "AccountOverviewView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.account"
+    },
+    {
+      "path": "/:locale(fa|en)/account/profile",
+      "name": "account-profile",
+      "view": "AccountProfileView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.profile"
+    },
+    {
+      "path": "/:locale(fa|en)/account/security",
+      "name": "account-security",
+      "view": "AccountSecurityView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.security"
+    },
+    {
+      "path": "/:locale(fa|en)/account/wallet",
+      "name": "account-wallet",
+      "view": "AccountWalletView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.wallet"
+    },
+    {
+      "path": "/:locale(fa|en)/account/notifications",
+      "name": "account-notifications",
+      "view": "NotificationsInboxView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.notifications"
+    },
+    {
+      "path": "/:locale(fa|en)/account/teams",
+      "name": "account-teams",
+      "view": "TeamsView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.teams"
+    },
+    {
+      "path": "/:locale(fa|en)/account/teams/:id",
+      "name": "account-team-detail",
+      "view": "TeamDetailView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.teams"
+    },
+    {
+      "path": "/:locale(fa|en)/account/gaming-identities",
+      "name": "account-gaming-identities",
+      "view": "GamingIdentitiesView.vue",
+      "shell": "account",
+      "indexable": false,
+      "titleKey": "meta.title.gamingIdentities"
+    },
+    {
+      "path": "/:locale(fa|en)/admin",
+      "name": "admin",
+      "view": "AdminOverviewView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.admin"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/users",
+      "name": "admin-users",
+      "view": "AdminUsersView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminUsers"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/audit",
+      "name": "admin-audit",
+      "view": "AdminAuditView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminAudit"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/moderation",
+      "name": "admin-moderation",
+      "view": "AdminModerationView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminModeration"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/courses",
+      "name": "admin-courses",
+      "view": "AdminCoursesView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminCourses"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/chat",
+      "name": "admin-chat",
+      "view": "AdminChatView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminChat"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/streams",
+      "name": "admin-streams",
+      "view": "AdminStreamsView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminStreams"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/prizes",
+      "name": "admin-prizes",
+      "view": "AdminPrizesView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminPrizes"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/store",
+      "name": "admin-store",
+      "view": "AdminStoreView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminStore"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/orders",
+      "name": "admin-orders",
+      "view": "AdminOrdersView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminOrders"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/community",
+      "name": "admin-community",
+      "view": "AdminCommunityView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminCommunity"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/media",
+      "name": "admin-media",
+      "view": "AdminMediaView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminMedia"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/configuration",
+      "name": "admin-configuration",
+      "view": "AdminConfigurationView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminConfiguration"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/notifications",
+      "name": "admin-notifications",
+      "view": "AdminNotificationsView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminNotifications"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/organizer",
+      "name": "admin-organizer",
+      "view": "OrganizerWorkspaceView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminOrganizer"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/finance",
+      "name": "admin-finance",
+      "view": "AdminFinanceView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminFinance"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/support",
+      "name": "admin-support",
+      "view": "AdminSupportView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminSupport"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/operations",
+      "name": "admin-operations",
+      "view": "AdminOperationsView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminOperations"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/content",
+      "name": "admin-content",
+      "view": "AdminContentView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminContent"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/games",
+      "name": "admin-games",
+      "view": "AdminGamesView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminGames"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/tournaments",
+      "name": "admin-tournaments",
+      "view": "AdminTournamentsView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminTournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/tournaments/:id/registrations",
+      "name": "admin-tournament-registrations",
+      "view": "AdminTournamentRegistrationsView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminTournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/admin/tournaments/:id/competition",
+      "name": "admin-tournament-competition",
+      "view": "AdminTournamentCompetitionView.vue",
+      "shell": "admin",
+      "indexable": false,
+      "titleKey": "meta.title.adminTournaments"
+    },
+    {
+      "path": "/:locale(fa|en)/403",
+      "name": "forbidden",
+      "view": "ForbiddenView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.forbidden"
+    },
+    {
+      "path": "/:pathMatch(.*)*",
+      "name": "not-found",
+      "view": "NotFoundView.vue",
+      "shell": "public",
+      "indexable": false,
+      "titleKey": "meta.title.notFound"
+    }
+  ],
+  "adminAreas": [
+    {
+      "path": "/admin/content",
+      "labelKey": "admin.area.content",
+      "capability": "canWriteContent",
+      "permission": "content.write",
+      "testid": "area-content"
+    },
+    {
+      "path": "/admin/games",
+      "labelKey": "admin.area.games",
+      "capability": "canManageGames",
+      "permission": "games.manage",
+      "testid": "area-games"
+    },
+    {
+      "path": "/admin/organizer",
+      "labelKey": "admin.area.organizer",
+      "capability": "canManageTournaments",
+      "permission": "tournament.manage",
+      "testid": "area-organizer"
+    },
+    {
+      "path": "/admin/tournaments",
+      "labelKey": "admin.area.tournaments",
+      "capability": "canManageTournaments",
+      "permission": "tournament.manage",
+      "testid": "area-tournaments"
+    },
+    {
+      "path": "/admin/streams",
+      "labelKey": "admin.area.streams",
+      "capability": "canManageStreams",
+      "permission": "stream.manage",
+      "testid": "area-streams"
+    },
+    {
+      "path": "/admin/chat",
+      "labelKey": "admin.area.chat",
+      "capability": "canModerateChat",
+      "permission": "chat.moderate",
+      "testid": "area-chat"
+    },
+    {
+      "path": "/admin/prizes",
+      "labelKey": "admin.area.prizes",
+      "capability": "canManageFinance",
+      "permission": "finance.manage",
+      "testid": "area-prizes"
+    },
+    {
+      "path": "/admin/store",
+      "labelKey": "admin.area.store",
+      "capability": "canManageStore",
+      "permission": "store.manage",
+      "testid": "area-store"
+    },
+    {
+      "path": "/admin/orders",
+      "labelKey": "admin.area.orders",
+      "capability": "canManageStore",
+      "permission": "store.manage",
+      "testid": "area-orders"
+    },
+    {
+      "path": "/admin/community",
+      "labelKey": "admin.area.community",
+      "capability": "canManageModeration",
+      "permission": "moderation.manage",
+      "testid": "area-community"
+    },
+    {
+      "path": "/admin/courses",
+      "labelKey": "admin.area.courses",
+      "capability": "canManageEducation",
+      "permission": "education.manage",
+      "testid": "area-courses"
+    },
+    {
+      "path": "/admin/users",
+      "labelKey": "admin.area.users",
+      "capability": "canReadUsers",
+      "permission": "users.read",
+      "testid": "area-users"
+    },
+    {
+      "path": "/admin/audit",
+      "labelKey": "admin.area.audit",
+      "capability": "canReadAudit",
+      "permission": "audit.read",
+      "testid": "area-audit"
+    },
+    {
+      "path": "/admin/moderation",
+      "labelKey": "admin.area.moderation",
+      "capability": "canManageModeration",
+      "permission": "moderation.manage",
+      "testid": "area-moderation"
+    },
+    {
+      "path": "/admin/media",
+      "labelKey": "admin.area.media",
+      "capability": "canPublishContent",
+      "permission": "content.publish",
+      "testid": "area-media"
+    },
+    {
+      "path": "/admin/configuration",
+      "labelKey": "admin.area.configuration",
+      "capability": "canReadConfig",
+      "permission": "config.read",
+      "testid": "area-configuration"
+    },
+    {
+      "path": "/admin/notifications",
+      "labelKey": "admin.area.notifications",
+      "capability": "canManageSupport",
+      "permission": "support.manage",
+      "testid": "area-notifications"
+    },
+    {
+      "path": "/admin/finance",
+      "labelKey": "admin.area.finance",
+      "capability": "canManageFinance",
+      "permission": "finance.manage",
+      "testid": "area-finance"
+    },
+    {
+      "path": "/admin/support",
+      "labelKey": "admin.area.support",
+      "capability": "canManageSupport",
+      "permission": "support.manage",
+      "testid": "area-support"
+    },
+    {
+      "path": "/admin/operations",
+      "labelKey": "admin.area.operations",
+      "capability": "canManageOps",
+      "permission": "support.manage",
+      "testid": "area-operations"
+    }
+  ],
+  "capabilityPermission": {
+    "canReadUsers": "users.read",
+    "canReadAudit": "audit.read",
+    "canReadConfig": "config.read",
+    "canWriteContent": "content.write",
+    "canPublishContent": "content.publish",
+    "canManageSupport": "support.manage",
+    "canManageFinance": "finance.manage",
+    "canManageOps": "support.manage",
+    "canManageGames": "games.manage",
+    "canManageStreams": "stream.manage",
+    "canModerateChat": "chat.moderate",
+    "canManageEducation": "education.manage",
+    "canManageStore": "store.manage",
+    "canManageTournaments": "tournament.manage",
+    "canManageModeration": "moderation.manage"
+  },
+  "navigation": {
+    "public": [
+      {
+        "path": "",
+        "key": "nav.home"
+      },
+      {
+        "path": "/content",
+        "key": "nav.content"
+      },
+      {
+        "path": "/games",
+        "key": "nav.games"
+      },
+      {
+        "path": "/tournaments",
+        "key": "nav.tournaments"
+      },
+      {
+        "path": "/streams",
+        "key": "nav.streams"
+      },
+      {
+        "path": "/academy",
+        "key": "nav.academy"
+      },
+      {
+        "path": "/teams",
+        "key": "nav.teamsDirectory"
+      },
+      {
+        "path": "/players",
+        "key": "nav.playersDirectory"
+      },
+      {
+        "path": "/help",
+        "key": "nav.help"
+      }
+    ],
+    "account": [
+      {
+        "path": "/account",
+        "key": "nav.dashboard"
+      },
+      {
+        "path": "/account/profile",
+        "key": "nav.profile"
+      },
+      {
+        "path": "/account/teams",
+        "key": "nav.teams"
+      },
+      {
+        "path": "/account/registrations",
+        "key": "nav.registrations"
+      },
+      {
+        "path": "/account/matches",
+        "key": "nav.matches"
+      },
+      {
+        "path": "/account/gaming-identities",
+        "key": "nav.gamingIdentities"
+      },
+      {
+        "path": "/account/wallet",
+        "key": "nav.wallet"
+      },
+      {
+        "path": "/account/notifications",
+        "key": "nav.notifications"
+      },
+      {
+        "path": "/account/security",
+        "key": "nav.security"
+      },
+      {
+        "path": "/help",
+        "key": "nav.help"
+      },
+      {
+        "path": "",
+        "key": "nav.home"
+      }
+    ],
+    "admin": [
+      {
+        "path": "/account",
+        "key": "nav.dashboard"
+      },
+      {
+        "path": "",
+        "key": "nav.home"
+      }
+    ]
+  },
+  "featureGates": [
+    {
+      "decision": "OD-014",
+      "field": "rightsPolicyApproved",
+      "env": "STREAM_RIGHTS_POLICY_APPROVED",
+      "note": "archive publication and takedown stay off unless explicitly approved."
+    },
+    {
+      "decision": "OD-007",
+      "field": "paidTournamentsEnabled",
+      "env": "PAID_TOURNAMENTS_ENABLED",
+      "note": "paid tournament checkout is off unless explicitly enabled."
+    },
+    {
+      "decision": "OD-015",
+      "field": "paidCoursesEnabled",
+      "env": "PAID_COURSES_ENABLED",
+      "note": "paid course enrolment is off unless explicitly enabled."
+    },
+    {
+      "decision": "OD-017",
+      "field": "socialBlockingEnabled",
+      "env": "SOCIAL_BLOCKING_ENABLED",
+      "note": "social blocking and muting stay off until the policy is approved."
+    },
+    {
+      "decision": "OD-024",
+      "field": "moderationAppealsEnabled",
+      "env": "MODERATION_APPEALS_ENABLED",
+      "note": "moderation appeals stay off until the workflow is approved."
+    },
+    {
+      "decision": "OD-027",
+      "field": "pushNotificationsEnabled",
+      "env": "PUSH_NOTIFICATIONS_ENABLED",
+      "note": "web and mobile push stay off until the channel is approved."
+    },
+    {
+      "decision": "OD-019",
+      "field": "physicalFulfillmentEnabled",
+      "env": "PHYSICAL_FULFILLMENT_ENABLED",
+      "note": "physical items cannot be sold or dispatched until shipping is approved."
+    },
+    {
+      "decision": "OD-020",
+      "field": "entitlementRevocationEnabled",
+      "env": "ENTITLEMENT_REVOCATION_ENABLED",
+      "note": "digital entitlement revocation stays off until the rules are confirmed."
+    },
+    {
+      "decision": "OD-008",
+      "field": "notificationsSmsEnabled",
+      "env": "NOTIFICATIONS_SMS_ENABLED",
+      "note": "notification SMS and email channels are off unless explicitly enabled."
+    },
+    {
+      "decision": "OD-026",
+      "field": "analyticsExternalEnabled",
+      "env": "ANALYTICS_EXTERNAL_ENABLED",
+      "note": "no external analytics tracker unless explicitly enabled."
+    }
+  ],
+  "streaming": {
+    "forcedProvider": "stub",
+    "rejectedProviders": [
+      "arvan"
+    ]
+  },
+  "environment": {
+    "variables": [
+      "ANALYTICS_EXTERNAL_ENABLED",
+      "ANALYTICS_PSEUDONYM_SALT",
+      "AUTH_SECRET",
+      "ENABLE_DEV_ROUTES",
+      "ENTITLEMENT_REVOCATION_ENABLED",
+      "HOST",
+      "KAVENEGAR_API_KEY",
+      "KAVENEGAR_OTP_TEMPLATE",
+      "KAVENEGAR_SENDER",
+      "MEDIA_MAX_BYTES",
+      "MODERATION_APPEALS_ENABLED",
+      "MONGODB_URI",
+      "NODE_ENV",
+      "NOTIFICATIONS_EMAIL_ENABLED",
+      "NOTIFICATIONS_SMS_ENABLED",
+      "OTP_MAX_ATTEMPTS",
+      "OTP_REQUESTS_PER_IP",
+      "OTP_REQUESTS_PER_MOBILE",
+      "OTP_RESEND_SECONDS",
+      "OTP_TTL_SECONDS",
+      "OTP_WINDOW_SECONDS",
+      "PAID_COURSES_ENABLED",
+      "PAID_TOURNAMENTS_ENABLED",
+      "PAYMENTS_CALLBACK_SECRET",
+      "PAYMENTS_MOCK_ENABLED",
+      "PAYMENTS_PURCHASE_TTL_SECONDS",
+      "PHYSICAL_FULFILLMENT_ENABLED",
+      "PORT",
+      "PUBLIC_ORIGIN",
+      "PUSH_NOTIFICATIONS_ENABLED",
+      "RECENT_AUTH_MINUTES",
+      "SESSION_TTL_HOURS",
+      "SMS_PROVIDER",
+      "SOCIAL_BLOCKING_ENABLED",
+      "STREAMING_PROVIDER",
+      "STREAM_PLAYBACK_TTL_SECONDS",
+      "STREAM_RIGHTS_POLICY_APPROVED",
+      "STREAM_SECURE_LINK_SECRET",
+      "TRUSTED_PROXIES"
+    ],
+    "example": [
+      "NODE_ENV",
+      "HOST",
+      "PORT",
+      "MONGODB_URI",
+      "AUTH_SECRET",
+      "OTP_TTL_SECONDS",
+      "OTP_RESEND_SECONDS",
+      "OTP_MAX_ATTEMPTS",
+      "OTP_REQUESTS_PER_MOBILE",
+      "OTP_REQUESTS_PER_IP",
+      "OTP_WINDOW_SECONDS",
+      "SESSION_TTL_HOURS",
+      "RECENT_AUTH_MINUTES",
+      "ENABLE_DEV_ROUTES",
+      "PAYMENTS_MOCK_ENABLED",
+      "PAYMENTS_CALLBACK_SECRET",
+      "PAYMENTS_PURCHASE_TTL_SECONDS",
+      "PAID_TOURNAMENTS_ENABLED",
+      "NOTIFICATIONS_SMS_ENABLED",
+      "NOTIFICATIONS_EMAIL_ENABLED",
+      "SMS_PROVIDER",
+      "KAVENEGAR_API_KEY",
+      "KAVENEGAR_SENDER",
+      "KAVENEGAR_OTP_TEMPLATE",
+      "ANALYTICS_EXTERNAL_ENABLED",
+      "ANALYTICS_PSEUDONYM_SALT",
+      "MEDIA_MAX_BYTES",
+      "PUBLIC_ORIGIN",
+      "PAID_COURSES_ENABLED",
+      "STREAMING_PROVIDER",
+      "STREAM_SECURE_LINK_SECRET",
+      "STREAM_PLAYBACK_TTL_SECONDS",
+      "STREAM_RIGHTS_POLICY_APPROVED",
+      "SOCIAL_BLOCKING_ENABLED",
+      "MODERATION_APPEALS_ENABLED",
+      "PUSH_NOTIFICATIONS_ENABLED",
+      "PHYSICAL_FULFILLMENT_ENABLED",
+      "ENTITLEMENT_REVOCATION_ENABLED",
+      "API_PROXY_TARGET",
+      "MONGODB_TEST_URI"
+    ],
+    "inCodeNotInExample": [
+      "TRUSTED_PROXIES"
+    ],
+    "inExampleNotInCode": [
+      "API_PROXY_TARGET",
+      "MONGODB_TEST_URI"
+    ]
+  },
+  "totals": {
+    "apiRoutes": 291,
+    "publicApiRoutes": 43,
+    "sessionApiRoutes": 85,
+    "permissionApiRoutes": 163,
+    "webRoutes": 63,
+    "adminAreas": 20,
+    "roles": 16,
+    "permissions": 22,
+    "featureGates": 10,
+    "environmentVariables": 39
+  }
+}
