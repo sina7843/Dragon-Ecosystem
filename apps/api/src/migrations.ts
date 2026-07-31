@@ -20,15 +20,6 @@ import { notificationsMigration } from './modules/notifications/migrations.ts';
 import { moderationMigration } from './modules/moderation/migrations.ts';
 import { operationsMigration } from './modules/operations/migrations.ts';
 import { mediaMigration } from './modules/media/migrations.ts';
-import { streamsMigration } from './modules/streams/migrations.ts';
-import { chatMigration } from './modules/chat/migrations.ts';
-import { educationMigration } from './modules/education/migrations.ts';
-import { socialMigration } from './modules/social/migrations.ts';
-import { storeMigration } from './modules/store/migrations.ts';
-import { economyMigration } from './modules/economy/migrations.ts';
-import { recoveryIndexesMigration } from './migrations-recovery-indexes.ts';
-import { matchSchedulingMigration } from './migrations-match-scheduling.ts';
-import { registrationHistoryMigration } from './migrations-registration-history.ts';
 import { perfIndexesMigration } from './migrations-perf-indexes.ts';
 import { auditIndexesMigration } from './migrations-audit-indexes.ts';
 
@@ -62,14 +53,5 @@ export const allMigrations: readonly Migration[] = [
   operationsMigration,
   mediaMigration,
   perfIndexesMigration,
-  auditIndexesMigration,
-  streamsMigration,
-  chatMigration,
-  educationMigration,
-  socialMigration,
-  storeMigration,
-  economyMigration,
-  recoveryIndexesMigration,
-  matchSchedulingMigration,
-  registrationHistoryMigration
+  auditIndexesMigration
 ];

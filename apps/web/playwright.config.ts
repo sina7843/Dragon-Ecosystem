@@ -106,10 +106,6 @@ export default defineConfig({
         OTP_REQUESTS_PER_IP: '5000',
         // DRAGON-12: exercise the paid checkout flow behind its OD-007 gate.
         PAID_TOURNAMENTS_ENABLED: 'true',
-        // DRAGON-21: exercise the paid course journey behind its OD-015 gate. The gate is
-        // still fail-closed everywhere else — `.env.example` ships it false — but the
-        // Phase 3 acceptance criteria require the paid journey to be run end to end.
-        PAID_COURSES_ENABLED: 'true',
         PAYMENTS_CALLBACK_SECRET: 'e2e-only-payments-callback-secret-not-real'
       }
     },

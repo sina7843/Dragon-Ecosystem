@@ -8,8 +8,8 @@ import './styles/tokens.css';
 import './styles/base.css';
 import './styles/components.css';
 
-const startupLocale = isLocale(i18n.global.locale.value) ? i18n.global.locale.value : 'fa';
-applyDocumentLocale(startupLocale);
+const startupLocale = i18n.global.locale.value;
+applyDocumentLocale(isLocale(startupLocale) ? startupLocale : 'fa');
 // Applied before mount so the first paint already has the correct theme.
 initTheme();
 
@@ -49,7 +49,4 @@ const reveal: Directive<HTMLElement> = {
 
 const app = createApp(App);
 app.directive('reveal', reveal);
-
-// Mounted synchronously: the page must be interactive as soon as the document loads, so
-// nothing may sit between script evaluation and mount (see `i18n/index.ts`).
 app.use(i18n).use(router).mount('#app');

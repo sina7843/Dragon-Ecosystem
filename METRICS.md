@@ -85,35 +85,9 @@ names every discrepancy rather than returning a score. Definitions live with the
 | Report | Route | What it compares |
 |---|---|---|
 | Holds | `POST /admin/holds/reconciliation` | Holds against ledger accounts (≤100 account ids per call) |
-| Economy | `GET /admin/economy/reconciliation` | Coin movement against ledger postings |
-| Prizes / finance | `GET /admin/finance/reconciliation` | Definition → allocation → ledger → settlement |
-| Store orders | `GET /admin/store/reconciliation` | Paid orders against captured holds |
 
-Store and economy reconcile **both directions** — record→evidence and evidence→record — so an
-orphan on either side appears. A report returning no differences means the two sides agree at
-read time; it is not a statement about a period.
-
-## Social profile statistics
-
-`GET /api/v1/social/profiles/by-username/:username` returns a `statistics` array, each entry
-carrying `key`, `value`, **`source`** (the collection it was counted from) and
-**`calculatedAt`**. Computed in `SocialService.getPublicProfile`
-([modules/social/service.ts](apps/api/src/modules/social/service.ts)).
-
-| Key | Definition | Source |
-|---|---|---|
-| `followers` | Active follows targeting this account | `social_follows` where `targetType='user'`, `targetId=account`, `state='active'` |
-| `following` | Active follows this account holds | `social_follows` where `followerId=account`, `state='active'` |
-| `posts` | Published posts by this account | `social_posts` where `authorId=account`, `state='published'` |
-
-Two properties worth noting, because they are the only place the platform ships a
-user-visible statistic:
-
-- **Each statistic states its own source and calculation time**, which is the SOCIAL-011
-  requirement that a displayed number must say where it came from.
-- **Statistics are withheld unless the profile owner opted in** (`statisticsVisible`), and are
-  always visible to the owner themselves. A viewer who is not the owner gets an empty array
-  for a profile that has not opted in — not a zero, which would be a false statement.
+A report returning no differences means the two sides agree at read time; it is not a
+statement about a period.
 
 ## Analytics event collection (not a metric source yet)
 
@@ -140,9 +114,7 @@ is never true, so the gate's state is irrelevant. No report reads this collectio
 | Product analytics: content, games, tournaments, registrations, matches, notifications reports | ANALYTICS-002 — blocked on OD-026 |
 | Any dashboard, with or without a freshness indicator | ANALYTICS-009, PAGE-068 — blocked on OD-026 |
 | Revenue analytics | Requires the analytics decision and a live payment provider; neither exists |
-| Course revenue reporting | ANALYTICS-004 — deferred behind OD-015 |
-| Community analytics | ANALYTICS-005 — deferred |
-| Request-rate, latency, error-rate telemetry | No production instrumentation. The bounded latency figures in `apps/api/src/perf/perf.itest.ts` are local, in-process (`app.inject`) measurements and are **not** production SLO evidence; PERF-001/002/003 remain blocked on OD-023 |
+| Request-rate, latency, error-rate telemetry | No production instrumentation; PERF-001/002/003 remain blocked on OD-023 |
 | Staff last-use of a role grant | Not recorded anywhere (ADMIN-011) |
 
 Do not add a metric to this document before it has exactly one calculation site in the code.

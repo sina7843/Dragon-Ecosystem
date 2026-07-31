@@ -47,13 +47,6 @@ export function useAdmin(): {
   /** Gates the operations dashboard (alerts, jobs, metrics). */
   canManageOps: ComputedRef<boolean>;
   canManageGames: ComputedRef<boolean>;
-  /** Gates the stream operations console (ROLE-024). */
-  canManageStreams: ComputedRef<boolean>;
-  /** Gates the chat moderation console (ROLE-013). */
-  canModerateChat: ComputedRef<boolean>;
-  /** Gates the education console (ROLE-023). */
-  canManageEducation: ComputedRef<boolean>;
-  canManageStore: ComputedRef<boolean>;
   canManageTournaments: ComputedRef<boolean>;
   canManageModeration: ComputedRef<boolean>;
   refresh: () => Promise<void>;
@@ -108,10 +101,6 @@ export function useAdmin(): {
     // Operations shares the support-operator permission its endpoints already require.
     canManageOps: computed(() => has('support.manage')),
     canManageGames: computed(() => has('games.manage')),
-    canManageStreams: computed(() => has('stream.manage')),
-    canModerateChat: computed(() => has('chat.moderate')),
-    canManageEducation: computed(() => has('education.manage')),
-    canManageStore: computed(() => has('store.manage')),
     canManageTournaments: computed(() => has('tournament.manage')),
     canManageModeration: computed(() => has('moderation.manage')),
     refresh

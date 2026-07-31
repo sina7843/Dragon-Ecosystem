@@ -6,22 +6,8 @@ export const COMPETITIONS_COLLECTIONS = {
   matches: 'competition_matches',
   standings: 'competition_standings',
   corrections: 'competition_result_corrections',
-  schedules: 'competition_match_schedules',
   versions: 'competition_bracket_versions'
 } as const;
-
-/**
- * Match-schedule history (DRAGON-29D, TOURN-020, API-043).
- *
- * `schedule_match_revision_unique` is the integrity authority, not a read-before-write
- * check: two concurrent reschedules that both computed the same next revision number
- * collapse to one durable row instead of appending a fork in the history.
- */
-export const COMPETITIONS_SCHEDULE_INDEXES: readonly IndexDeclaration[] = [
-  { collection: 'competition_match_schedules', name: 'schedule_match_revision_unique', keys: { matchId: 1, revisionNumber: 1 }, options: { unique: true } },
-  // Serves the per-match history read, newest first.
-  { collection: 'competition_match_schedules', name: 'schedule_match_created', keys: { matchId: 1, createdAt: -1 } }
-];
 
 export const COMPETITIONS_INDEXES: readonly IndexDeclaration[] = [
   // One competition per tournament: the unique index is the sole authority that

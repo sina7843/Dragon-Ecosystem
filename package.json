@@ -17,7 +17,6 @@
     "test": "npm run test --workspaces --if-present",
     "test:integration": "node scripts/wait-for-test-db.mjs && npm run test:integration --workspace @dragon/api",
     "test:budget": "npm run test:budget --workspace apps/web",
-    "test:performance": "node scripts/wait-for-test-db.mjs && node --test apps/api/src/perf/perf.itest.ts",
     "closure:check": "node --test scripts/closure-check.test.mjs",
     "decision:check": "node --test scripts/release-decision.test.mjs",
     "ci:validate": "node scripts/ci-validate.mjs",
@@ -34,11 +33,7 @@
     "verify:persistence": "node scripts/mongo-persistence-check.mjs",
     "docker:up": "docker compose up -d --build",
     "docker:stop": "docker compose stop",
-    "guide:inventory": "node scripts/guide/extract-inventory.mjs",
-    "guide:capture": "node scripts/wait-for-test-db.mjs && npm run build && npm run guide:capture --workspace apps/web",
-    "guide:build": "npm run guide:inventory && node scripts/guide/generate-reference.mjs && node scripts/guide/build-guide.mjs",
-    "guide:verify": "node scripts/guide/verify-guide.mjs",
-    "guide": "npm run guide:build && npm run guide:verify"
+    "inventory": "node scripts/extract-inventory.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^9.17.0",

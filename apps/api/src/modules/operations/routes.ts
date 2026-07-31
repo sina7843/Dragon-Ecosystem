@@ -2,7 +2,6 @@ import type { FastifyInstance, FastifyRequest } from 'fastify';
 import { PERMISSIONS } from '../../shared/authz/permissions.ts';
 import { createSessionGuards, requireIdentity, type IdentityService } from '../identity/index.ts';
 import { requirePermission, type AuthorizationService } from '../admin/index.ts';
-import type { StuckReservationDetector } from './recovery.ts';
 import type { OperationsService } from './service.ts';
 import type { AlertRecord, JobExecutionRecord } from './state.ts';
 
@@ -17,8 +16,6 @@ export interface OperationsDeps {
   identity: IdentityService;
   authorization: AuthorizationService;
   operations: OperationsService;
-  /** Absent in compositions that do not wire hold-backed modules. */
-  recovery?: StuckReservationDetector;
 }
 
 const errorResponses = {
@@ -68,15 +65,6 @@ export function registerOperationsRoutes(app: FastifyInstance, deps: OperationsD
   app.post('/admin/ops/alerts/:id/acknowledge', { ...opsGate(), schema: { tags: ['operations'], summary: 'Acknowledge an alert.', params: idParam, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) =>
     alertView(await deps.operations.acknowledgeAlert(request.requestContext, (request.params as { id: string }).id))
   );
-
-  // Read-only by design: it reports what is stuck and changes nothing. There is
-  // deliberately no companion repair endpoint — several remedies depend on policy that is
-  // not approved (DEC-034 approves no return workflow), and a repair route that can touch
-  // money is the one most likely to be aimed at the wrong record.
-  app.get('/admin/ops/stuck-reservations', { ...opsGate(), schema: { tags: ['operations'], summary: 'Inspect hold-backed records that can no longer complete. Read-only; repairs nothing.', querystring: { type: 'object', additionalProperties: false, properties: { staleAfterSeconds: { type: 'integer', minimum: 60, maximum: 604800 }, limit: { type: 'integer', minimum: 1, maximum: 1000 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) => {
-    if (deps.recovery === undefined) return { staleAfterSeconds: 0, inspectedWorkflows: [], findings: [] };
-    return deps.recovery.inspect(request.query as { staleAfterSeconds?: number; limit?: number });
-  });
 
   app.get('/admin/ops/jobs', { ...opsGate(), schema: { tags: ['operations'], summary: 'List recent job executions.', querystring: { type: 'object', additionalProperties: false, properties: { jobName: { type: 'string' }, limit: { type: 'integer', minimum: 1, maximum: 100 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) =>
     ({ jobs: (await deps.operations.listJobExecutions(request.query as { jobName?: string; limit?: number })).map(jobView) })

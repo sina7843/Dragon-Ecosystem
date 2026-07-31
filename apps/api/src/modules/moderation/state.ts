@@ -9,7 +9,7 @@ import type { EntityId } from '../../shared/ids.ts';
  * bypasses authentication or exposes sensitive evidence.
  */
 
-export type ModerationSubjectType = 'user' | 'content' | 'tournament' | 'chat_message' | 'social_post' | 'social_comment';
+export type ModerationSubjectType = 'user' | 'content' | 'tournament';
 export type Severity = 'low' | 'medium' | 'high' | 'critical';
 export type CaseState = 'open' | 'assigned' | 'actioned' | 'dismissed';
 export type ModerationAction = 'suspend' | 'remove' | 'dismiss';

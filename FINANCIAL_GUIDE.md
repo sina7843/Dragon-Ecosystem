@@ -89,17 +89,8 @@ one unit of work**.
 - **Cannot be redeemed, sold back, or exchanged for money** (DEC-024). This is proven three
   ways, including that the ledger has **no transaction type that could balance a cash-out**
   — the absence is structural, not a disabled flag.
-- Peer-to-peer transfer between users is implemented (`economy` module, DEC-022/023) with
-  rolling-window limits and a manual-review threshold. Peer *commerce* stays out under OD-030.
-
-`DEFAULT_ECONOMY_LIMITS` ([economy/state.ts](apps/api/src/modules/economy/state.ts)):
-`maxTransferAmount` 10,000 · `transferAmountPerWindow` 20,000 · `transfersPerWindow` 20 ·
-`windowSeconds` 86,400 · `manualReviewThreshold` 5,000 · `payoutReviewThreshold` 50,000,000.
-
-The rolling window is claimed **atomically** — read-then-decide was a real DRAGON-25 defect
-and is regression-tested. A cold-window race that once refused a legitimate transfer with a
-misleading limit error was fixed in DRAGON-28 and is covered by the bounded performance tests
-(scenario A, [apps/api/src/perf/perf.itest.ts](apps/api/src/perf/perf.itest.ts)).
+- **Peer-to-peer transfer is not enabled.** `user_to_user` is a gated transfer type with no
+  enabled path (see the transfer-boundary table below).
 
 ## Holds
 
@@ -115,8 +106,6 @@ destination, treasury, escrow or prize account.** `HOLD_PURPOSES`
 |---|---|---|---|---|
 | `admin_correction` | ✅ | treasury | yes | — |
 | `tournament_checkout` | ✅ | treasury | no | reachable only through the OD-007-gated paid checkout |
-| `course_enrollment` | ✅ | treasury | no | reachable only through the OD-015-gated paid course flow |
-| `store_order` | ✅ | treasury | no | DEC-022 permits coin for store purchases |
 | `tournament_entry_fee` | ❌ | treasury | yes | **OD-007**: paid tournament registration not activated |
 | `prize_reservation` | ❌ | prize_payable | no | prize payout deferred beyond DRAGON-11 |
 
@@ -138,8 +127,7 @@ effect. **Every one is disabled**, asserted by `holds.test.ts`:
 | `prize_payout` | prize_payable → user | prize payout deferred |
 | `withdrawal` | user → cash_clearing | **withdrawable cash is not enabled** |
 
-Peer transfer reaching users today goes through the `economy` module under DEC-022/023, not
-through this gated `user_to_user` boundary.
+No module routes around this boundary: there is no other peer-transfer path in the product.
 
 ## Payments
 
@@ -151,14 +139,12 @@ No live payment provider is integrated anywhere in the repository.
 - `PAYMENTS_CALLBACK_SECRET` is **production-required**; callbacks are signature-verified.
   Forged-signature, field-substitution, replay and fee-integrity cases are all covered by
   focused security tests.
-- A replayed provider callback credits **once** — covered in the API suite and end to end in
-  `academy-paid.spec.ts`.
+- A replayed provider callback credits **once** — covered in the API suite.
 
-Order settlement uses **exactly one asset (Dragon Coin)**; Toman buys Dragon Coin as a
-separate, earlier step. There is **no mixed-payment order** (DECISIONS.md, 2026-07-29): DEC-050
-permits no internal Toman balance to spend, and a split payment failure would leave an order
-half-settled with no approved way to unwind it. A rial figure on a receipt is a **displayed
-list price, never a charged amount**.
+Tournament checkout settles in **exactly one asset (Dragon Coin)**; Toman buys Dragon Coin as
+a separate, earlier step. There is **no mixed-payment settlement** (DEC-050 permits no internal
+Toman balance to spend). A rial figure on a receipt is a **displayed list price, never a
+charged amount**.
 
 ## Refunds — deliberately absent
 
@@ -168,7 +154,6 @@ list price, never a charged amount**.
 - `refund_clearing` exists as an account role with no transaction routing into a user;
 - PAY-005 has six payment states and **no reversed, refunded or disputed state** — recorded as
   a Partial row, not hidden;
-- entitlement revocation is absent under OD-020;
 - Dragon Coin is non-redeemable, so capturing it creates **no cash obligation and therefore no
   refund path** — which is precisely why the paid flows are safe to enable while DEC-034 is
   unresolved.
@@ -178,59 +163,39 @@ transaction that preserves the original evidence.
 
 ## Prizes and payouts
 
-[modules/prizes](apps/api/src/modules/prizes) — a nine-state entitlement lifecycle with:
+[modules/prizes](apps/api/src/modules/prizes) — cash entitlements with the states
+`pending`, `approved`, `paid`, `failed` and `superseded`
+([prizes/state.ts](apps/api/src/modules/prizes/state.ts)):
 
-- **actor-level dual control** (the approver cannot be the requester), including across a
-  fail-then-retry path — a real DRAGON-25 Critical, fixed and regression-tested;
-- recipient verification before settlement;
-- retry on the same record;
-- reversal that preserves the original evidence.
+- **dual control** — `approve` is gated on `finance.manage` and `pay` on `finance.approve`,
+  so the actor who approves an entitlement is not the one who settles it;
+- settlement evidence is required to mark an entitlement paid;
+- a failed settlement is recorded on the record rather than deleted.
 
 `/account/payouts` (PAGE-043) is **deliberately not built**: its own acceptance note is that no
 withdrawal capability is shown unless legally activated, and no withdrawal exists.
 
 ## Reconciliation reports
 
-All read-only, bounded, finance-permission gated:
+Read-only, bounded, finance-permission gated:
 
 | Report | Route | Reconciles |
 |---|---|---|
 | Holds | `POST /api/v1/admin/holds/reconciliation` | holds against ledger accounts; body caps at 100 account ids |
-| Economy | `GET /api/v1/admin/economy/reconciliation` | coin movement against the ledger |
-| Prizes / finance | `GET /api/v1/admin/finance/reconciliation` | definition → allocation → ledger → settlement, **naming every difference** |
-| Store orders | `GET /api/v1/admin/store/reconciliation` | paid orders against captured holds |
 
-Store and economy reports check **both directions** — record→evidence *and* evidence→record —
-so an orphan on either side is visible.
-
-The store never posts to the ledger itself; it settles through the shared holds boundary. That
-is the ROLE-021 separation: a shop operator moves goods, not money.
-
-## Stuck reservations
-
-[modules/operations/recovery.ts](apps/api/src/modules/operations/recovery.ts) is a
-**read-only detector, not a repair tool** (DECISIONS.md, 2026-07-29). It reports hold-backed
-records stranded by a crash between the domain commit and the hold capture, bounded by an age
-threshold and a per-workflow limit, and **repairs nothing**. Several remedies depend on policy
-nobody has approved: DEC-034 approves no return workflow, so a captured-but-unfinished order
-has no agreed resolution, and a repair endpoint able to move money is the one most likely to be
-aimed at the wrong record. Its scan is index-served (`enrollment_state_created`,
-`order_state_created`), asserted by query plan in the bounded performance tests.
+A report returning no differences means the two sides agree at read time; it is not a
+statement about a period.
 
 ## Tests
 
 | Concern | Where |
 |---|---|
-| Exact-integer money, float error impossible | `money.test.ts`, `store.test.ts` |
-| No negative user balance | ledger overdraft guard; `store.itest.ts`, `economy.itest.ts` |
-| Hold and capture idempotency | `holds.itest.ts`, `store.itest.ts` |
-| Transfer concurrency, atomic window claim | `economy.itest.ts`, perf scenarios A and B |
-| Stock concurrency (one winner for the last unit) | `store.itest.ts`, perf scenario C |
-| Immutable order snapshots | `store.itest.ts` |
-| Reward uniqueness under replay | `economy.itest.ts` |
-| Payout dual control, retry, reversal | `prizes.itest.ts` |
-| Entitlement granted exactly once, after capture | `store.itest.ts` |
-| Reconciliation both directions | store, economy and finance report tests |
+| Exact-integer money, float error impossible | `money.test.ts` |
+| No negative user balance | ledger overdraft guard; `ledger.itest.ts` |
+| Hold and capture idempotency | `holds.itest.ts` |
+| Checkout reserves and captures exactly once | `checkout.itest.ts` |
+| Entitlement dual control and settlement evidence | `prizes.itest.ts` |
+| Reconciliation names every difference | `holds.itest.ts` |
 | Gates fail closed with no side effect | `holds.test.ts`, `config.test.ts` |
 
 ## Limitations
@@ -239,7 +204,6 @@ aimed at the wrong record. Its scan is index-served (`enrollment_state_created`,
   test operation is not production readiness.
 - **No refunds, returns, disputes, or chargebacks** (DEC-034, COMMERCE-010).
 - **No cash-out or withdrawal** (DEC-024, DEC-050) — structurally absent, not flagged off.
-- **No mixed-asset order.**
+- **No mixed-asset settlement.**
 - **No production financial observation.** Reconciliation reports have been exercised against
   test data only; PERF-014 and OPS-014 remain blocked.
-- **Stuck reservations are detected, never repaired** — the remedy is policy-blocked.

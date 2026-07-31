@@ -5,8 +5,8 @@ import { createRouter, createWebHistory, START_LOCATION, type RouteLocationNorma
 // browsing session, and TournamentDetailView alone is the largest view in the app. Keeping
 // them in the entry chunk cost real headroom against the build budget for no benefit. Admin and account
 // routes are lazy so an anonymous visitor never downloads privileged/personalized code.
-// The secondary public surfaces (the team/player directories, the calendar view of the
-// tournament list, the streams pages) are lazy too: they are reached by a deliberate
+// The secondary public surfaces (the team/player directories and the calendar view of
+// the tournament list) are lazy too: they are reached by a deliberate
 // click from the funnel above, and keeping them out of the entry chunk is what holds the
 // bundle budget in `build-budget.test.ts`.
 import ContentListView from './views/ContentListView.vue';
@@ -113,101 +113,6 @@ export const router = createRouter({
       component: () => import('./views/PlayersDirectoryView.vue'),
       meta: { shell: 'public', indexable: true, titleKey: 'meta.title.players' }
     },
-    // Stream discovery and the watch page are crawlable, but they are a secondary
-    // surface rather than the first-paint landing, and the public entry chunk is close
-    // to its budget — so they are lazy like the other non-landing routes.
-    {
-      path: '/:locale(fa|en)/streams',
-      name: 'streams',
-      component: () => import('./views/StreamsListView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.streams' }
-    },
-    {
-      path: '/:locale(fa|en)/streams/:slug',
-      name: 'stream-detail',
-      component: () => import('./views/StreamDetailView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.streams' }
-    },
-    // Academy: the catalog and course detail are crawlable; the player is a personalized
-    // surface and is never indexed. All lazy, like the other non-landing routes.
-    {
-      path: '/:locale(fa|en)/academy',
-      name: 'academy',
-      component: () => import('./views/AcademyCatalogView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.academy' }
-    },
-    {
-      path: '/:locale(fa|en)/academy/courses/:slug',
-      name: 'course-detail',
-      component: () => import('./views/CourseDetailView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.academy' }
-    },
-    {
-      path: '/:locale(fa|en)/academy/learn/:enrollmentId',
-      name: 'course-player',
-      component: () => import('./views/CoursePlayerView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.academy' }
-    },
-    // Store: the catalog and product pages are crawlable public pages; the cart, checkout,
-    // and orders are personalized and never indexed.
-    {
-      path: '/:locale(fa|en)/store',
-      name: 'store',
-      component: () => import('./views/StoreCatalogView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.store' }
-    },
-    {
-      path: '/:locale(fa|en)/store/products/:slug',
-      name: 'store-product',
-      component: () => import('./views/StoreProductView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.store' }
-    },
-    {
-      path: '/:locale(fa|en)/cart',
-      name: 'cart',
-      component: () => import('./views/CartView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.cart' }
-    },
-    {
-      path: '/:locale(fa|en)/checkout',
-      name: 'checkout',
-      component: () => import('./views/CheckoutView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.checkout' }
-    },
-    {
-      path: '/:locale(fa|en)/account/orders',
-      name: 'account-orders',
-      component: () => import('./views/AccountOrdersView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.orders' }
-    },
-    // A participant's own registrations and fixtures (PAGE-017, PAGE-018). Session-only
-    // and never indexed: both are a single account's private record.
-    {
-      path: '/:locale(fa|en)/account/registrations',
-      name: 'account-registrations',
-      component: () => import('./views/AccountRegistrationsView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.registrations' }
-    },
-    {
-      path: '/:locale(fa|en)/account/matches',
-      name: 'account-matches',
-      component: () => import('./views/AccountMatchesView.vue'),
-      meta: { shell: 'account', indexable: false, titleKey: 'meta.title.matches' }
-    },
-    // Community: a personalized, session-only surface. Never indexed — a feed is assembled
-    // per viewer from their follows, so there is no stable public page to crawl.
-    {
-      path: '/:locale(fa|en)/community',
-      name: 'community',
-      component: () => import('./views/CommunityFeedView.vue'),
-      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.community' }
-    },
-    {
-      path: '/:locale(fa|en)/community/posts/:id',
-      name: 'community-post',
-      component: () => import('./views/CommunityPostView.vue'),
-      meta: { shell: 'public', indexable: false, titleKey: 'meta.title.community' }
-    },
     {
       // Global search is a utility surface, not a landing page: it must not be indexed,
       // and for the same reason it is not part of the first-paint bundle — an anonymous
@@ -216,14 +121,6 @@ export const router = createRouter({
       name: 'search',
       component: () => import('./views/SearchView.vue'),
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.search' }
-    },
-    // Public help and support entry point (PAGE-023). Indexable: it is a genuine public
-    // page, unlike the personalized account surfaces around it.
-    {
-      path: '/:locale(fa|en)/help',
-      name: 'help',
-      component: () => import('./views/HelpView.vue'),
-      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.help' }
     },
     {
       path: '/:locale(fa|en)/players/:username',
@@ -309,48 +206,6 @@ export const router = createRouter({
       name: 'admin-moderation',
       component: () => import('./views/AdminModerationView.vue'),
       meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminModeration' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/courses',
-      name: 'admin-courses',
-      component: () => import('./views/AdminCoursesView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminCourses' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/chat',
-      name: 'admin-chat',
-      component: () => import('./views/AdminChatView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminChat' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/streams',
-      name: 'admin-streams',
-      component: () => import('./views/AdminStreamsView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStreams' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/prizes',
-      name: 'admin-prizes',
-      component: () => import('./views/AdminPrizesView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminPrizes' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/store',
-      name: 'admin-store',
-      component: () => import('./views/AdminStoreView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminStore' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/orders',
-      name: 'admin-orders',
-      component: () => import('./views/AdminOrdersView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminOrders' }
-    },
-    {
-      path: '/:locale(fa|en)/admin/community',
-      name: 'admin-community',
-      component: () => import('./views/AdminCommunityView.vue'),
-      meta: { shell: 'admin', indexable: false, titleKey: 'meta.title.adminCommunity' }
     },
     {
       path: '/:locale(fa|en)/admin/media',

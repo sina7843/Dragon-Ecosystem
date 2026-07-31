@@ -35,7 +35,7 @@ function ownerView(entitlement: PrizeEntitlementRecord) {
 }
 /** Finance view includes settlement fields. */
 function financeView(entitlement: PrizeEntitlementRecord) {
-  return { ...ownerView(entitlement), accountId: entitlement.accountId, allocationVersion: entitlement.allocationVersion, reason: entitlement.reason, settlementEvidence: entitlement.settlementEvidence, approvedBy: entitlement.approvedBy, paidBy: entitlement.paidBy, recipientVerifiedBy: entitlement.recipientVerifiedBy ?? null, recipientVerifiedAt: entitlement.recipientVerifiedAt ?? null, retryCount: entitlement.retryCount ?? 0, reversedBy: entitlement.reversedBy ?? null, reversalReason: entitlement.reversalReason ?? null, version: entitlement.version };
+  return { ...ownerView(entitlement), accountId: entitlement.accountId, allocationVersion: entitlement.allocationVersion, reason: entitlement.reason, settlementEvidence: entitlement.settlementEvidence, version: entitlement.version };
 }
 
 export function registerPrizesRoutes(app: FastifyInstance, deps: PrizesDeps): void {
@@ -74,40 +74,6 @@ export function registerPrizesRoutes(app: FastifyInstance, deps: PrizesDeps): vo
   app.post('/admin/entitlements/:id/pay', { ...financeApprove(), schema: { tags: ['prizes'], summary: 'Mark a cash entitlement paid with settlement evidence (finance approve).', params: idParam, body: { type: 'object', required: ['expectedVersion', 'reason', 'settlementEvidence'], additionalProperties: false, properties: { expectedVersion: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 }, settlementEvidence: { type: 'string', minLength: 1, maxLength: 1000 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) =>
     financeView(await deps.prizes.payEntitlement(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string; settlementEvidence: string }))
   );
-
-  const versionedBody = (extra: Record<string, unknown> = {}, required: string[] = []) => ({
-    type: 'object',
-    required: ['expectedVersion', 'reason', ...required],
-    additionalProperties: false,
-    properties: { expectedVersion: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 }, ...extra }
-  });
-  const okObject = { 200: { type: 'object', additionalProperties: true }, ...errorResponses } as const;
-
-  // Recipient verification is deliberately its own step: PAYOUT-011 requires the check to
-  // be complete before settlement, and folding it into approval would make one judgement
-  // stand for two.
-  app.post('/admin/entitlements/:id/verify-recipient', { ...financeManage(), schema: { tags: ['prizes'], summary: 'Record that the payout recipient was verified (finance).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.verifyRecipient(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  app.post('/admin/entitlements/:id/review', { ...financeManage(), schema: { tags: ['prizes'], summary: 'Flag a payout for manual review (finance).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.flagForReview(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  app.post('/admin/entitlements/:id/processing', { ...financeApprove(), schema: { tags: ['prizes'], summary: 'Mark settlement as under way (finance approve).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.startProcessing(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  // A retry reuses the same entitlement, so it cannot become a second payment (PAYOUT-009).
-  app.post('/admin/entitlements/:id/retry', { ...financeManage(), schema: { tags: ['prizes'], summary: 'Return a failed payout to approved for another attempt (finance).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.retryEntitlement(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  app.post('/admin/entitlements/:id/cancel', { ...financeApprove(), schema: { tags: ['prizes'], summary: 'Cancel a payout that will not be settled (finance approve).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.cancelEntitlement(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  // PAYOUT-010: the original allocation stays immutable; the reversal is recorded on top.
-  app.post('/admin/entitlements/:id/reverse', { ...financeApprove(), schema: { tags: ['prizes'], summary: 'Reverse a settled payout with a reason (finance approve).', params: idParam, body: versionedBody(), response: okObject } }, async (request) =>
-    financeView(await deps.prizes.reverseEntitlement(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string })));
-
-  app.get('/admin/finance/reconciliation', { ...financeManage(), schema: { tags: ['prizes'], summary: 'Reconcile prize definition, allocation, ledger, and settlement; every difference is named.', response: okObject } }, async () =>
-    deps.prizes.reconcileFinance());
 
   app.post('/admin/entitlements/:id/fail', { ...financeManage(), schema: { tags: ['prizes'], summary: 'Mark a cash entitlement failed (finance).', params: idParam, body: { type: 'object', required: ['expectedVersion', 'reason'], additionalProperties: false, properties: { expectedVersion: { type: 'integer', minimum: 1 }, reason: { type: 'string', minLength: 1, maxLength: 500 } } }, response: { 200: { type: 'object', additionalProperties: true }, ...errorResponses } } }, async (request) =>
     financeView(await deps.prizes.failEntitlement(request.requestContext, (request.params as { id: string }).id, request.body as { expectedVersion: number; reason: string }))
