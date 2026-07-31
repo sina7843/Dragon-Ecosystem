@@ -217,6 +217,14 @@ export const router = createRouter({
       component: () => import('./views/SearchView.vue'),
       meta: { shell: 'public', indexable: false, titleKey: 'meta.title.search' }
     },
+    // Public help and support entry point (PAGE-023). Indexable: it is a genuine public
+    // page, unlike the personalized account surfaces around it.
+    {
+      path: '/:locale(fa|en)/help',
+      name: 'help',
+      component: () => import('./views/HelpView.vue'),
+      meta: { shell: 'public', indexable: true, titleKey: 'meta.title.help' }
+    },
     {
       path: '/:locale(fa|en)/players/:username',
       name: 'public-player',

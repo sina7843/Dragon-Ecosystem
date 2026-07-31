@@ -46,8 +46,123 @@
 - Remaining evidence-pending closure: complete (DRAGON-29C) — all 27 pending rows reviewed individually; 27 → 8, with nine reclassified as decision-blocked after correcting a wrong claim that none needed external input. **Ecosystem verdict unchanged: NO-GO**
 - Registration history and participant views: complete (DRAGON-29E) — PAGE-018 Implemented, PAGE-017 Partial with three clauses named; 6 → 4 pending. **Ecosystem verdict unchanged: NO-GO**
 - Final evidence-pending remediation: complete (DRAGON-29D) — match scheduling and rescheduling implemented end to end (API-043, TOURN-020; TOURN-019 corrected); 8 → 6 pending. **Ecosystem verdict unchanged: NO-GO**
-- Active prompt: DRAGON-29E (registration history and participant views); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
+- Support surface and help centre: complete (DRAGON-29F) — PAGE-023 → Partial (support entry point built; FAQ, tournament help and search left unbuilt for want of approved copy); two privacy/validation defects closed in the existing support API; 4 → 3 pending. **Ecosystem verdict unchanged: NO-GO**
+- Active prompt: DRAGON-29F (support surface and help centre); **parent DRAGON-17 remains open pending authorized human sign-off, and the Phase 2, Phase 3, and Phase 4 releases are each blocked by unresolved external decisions**
 - Latest verified checkpoint: DRAGON-23 Phase 4 closure, 2026-07-29
+
+## DRAGON-29F — Support surface and help centre
+
+**PAGE-023 → Partial. 4 → 3 pending**, and `Partial` goes 130 → 131. The row moves off
+`Evidence pending` because the surface now exists and has evidence behind it; it stops short of
+`Implemented` because two of the requirement's three clauses were not built, and could not be.
+All three remaining pending rows are now blocked on an input engineering does not own.
+
+### The audit was re-verified before anything changed
+
+All three prior claims held. `POST /support/cases`, `GET /support/cases` and
+`GET /support/cases/:id` exist and are session-gated; the only web surface touching support was
+`AdminSupportView.vue`, the staff console, and the web client called `/admin/support/cases`
+only; and no approved FAQ or tournament-help copy exists anywhere in the repository.
+
+### Two defects found in the existing API
+
+Neither was in the audit. Both were found by reading the code the new page would consume.
+
+**The participant projection returned operator-only fields.** `supportView` — used by the
+requester-facing list *and* detail routes — included `assignedTo` and `resolutionNote`. The
+first is the raw account id of the staff member handling the case, an internal identity of
+exactly the kind the registrations surface has withheld (`decidedBy`) since DRAGON-08; the
+second is written by an operator through `transitionSupport` and is staff-facing working text,
+not a message addressed to the user. They now live in a separate `operatorSupportView` used
+only by the two `support.manage` routes. An integration test resolves a case with a note and
+asserts neither the note nor the staff id appears in the requester's detail or list response.
+
+**The intake category was unbounded.** The route schema accepted any string up to 64
+characters, so a case could be filed under a value no locale could label — the page would have
+rendered a raw key or nothing. It is now `enum: ['account', 'payment', 'other']`, which is not
+a new vocabulary: `admin.support.category` already ships approved fa and en wording for exactly
+those three, and the help page renders the same labels the operator console does.
+
+### The page
+
+`/{locale}/help`, lazy-loaded, `meta.titleKey`, in the public and account navigation — PAGE-023
+asks for support *entry points*, and a help page nothing links to is not one.
+
+It contains the support entry point (the three-category form, subject, message), the caller's
+own recent cases with their state, and links to existing public surfaces. Anonymous visitors
+are offered sign-in rather than a form whose submission could only fail, because the API has
+always been session-gated.
+
+Both fields are validated on the client before submission. That is not duplicated work: a
+Fastify schema rejection arrives with an empty `fieldErrors` array, so an empty subject would
+otherwise surface as the generic "unexpected error" and never point at the empty box. The
+server stays authoritative.
+
+### What was deliberately not built
+
+**The FAQ, the tournament help, and the search over them.** No approved copy exists, and the
+acceptance clause "localized and searchable" is searchability *over that copy*, so it cannot be
+satisfied by building a search box over nothing.
+
+Nothing was invented to fill the space: no FAQ answer, no contact address, no telephone number,
+no response-time or availability or refund promise, and no placeholder copy. A browser
+assertion fails if any of those patterns appears on the rendered page — proved by temporarily
+replacing the page introduction with "Write to support@example.com and we reply within 24
+hours", which failed the test as intended.
+
+### Tests
+
+| Suite | Coverage |
+|---|---|
+| `support-routes.itest.ts` (7) | 401 without a session; the requester projection's exact field set; an operator's note and identity absent from both the detail and the list; a foreign case id answering 404; the closed category vocabulary and the subject/body length bounds; the per-requester rate limit (and that it is per requester, not global); cursor paging with no case repeated or dropped |
+| `help.spec.ts` (33 = 11 × 3 viewports) | fa and en at 320px/375px/1440px; anonymous sign-in path with `dir` following the locale; empty state; success with focus moved to the confirmation; validation with focus moved to the summary, `aria-describedby`/`aria-invalid` on the field, and **no request issued**; the operator note absent after a reload; one account never seeing another's requests; keyboard-only submission; no horizontal overflow with a 60-character unbroken subject; no raw translation key; no unapproved promise — the last guard covers three categories (contact channel, response-time claim, availability or money guarantee) in **both scripts**, since the Persian page is a separate rendering an English-only pattern would pass over blind |
+| `locales.test.ts` (+1) | every support category and lifecycle state the API can return has a label in both locales — these are dynamic `t()` lookups the literal-key scan cannot see |
+
+Both load-bearing assertions were proved to have teeth by reinstating the defect, observing the
+named failure, and restoring. The steps are recorded so the check can be repeated:
+
+| Defect reinstated | Result |
+|---|---|
+| `assignedTo` and `resolutionNote` added back to `supportView` in `routes.ts` | `support-routes.itest.ts` 5/7 — the projection test and the operator-note test both failed |
+| `help.intro` (en) replaced with "Write to support@example.com and we reply within 24 hours" | `help.spec.ts` anonymous-visitor test failed on `UNAPPROVED_PROMISE` |
+| `admin.support.stateValue.closed` renamed in `en.json` | `locales.test.ts` failed with `en:admin.support.stateValue.closed is missing` |
+
+The operator-only fields were also traced beyond the routes file: the only other reader is
+`AdminSupportView.vue` through `useOpsConsolesApi.ts`, which calls the `support.manage`-gated
+`/admin/support/cases`. No notification template, event payload or other projection carries
+them, so the split closes the leak everywhere rather than on the one route it was found on.
+
+### Verification
+
+| Command | Result |
+|---|---|
+| `npm run ci:validate` | 11/11 |
+| `npm run typecheck` | pass (api + web) |
+| `npm run lint` | 0 errors (67 pre-existing warnings, none in a file this slice touched) |
+| `npm test` | 407 api + 51 web, 0 fail |
+| `npm run test:integration` | 533/533 |
+| `node --test .../support-routes.itest.ts` | 7/7 |
+| `npm run build` + `npm run test:budget` | pass, entry bundle unchanged at 347.42 kB against the 380 kB budget |
+| `npm run e2e` (full suite, navigation changed) | **536 passed, 1 skipped, 0 failed** (537 total, 4.4m) |
+| `npm run closure:check` | 14/14 |
+| `npm run decision:check` | 12/12 |
+
+**Two earlier full-suite runs failed and are recorded rather than dropped.** The first reported
+83 failures and the second 15, all of them in the `small-mobile` project and all in whichever
+spec files that project happened to reach first. They were not diagnosed as flaky on the
+grounds of being intermittent: the failing *set moved* between runs, the errors were transport
+and timeout failures rather than assertion failures (`net::ERR_NETWORK_IO_SUSPENDED` on
+`page.goto`, an OTP redirect never arriving), and both runs overlapped other work on this host
+— the second ran concurrently with `typecheck`/`lint`/`closure:check`, and took 18.7m against
+the clean run's 4.4m. The one hypothesis that would have implicated this slice — the added
+navigation entry shifting layout at the 320px floor — was checked and does not hold: the public
+navigation collapses behind a menu below the breakpoint and the account rail is
+`overflow-x: auto`, so an extra item scrolls rather than widening the page. Re-running the
+affected specs in isolation gave 23/23 and 56/62 → then clean, and the final uncontended full
+run is green. This is host resource contention, consistent with what DRAGON-29A measured.
+
+**Ecosystem verdict unchanged: NO-GO.** One clause of one page moving to Partial changes
+nothing about release readiness.
 
 ## DRAGON-29E — Registration history and participant views
 
